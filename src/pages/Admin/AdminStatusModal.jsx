@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Icon from "../../components/Icon";
 import ActivityTracker from "../../components/ActivityTracker";
 import { formatCurrency, stageBadgeColors } from "./mockAdminData";
@@ -8,6 +8,10 @@ import {
   canCompleteStage,
   getProcessTypeForScheme,
   getProcessTypeLabel,
+  getSchemeCompletedStages,
+  saveSchemeCompletedStages,
+  getClientAllSchemeTrackers,
+  isClientPrimaryScheme,
 } from "../../utils/schemeTracker";
 import "./AdminDashboard.css";
 
@@ -21,19 +25,85 @@ export default function AdminStatusModal({
 }) {
   if (!updatingClient) return null;
 
-  // Resolve dynamic stages from client's assigned scheme
-  const stages = getTrackerStages(updatingClient.scheme);
-  const totalStages = stages.length;
-  const processType = getProcessTypeForScheme(updatingClient.scheme);
-  const processLabel = getProcessTypeLabel(processType);
+  const targetScheme = updatingClient.particularScheme || updatingClient.schemeName || updatingClient.scheme || updatingClient.serviceName || statusFormData.schemeName || "PMEGP";
+  const [selectedSchemeName, setSelectedSchemeName] = useState(targetScheme);
 
-  const originallyCommitted = updatingClient.completedSteps || [];
+  useEffect(() => {
+    if (updatingClient) {
+      const scheme = updatingClient.particularScheme || updatingClient.schemeName || updatingClient.scheme || updatingClient.serviceName || "PMEGP";
+      setSelectedSchemeName(scheme);
+    }
+  }, [updatingClient]);
+
+  const isSelectedPrimary = updatingClient.isPrimary === false || updatingClient.processType === "secondary" ? false : isClientPrimaryScheme(updatingClient, selectedSchemeName);
+  // Resolve dynamic stages from currently selected scheme (6 stages for DIV/APPLICATION_INTERVIEW, 5 stages for PMEGP/APPLICATION)
+  const stages = getTrackerStages(selectedSchemeName);
+  const totalStages = stages.length;
+  const processType = getProcessTypeForScheme(selectedSchemeName);
+  const processLabel = isSelectedPrimary ? getProcessTypeLabel(processType) : `Secondary Scheme (${getProcessTypeLabel(processType)})`;
+
+  // Read scheme-specific completed steps from localStorage / fallback
+  useEffect(() => {
+    const isPrimary = updatingClient.isPrimary === false || updatingClient.processType === "secondary" ? false : isClientPrimaryScheme(updatingClient, selectedSchemeName);
+    const defaultSteps = isPrimary
+      ? (updatingClient.completedSteps || updatingClient.completedStages || ["CRM Creation"])
+      : ["CRM Creation", "Agreement", "Reports"];
+    const saved = getSchemeCompletedStages(updatingClient, selectedSchemeName, defaultSteps);
+    const normalized = normalizeCompletedStages(saved, stages);
+    const newPercent = Math.min(100, Math.max(0, Math.round((normalized.length / totalStages) * 100)));
+    const latestStage = normalized.length > 0 ? normalized[normalized.length - 1] : "CRM Creation";
+
+    setStatusFormData((prev) => ({
+      ...prev,
+      schemeName: selectedSchemeName,
+      completedSteps: normalized,
+      progress: newPercent,
+      status: latestStage,
+    }));
+  }, [selectedSchemeName, updatingClient]);
+
+  const defaultOriginallyCommitted = isSelectedPrimary
+    ? (updatingClient.completedSteps || ["CRM Creation"])
+    : ["CRM Creation", "Agreement", "Reports"];
+  const originallyCommitted = getSchemeCompletedStages(
+    updatingClient,
+    selectedSchemeName,
+    defaultOriginallyCommitted
+  );
   const currentCompleted = statusFormData.completedSteps || [];
   const firstUncompletedIndex = stages.findIndex((s) => !currentCompleted.includes(s.name));
 
+  const handleSelectScheme = (sName) => {
+    setSelectedSchemeName(sName);
+  };
+
+  const handleSubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try {
+      const stepsToSave = statusFormData.completedSteps || ["CRM Creation"];
+      saveSchemeCompletedStages(updatingClient, selectedSchemeName, stepsToSave);
+
+      if (onSave) {
+        onSave(e, {
+          schemeName: selectedSchemeName,
+          completedSteps: stepsToSave,
+          status: statusFormData.status || "CRM Creation",
+          progress: statusFormData.progress || 20,
+          notes: statusFormData.notes || "",
+          documentUpdates: statusFormData.documentUpdates || {},
+        });
+      }
+    } catch (err) {
+      console.error("Error in AdminStatusModal handleSubmit:", err);
+    } finally {
+      if (onClose) {
+        onClose();
+      }
+    }
+  };
+
   // Toggle a single step checkbox inside the Status Update Modal with sequential enforcement & reversal protection
   const handleModalStepCheckboxToggle = (stepName, idx) => {
-    // If the stage was ALREADY saved in the client database, admin cannot directly uncheck it!
     if (originallyCommitted.includes(stepName) && currentCompleted.includes(stepName)) {
       if (onRequestRollback) {
         onRequestRollback(updatingClient, stepName);
@@ -46,11 +116,9 @@ export default function AdminStatusModal({
       const prevCompleted = prev.completedSteps || [];
 
       if (prevCompleted.includes(stepName)) {
-        // CRM Creation cannot be unchecked
         if (stepName === "CRM Creation") {
           updated = ["CRM Creation"];
         } else {
-          // Unchecking a newly toggled stage automatically unchecks all subsequent stages
           updated = prevCompleted.filter((name) => {
             const sIdx = stages.findIndex((s) => s.name === name);
             return sIdx < idx;
@@ -60,18 +128,19 @@ export default function AdminStatusModal({
           }
         }
       } else {
-        // Checking an uncompleted stage: can only complete if all preceding are done,
-        // or checking up to this stage
         updated = stages.slice(0, idx + 1).map((s) => s.name);
       }
 
-      // Normalize and compute percent with strict sequential guarantee
       const normalized = normalizeCompletedStages(updated, stages);
       const newPercent = Math.min(100, Math.max(0, Math.round((normalized.length / totalStages) * 100)));
       const latestStage = normalized.length > 0 ? normalized[normalized.length - 1] : "CRM Creation";
 
+      // Persist scheme-specific completed steps instantly to localStorage
+      saveSchemeCompletedStages(updatingClient, selectedSchemeName, normalized);
+
       return {
         ...prev,
+        schemeName: selectedSchemeName,
         completedSteps: normalized,
         progress: newPercent,
         status: latestStage,
@@ -79,9 +148,8 @@ export default function AdminStatusModal({
     });
   };
 
-  // Handle stage selection in modal (sequentially checks all points up to that stage)
+  // Handle stage selection in modal
   const handleModalStageSelect = (stageName, stageIdx) => {
-    // If admin is trying to select a stage that is EARLIER than what's already committed:
     const latestCommittedIdx = stages.findLastIndex ? stages.findLastIndex((s) => originallyCommitted.includes(s.name)) : -1;
     if (latestCommittedIdx > stageIdx && originallyCommitted.includes(stages[latestCommittedIdx]?.name)) {
       if (onRequestRollback) {
@@ -93,8 +161,12 @@ export default function AdminStatusModal({
     const nextSteps = stages.slice(0, stageIdx + 1).map((s) => s.name);
     const normalized = normalizeCompletedStages(nextSteps, stages);
     const newPercent = Math.round((normalized.length / totalStages) * 100);
+
+    saveSchemeCompletedStages(updatingClient, selectedSchemeName, normalized);
+
     setStatusFormData((prev) => ({
       ...prev,
+      schemeName: selectedSchemeName,
       status: stageName,
       completedSteps: normalized,
       progress: newPercent,
@@ -228,12 +300,14 @@ export default function AdminStatusModal({
         </div>
 
         {/* Modal Body Form */}
-        <form onSubmit={onSave} style={{ padding: "22px 26px 26px", display: "flex", flexDirection: "column", gap: 20 }}>
+        <form onSubmit={handleSubmit} style={{ padding: "22px 26px 26px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+
           {/* Key Metrics Strip */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
             <div className="admin-subcard" style={{ padding: "10px 14px" }}>
-              <span className="admin-kicker" style={{ fontSize: 10.5 }}>Assigned Scheme</span>
-              <strong style={{ display: "block", fontSize: 13.5, color: "inherit" }}>{updatingClient.scheme}</strong>
+              <span className="admin-kicker" style={{ fontSize: 10.5 }}>Target Scheme</span>
+              <strong style={{ display: "block", fontSize: 13.5, color: "#38bdf8" }}>{selectedSchemeName}</strong>
               <small style={{ color: "#64748b", fontSize: 11 }}>{processLabel}</small>
             </div>
             <div className="admin-subcard" style={{ padding: "10px 14px" }}>
@@ -319,13 +393,13 @@ export default function AdminStatusModal({
                       border: isChecked
                         ? "1.5px solid rgba(16, 185, 129, 0.45)"
                         : isNextAvailable
-                        ? "1.5px solid rgba(245, 158, 11, 0.45)"
-                        : "1px dashed rgba(154, 116, 233, 0.18)",
+                          ? "1.5px solid rgba(245, 158, 11, 0.45)"
+                          : "1px dashed rgba(154, 116, 233, 0.18)",
                       background: isChecked
                         ? "rgba(16, 185, 129, 0.08)"
                         : isNextAvailable
-                        ? "rgba(245, 158, 11, 0.08)"
-                        : undefined,
+                          ? "rgba(245, 158, 11, 0.08)"
+                          : undefined,
                       transition: "all 0.2s ease",
                     }}
                     onClick={() => {
@@ -349,14 +423,14 @@ export default function AdminStatusModal({
                           background: isChecked
                             ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
                             : isNextAvailable
-                            ? "#f59e0b"
-                            : "rgba(148, 163, 184, 0.2)",
+                              ? "#f59e0b"
+                              : "rgba(148, 163, 184, 0.2)",
                           color: isChecked || isNextAvailable ? "#ffffff" : "#64748b",
                           boxShadow: isChecked
                             ? "0 2px 8px rgba(16, 185, 129, 0.35)"
                             : isNextAvailable
-                            ? "0 2px 8px rgba(245, 158, 11, 0.35)"
-                            : "none",
+                              ? "0 2px 8px rgba(245, 158, 11, 0.35)"
+                              : "none",
                           flexShrink: 0,
                         }}
                       >
@@ -373,8 +447,8 @@ export default function AdminStatusModal({
                               background: isChecked
                                 ? "rgba(16, 185, 129, 0.15)"
                                 : isNextAvailable
-                                ? "rgba(245, 158, 11, 0.15)"
-                                : "rgba(148, 163, 184, 0.15)",
+                                  ? "rgba(245, 158, 11, 0.15)"
+                                  : "rgba(148, 163, 184, 0.15)",
                               color: isChecked ? "#10b981" : isNextAvailable ? "#f59e0b" : "#64748b",
                             }}
                           >
@@ -443,7 +517,8 @@ export default function AdminStatusModal({
               Real-Time Stepper Pipeline Preview
             </span>
             <ActivityTracker
-              scheme={updatingClient.scheme}
+              scheme={selectedSchemeName}
+              currentStage={statusFormData.status}
               completedSteps={statusFormData.completedSteps}
               progress={statusFormData.progress}
               interactive={false}
@@ -452,44 +527,7 @@ export default function AdminStatusModal({
             />
           </div>
 
-          {/* Document Verification Audits */}
-          {updatingClient.documents && updatingClient.documents.length > 0 && (
-            <div>
-              <label className="admin-form-label" style={{ marginBottom: 8 }}>
-                Compliance &amp; Document Audits:
-              </label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {updatingClient.documents.map((doc) => (
-                  <div
-                    key={doc.name}
-                    className="admin-subcard"
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 12px",
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontWeight: 700, fontSize: 12.5 }}>{doc.name}</span>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>Ref: {doc.number}</div>
-                    </div>
-                    <span
-                      className="admin-badge"
-                      style={{
-                        fontSize: 10.5,
-                        padding: "2px 7px",
-                        background: doc.status === "Verified" ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
-                        color: doc.status === "Verified" ? "#10b981" : "#f59e0b",
-                      }}
-                    >
-                      {doc.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
 
           {/* Admin Milestone Notes & Quick Presets */}
           <div>
@@ -542,9 +580,10 @@ export default function AdminStatusModal({
               Cancel
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               className="admin-btn-primary"
-              style={{ padding: "10px 24px" }}
+              style={{ padding: "10px 24px", cursor: "pointer" }}
             >
               <Icon name="check" size={16} />
               <span>Save Milestone Status</span>

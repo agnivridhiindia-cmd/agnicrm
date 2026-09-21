@@ -121,13 +121,51 @@ export default function ITDashboard({ onSignOut, userEmail }) {
     return () => window.clearInterval(intervalId);
   }, [notificationsOpen, notificationsAutoScrollPaused]);
 
+  const [departmentNotifs, setDepartmentNotifs] = useState([]);
+
   useEffect(() => {
+    function syncITData() {
+      try {
+        const savedClients = localStorage.getItem("agni_it_clients");
+        if (savedClients) {
+          const parsed = JSON.parse(savedClients);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setSalesPitchedClients(parsed);
+          }
+        }
+        const savedNotifs = localStorage.getItem("agni_department_notifications");
+        if (savedNotifs) {
+          const parsed = JSON.parse(savedNotifs);
+          if (Array.isArray(parsed)) {
+            setDepartmentNotifs(parsed.filter((n) => n.department === "IT" && !n.read));
+          }
+        }
+      } catch (e) {}
+    }
+    syncITData();
+    window.addEventListener("storage", syncITData);
+    window.addEventListener("agni_dept_assigned", syncITData);
+    const interval = setInterval(syncITData, 1500);
     return () => {
-      if (notificationsPauseTimer.current) {
-        window.clearTimeout(notificationsPauseTimer.current);
-      }
+      window.removeEventListener("storage", syncITData);
+      window.removeEventListener("agni_dept_assigned", syncITData);
+      clearInterval(interval);
     };
   }, []);
+
+  const handleDismissNotif = (notifId) => {
+    try {
+      const saved = localStorage.getItem("agni_department_notifications");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map((n) => (n.id === notifId ? { ...n, read: true } : n));
+          localStorage.setItem("agni_department_notifications", JSON.stringify(updated));
+          setDepartmentNotifs(updated.filter((n) => n.department === "IT" && !n.read));
+        }
+      }
+    } catch (e) {}
+  };
 
   function handleNotificationsListScroll() {
     if (notificationsPauseTimer.current) {
@@ -237,6 +275,45 @@ export default function ITDashboard({ onSignOut, userEmail }) {
             />
           </div>
         </DashboardHeader>
+
+        {departmentNotifs.length > 0 && (
+          <div style={{
+            background: "linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(56, 189, 248, 0.15) 100%)",
+            border: "1px solid rgba(16, 185, 129, 0.4)",
+            borderRadius: "12px",
+            padding: "14px 18px",
+            margin: "16px 24px 8px 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            color: "#ffffff",
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "13.5px" }}>
+              <span style={{ fontSize: "18px" }}>⚡</span>
+              <span>
+                <strong>Sales Assignment Alert:</strong> Salesperson <strong>{departmentNotifs[0].salesPerson}</strong> assigned client <strong>{departmentNotifs[0].companyName}</strong> ({departmentNotifs[0].serviceName}) to <strong>{departmentNotifs[0].targetStaffName}</strong> ({departmentNotifs[0].targetStaffRole})!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleDismissNotif(departmentNotifs[0].id)}
+              style={{
+                background: "rgba(255, 255, 255, 0.15)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                color: "#ffffff",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              Acknowledge ✓
+            </button>
+          </div>
+        )}
 
         {/* Nested Routes for IT Dashboard */}
         <Routes>

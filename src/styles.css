@@ -487,7 +487,98 @@ form {
 }
 
 .field-label input:focus,
+.field-label input:focus,
 .field-label select:focus {
+  border-color: #dc8b6d;
+  box-shadow: 0 0 0 3px rgba(225, 137, 105, .13);
+}
+
+.doc-form-page {
+  grid-template-columns: minmax(360px, 35%) 1fr;
+}
+
+.doc-form-area {
+  padding: 40px 32px 50px;
+  overflow-y: auto;
+}
+
+.doc-form-panel {
+  max-width: 680px;
+  margin-top: 10px;
+}
+
+.doc-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.doc-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.doc-section-header span {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #e08061;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.doc-section-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.2px;
+}
+
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .form-row-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.req-star {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+.opt-tag {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.field-label textarea {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #dedfe1;
+  border-radius: 7px;
+  color: #202630;
+  background: #fff;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  transition: border .16s, box-shadow .16s;
+}
+
+.field-label textarea:focus {
   border-color: #dc8b6d;
   box-shadow: 0 0 0 3px rgba(225, 137, 105, .13);
 }

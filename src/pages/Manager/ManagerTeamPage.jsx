@@ -1,17 +1,39 @@
 import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import ManagerEmployeeInfoModal from "./ManagerEmployeeInfoModal";
+import { calculatePaymentMetricsFromClients, formatCurrency } from "../../utils/paymentHelpers";
+import { normalizeSalesPersonName } from "../../utils/branchHelper";
 
 export default function ManagerTeamPage({
   branchTeam = [],
+  clients = [],
   managedRegion = "East Zone",
   managerName = "Manager",
+  branchManagerName = "",
 }) {
+  const effectiveBranchManager = branchManagerName || branchTeam[0]?.branchManager || managerName || "Branch Manager";
   const [selectedMember, setSelectedMember] = useState(null);
   const [filterRole, setFilterRole] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const roles = Array.from(new Set(branchTeam.map((m) => m.role))).filter(Boolean);
+
+  // Use the same payment metrics calculator as Overview & Revenue pages
+  // This ensures consistency: manager sees the same numbers the salesperson sees
+  const paymentMetrics = useMemo(() => {
+    return calculatePaymentMetricsFromClients(clients, branchTeam, "all");
+  }, [clients, branchTeam]);
+
+  // Build a lookup map: normalized salesperson name → monthly total from breakdown
+  const memberMonthlyMap = useMemo(() => {
+    const map = new Map();
+    (paymentMetrics.breakdown || []).forEach((sp) => {
+      if (sp.name) {
+        map.set(sp.name.toLowerCase().trim(), sp.monthly || 0);
+      }
+    });
+    return map;
+  }, [paymentMetrics]);
 
   const displayedTeam = useMemo(() => {
     return branchTeam.filter((member) => {
@@ -27,6 +49,13 @@ export default function ManagerTeamPage({
       return true;
     });
   }, [branchTeam, filterRole, searchQuery]);
+
+  // Helper: get monthly achieved for a team member from the shared metrics breakdown
+  const getMemberMonthlyAchieved = (member) => {
+    if (!member) return 0;
+    const normName = normalizeSalesPersonName(member.name);
+    return memberMonthlyMap.get((normName || "").toLowerCase().trim()) || 0;
+  };
 
   return (
     <section className="manager-page-view">
@@ -77,7 +106,7 @@ export default function ManagerTeamPage({
             </div>
           </div>
           <div>
-            <strong className="manager-kpi-tile-value" style={{ color: "#10b981" }}>{managerName}</strong>
+            <strong className="manager-kpi-tile-value" style={{ color: "#10b981" }}>{effectiveBranchManager}</strong>
             <span className="manager-kpi-tile-sub">Direct Lead & Supervisor</span>
           </div>
         </div>
@@ -146,6 +175,12 @@ export default function ManagerTeamPage({
                       .toUpperCase()
                   : "SP";
 
+                const quotaTargetNum = 80000; // ₹80k monthly target for every salesperson
+                const achievedNum = getMemberMonthlyAchieved(member);
+                const progressPct = Math.min(100, Math.max(0, Math.round((achievedNum / quotaTargetNum) * 100)));
+                const displayTarget = "₹80k";
+                const displayAchieved = achievedNum > 0 ? (achievedNum >= 1000 ? `₹${Math.round(achievedNum / 1000)}k` : `₹${achievedNum}`) : "₹0";
+
                 return (
                   <tr key={member.id}>
                     <td>
@@ -173,11 +208,17 @@ export default function ManagerTeamPage({
                     <td>
                       <div className="manager-quota-cell">
                         <div className="manager-quota-numbers">
-                          <span>{member.monthlySales || "₹0"}</span>
-                          <span style={{ color: "#7a748e" }}>Target: {member.quota || "₹100k"}</span>
+                          <span>{displayAchieved}</span>
+                          <span style={{ color: "#7a748e" }}>Target: {displayTarget}</span>
                         </div>
                         <div className="manager-quota-bar">
-                          <div className="manager-quota-fill" style={{ width: "65%" }} />
+                          <div
+                            className="manager-quota-fill"
+                            style={{
+                              width: `${progressPct}%`,
+                              background: progressPct >= 100 ? "linear-gradient(90deg, #10b981, #34d399)" : "linear-gradient(90deg, #8c5ff8, #6d3bf5)",
+                            }}
+                          />
                         </div>
                       </div>
                     </td>
@@ -188,7 +229,7 @@ export default function ManagerTeamPage({
                       <button
                         className="manager-view-btn"
                         type="button"
-                        onClick={() => setSelectedMember(member)}
+                        onClick={() => setSelectedMember({ ...member, monthlySales: displayAchieved, quota: displayTarget })}
                       >
                         <Icon name="eye" size={13} />
                         <span>View Profile</span>
@@ -212,7 +253,7 @@ export default function ManagerTeamPage({
       {selectedMember && (
         <ManagerEmployeeInfoModal
           member={selectedMember}
-          managerName={managerName}
+          managerName={effectiveBranchManager}
           onClose={() => setSelectedMember(null)}
         />
       )}

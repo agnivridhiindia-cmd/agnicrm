@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Icon from "../../components/Icon";
 import { employeeRoles, branchOptions, branchToRegionMap } from "./mockOwnerData";
 import { getTrackerState } from "../../utils/schemeTracker";
+import { sortByRoleRanking, isBranchMatch } from "../../utils/branchHelper";
 
 const PAGE_SIZE = 12;
 
@@ -23,60 +24,74 @@ export default function OwnerEmployeesPage({
 
   function getClientsForEmployee(emp) {
     if (!emp) return [];
-    const empRole = (emp.role || "").toLowerCase();
-    const empName = (emp.name || "").toLowerCase();
-    const empBranch = (emp.branch || "").toLowerCase();
+    const empRole = (emp.role || emp.rawRole || "").toLowerCase().trim();
+    const empRaw = (emp.rawRole || "").toLowerCase().trim();
+    const empName = (emp.name || emp.fullName || "").toLowerCase().trim();
+    const empFirstName = empName.split(" ")[0];
+    const empBranch = (emp.branch || "").toLowerCase().trim();
 
-    let matched = clients.filter(
-      (c) =>
-        (c.assignedPerson && c.assignedPerson.toLowerCase() === empName) ||
-        (c.salesPerson && c.salesPerson.toLowerCase() === empName)
-    );
+    let matched = (clients || []).filter((c) => {
+      if (!c) return false;
+      const cSales = (c.assignedPerson || c.salesPerson || c.owner || c.assignedSalesPerson || "").toLowerCase().trim();
+      if (!cSales) return false;
+
+      return (
+        cSales.includes(empName) ||
+        empName.includes(cSales) ||
+        (empFirstName && empFirstName.length > 2 && cSales.includes(empFirstName))
+      );
+    });
 
     if (matched.length > 0) return matched;
 
-    if (empRole === "it") {
-      matched = clients.filter((c) => (c.serviceType || "").toLowerCase() === "it");
-    } else if (empRole === "market") {
-      matched = clients.filter((c) => (c.serviceType || "").toLowerCase() === "marketing");
-    } else if (empRole === "admin") {
-      matched = clients.filter(
+    if (empRole.includes("it") || empRaw === "it") {
+      matched = (clients || []).filter(
+        (c) => (c.serviceType || "").toLowerCase() === "it" || (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0])
+      );
+    } else if (empRole.includes("market") || empRaw === "marketing") {
+      matched = (clients || []).filter(
+        (c) => (c.serviceType || "").toLowerCase() === "marketing" || (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0])
+      );
+    } else if (empRole.includes("admin") || empRaw === "admin") {
+      matched = (clients || []).filter(
         (c) =>
           (c.serviceType || "").toLowerCase() === "certificate" ||
-          (c.branch || "").toLowerCase() === empBranch
+          (c.serviceType || "").toLowerCase() === "consultancy" ||
+          (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0])
       );
-    } else if (empRole === "sales") {
-      matched = clients.filter(
-        (c) => (c.branch || "").toLowerCase() === empBranch || c.salesPerson
+    } else if (empRole.includes("sales") || empRaw === "sales_person" || empRole.includes("manager")) {
+      matched = (clients || []).filter(
+        (c) => (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0]) || !!c.salesPerson
       );
     }
 
-    return matched.length > 0 ? matched : clients;
+    if (matched.length > 0) return matched;
+    return (clients || []).filter((c) => (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0]));
   }
 
   function getTeamForManager(mgr) {
     if (!mgr) return [];
-    const mgrName = (mgr.name || "").toLowerCase();
-    const mgrBranch = (mgr.branch || "").toLowerCase();
-    const mgrRole = (mgr.role || "").toLowerCase();
-    const mgrRegion = (mgr.region || branchToRegionMap[mgr.branch] || "").toLowerCase();
+    const mgrName = (mgr.name || mgr.fullName || "").toLowerCase().trim();
+    const mgrBranch = (mgr.branch || "").toLowerCase().trim();
+    const mgrRole = (mgr.role || mgr.rawRole || "").toLowerCase().trim();
 
-    return employeesList.filter((emp) => {
-      if (emp.id === mgr.id) return false;
-      const empRole = (emp.role || "").toLowerCase();
-      const empRM = (emp.reportingManager || "").toLowerCase();
-      const empBM = (emp.branchManager || "").toLowerCase();
-      const empBranch = (emp.branch || "").toLowerCase();
-      const empRegion = (emp.region || branchToRegionMap[emp.branch] || "").toLowerCase();
+    return staffEmployeesList.filter((emp) => {
+      if (!emp || emp.id === mgr.id) return false;
+      const empRole = (emp.role || emp.rawRole || "").toLowerCase().trim();
+      const empRM = (emp.reportingManager || "").toLowerCase().trim();
+      const empBM = (emp.branchManager || "").toLowerCase().trim();
+      const empBranch = (emp.branch || "").toLowerCase().trim();
 
-      if (mgrRole === "branch manager") {
-        if (["market", "it", "admin", "manager"].includes(empRole)) {
-          return empBM === mgrName || empRM === mgrName || empBranch === mgrBranch;
-        }
-        return empBM === mgrName || empRM === mgrName || empBranch === mgrBranch;
-      } else if (mgrRole === "manager") {
-        if (empRole === "sales") {
-          return empRM === mgrName || empRegion === mgrRegion || empBranch === mgrBranch;
+      const sameBranch = empBranch && mgrBranch && (empBranch.includes(mgrBranch.split(" ")[0]) || mgrBranch.includes(empBranch.split(" ")[0]));
+
+      if (mgrRole.includes("branch")) {
+        return empBM === mgrName || empRM === mgrName || sameBranch;
+      }
+
+      if (mgrRole.includes("manager")) {
+        const isSales = empRole.includes("sales") || empRole.includes("sr") || empRole === "sales person";
+        if (isSales) {
+          return empRM === mgrName || empBM === mgrName || sameBranch;
         }
         return empRM === mgrName;
       }
@@ -84,18 +99,34 @@ export default function OwnerEmployeesPage({
     });
   }
 
+  // Filter out CLIENT and OWNER accounts from staff employee directory
+  const staffEmployeesList = useMemo(() => {
+    return (employeesList || []).filter((e) => {
+      if (!e) return false;
+      const r = (e.rawRole || e.role || "").toUpperCase();
+      return r !== "CLIENT" && r !== "OWNER";
+    });
+  }, [employeesList]);
+
   // Compute KPI metrics
-  const totalEmployees = employeesList.length;
-  const branchManagersCount = employeesList.filter(
-    (e) => (e.role || "").toLowerCase() === "branch manager"
-  ).length;
-  const managersCount = employeesList.filter(
-    (e) => (e.role || "").toLowerCase() === "manager"
-  ).length;
-  const uniqueBranchesCount = Array.from(new Set(employeesList.map((e) => e.branch))).length;
+  const totalEmployees = staffEmployeesList.length;
+  const branchManagersCount = staffEmployeesList.filter((e) => {
+    const r = (e.role || e.rawRole || "").toLowerCase();
+    return r === "branch manager" || r === "branch_manager" || r === "bm";
+  }).length;
+  const salesManagersCount = staffEmployeesList.filter((e) => {
+    const r = (e.role || e.rawRole || "").toLowerCase();
+    return r === "sales manager" || r === "manager" || r === "sales_manager" || r === "sm";
+  }).length;
+  const validBranches = new Set(
+    staffEmployeesList
+      .map((e) => e.branch)
+      .filter((b) => b && !b.toLowerCase().includes("pan-india"))
+  );
+  const uniqueBranchesCount = validBranches.size;
 
   const filteredEmployees = useMemo(() => {
-    return employeesList.filter((employee) => {
+    const matched = staffEmployeesList.filter((employee) => {
       const sLower = searchTerm.toLowerCase().trim();
       const nameMatch = (employee.name || "").toLowerCase().includes(sLower);
       const emailMatch = (employee.email || "").toLowerCase().includes(sLower);
@@ -104,15 +135,33 @@ export default function OwnerEmployeesPage({
       const roleMatch = (employee.role || "").toLowerCase().includes(sLower);
 
       const searchOk = !sLower || nameMatch || emailMatch || phoneMatch || branchMatch || roleMatch;
-      const roleOk =
-        selectedRole === "All roles" ||
-        !selectedRole ||
-        (employee.role || "").toLowerCase() === (selectedRole || "").toLowerCase();
-      const branchOk = !selectedBranch || (employee.branch || "") === selectedBranch;
+      const empRole = (employee.role || "").toLowerCase();
+      const empRaw = (employee.rawRole || "").toLowerCase();
+      const selRole = (selectedRole || "").toLowerCase();
+
+      let roleOk = selectedRole === "All roles" || !selectedRole || empRole === selRole || empRaw === selRole;
+      if (!roleOk) {
+        if (selRole === "admin") {
+          roleOk = empRole.includes("admin") || empRaw.includes("admin");
+        } else if (selRole === "market" || selRole === "marketing") {
+          roleOk = empRole.includes("market") || empRaw.includes("market");
+        } else if (selRole === "it") {
+          roleOk = empRole.includes("it") || empRaw.includes("it");
+        } else if (selRole === "manager" || selRole === "sales manager" || selRole === "sales_manager") {
+          roleOk = (empRole.includes("manager") && !empRole.includes("branch")) || (empRaw.includes("manager") && !empRaw.includes("branch")) || empRole === "sm";
+        } else if (selRole === "branch manager" || selRole === "branch_manager" || selRole === "bm") {
+          roleOk = empRole.includes("branch") || empRaw.includes("branch") || empRole === "bm";
+        } else if (selRole === "sales" || selRole === "sales person" || selRole === "salesperson" || selRole === "sales_person") {
+          roleOk = empRole.includes("sales") || empRaw.includes("sales") || empRole === "sr";
+        }
+      }
+      const branchOk = isBranchMatch(employee.branch, selectedBranch);
 
       return searchOk && roleOk && branchOk;
     });
-  }, [employeesList, searchTerm, selectedRole, selectedBranch]);
+
+    return sortByRoleRanking(matched);
+  }, [staffEmployeesList, searchTerm, selectedRole, selectedBranch]);
 
   const employeesTotalPages = Math.max(1, Math.ceil(filteredEmployees.length / PAGE_SIZE));
   const employeesPageItems = filteredEmployees.slice(
@@ -561,7 +610,7 @@ export default function OwnerEmployeesPage({
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#f59e0b" }}>
-              {managersCount}
+              {salesManagersCount}
             </strong>
             <span className="owner-kpi-tile-sub">Sales Operations Leads</span>
           </div>
@@ -711,9 +760,10 @@ export default function OwnerEmployeesPage({
                       </td>
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         <div className="owner-actions-cell">
-                          {["branch manager", "manager"].includes(
-                            (employee.role || "").toLowerCase()
-                          ) && (
+                          {(() => {
+                            const r = (employee.role || employee.rawRole || "").toLowerCase();
+                            return r.includes("manager") || r.includes("branch");
+                          })() && (
                             <button
                               className="owner-btn-primary"
                               style={{ padding: "6px 12px", fontSize: 12, background: "linear-gradient(135deg, #10b981 0%, #059669 100%)" }}
@@ -725,9 +775,10 @@ export default function OwnerEmployeesPage({
                               Team under
                             </button>
                           )}
-                          {["sales", "it", "admin", "market"].includes(
-                            (employee.role || "").toLowerCase()
-                          ) && (
+                          {(() => {
+                            const r = (employee.role || employee.rawRole || "").toLowerCase();
+                            return r.includes("sales") || r.includes("it") || r.includes("admin") || r.includes("market");
+                          })() && (
                             <button
                               className="owner-btn-primary"
                               style={{ padding: "6px 12px", fontSize: 12 }}

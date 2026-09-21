@@ -1,6 +1,6 @@
 import React from "react";
 import Icon from "../../../components/Icon";
-import { serviceTypeSchemes } from "../mockSalesData";
+import { serviceTypeSchemes, caServiceCharges } from "../mockSalesData";
 
 export default function SalesClientForm({
   newClient,
@@ -8,13 +8,14 @@ export default function SalesClientForm({
   onAddClient,
   onClearForm,
   onGoToDetails,
+  formSuccessMsg,
   dark,
 }) {
-  const baseAmt = parseFloat(newClient.amount) || 0;
-  const isOnline = newClient.paymentMode === "Online";
+  const baseAmt = parseFloat(newClient?.amount) || 0;
+  const isOnline = newClient?.paymentMode === "Online";
 
-  const currentServiceType = newClient.serviceType || "Certificate";
-  const availableSchemes = serviceTypeSchemes[currentServiceType] || serviceTypeSchemes.Certificate || [];
+  const currentServiceType = newClient?.serviceType || "Consultancy Services";
+  const availableSchemes = serviceTypeSchemes[currentServiceType] || serviceTypeSchemes["Consultancy Services"] || [];
 
   return (
     <section className="sales-clients-form-view">
@@ -40,7 +41,7 @@ export default function SalesClientForm({
 
       {/* Form Container */}
       <div className="analytics-card sales-form-card">
-        <form onSubmit={onAddClient} className="sales-form-wrapper">
+        <form onSubmit={onAddClient} className="sales-form-wrapper" autoComplete="off">
           {/* Section 1: Business Identity */}
           <div className="sales-form-section">
             <div className="sales-section-title">
@@ -52,92 +53,107 @@ export default function SalesClientForm({
 
             <div className="sales-form-grid-2">
               <label className="field-label">
-                <span>Client / Trading Name <span style={{ color: "#f43f5e" }}>*</span></span>
-                <input
-                  type="text"
-                  name="name"
-                  value={newClient.name}
-                  onChange={onNewClientChange}
-                  placeholder="e.g. Apex Retail"
-                  required
-                />
-              </label>
-              <label className="field-label">
-                <span>Contact Person Name <span style={{ color: "#f43f5e" }}>*</span></span>
-                <input
-                  type="text"
-                  name="contactPerson"
-                  value={newClient.contactPerson}
-                  onChange={onNewClientChange}
-                  placeholder="e.g. Rahul Sharma"
-                  required
-                />
-              </label>
-            </div>
-
-            <div className="sales-form-grid-2" style={{ marginTop: 14 }}>
-              <label className="field-label">
-                <span>Registered Company Name <span style={{ color: "#f43f5e" }}>*</span></span>
+                <span>Company Name <span style={{ color: "#f43f5e" }}>*</span></span>
                 <input
                   type="text"
                   name="company"
-                  value={newClient.company}
+                  placeholder="e.g. Acme Tech Solutions"
+                  value={newClient?.company || ""}
                   onChange={onNewClientChange}
-                  placeholder="e.g. Apex Retail Pvt. Ltd."
+                  autoComplete="off"
                   required
                 />
               </label>
+
               <label className="field-label">
-                <span>Registered Office / Location</span>
+                <span>Contact Person <span style={{ color: "#f43f5e" }}>*</span></span>
                 <input
                   type="text"
-                  name="address"
-                  value={newClient.address}
+                  name="contactPerson"
+                  placeholder="e.g. Ramesh Kumar"
+                  value={newClient?.contactPerson || ""}
                   onChange={onNewClientChange}
-                  placeholder="e.g. 101 MG Road, Mumbai"
+                  autoComplete="off"
+                  required
                 />
               </label>
-            </div>
 
-            <div className="sales-form-grid-2" style={{ marginTop: 14 }}>
               <label className="field-label">
-                <span>Official Email Address <span style={{ color: "#f43f5e" }}>*</span></span>
+                <span>Email Address <span style={{ color: "#f43f5e" }}>*</span></span>
                 <input
                   type="email"
                   name="email"
-                  value={newClient.email}
+                  placeholder="ramesh@acmetech.in"
+                  value={newClient?.email || ""}
                   onChange={onNewClientChange}
-                  placeholder="client@apexretail.com"
+                  autoComplete="off"
                   required
                 />
               </label>
+
               <label className="field-label">
-                <span>Phone Number <span style={{ color: "#f43f5e" }}>*</span></span>
+                <span>Mobile Number <span style={{ color: "#f43f5e" }}>*</span></span>
                 <input
                   type="tel"
                   name="phone"
-                  value={newClient.phone}
-                  onChange={onNewClientChange}
                   placeholder="+91 98765 43210"
+                  value={newClient?.phone || ""}
+                  onChange={onNewClientChange}
+                  autoComplete="off"
                   required
                 />
+              </label>
+
+              <label className="field-label">
+                <span>Business Entity Type <span style={{ color: "#f43f5e" }}>*</span></span>
+                <div style={{ position: "relative", width: "100%" }}>
+                  <select
+                    name="businessType"
+                    value={newClient?.businessType || "Proprietorship"}
+                    onChange={onNewClientChange}
+                    required
+                    style={{
+                      width: "100%",
+                      paddingRight: "36px",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      MozAppearance: "none",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value="Proprietorship">Proprietorship</option>
+                    <option value="Pvt Ltd">Pvt Ltd (Private Limited)</option>
+                    <option value="LLP">LLP (Limited Liability Partnership)</option>
+                    <option value="OPC">OPC (One Person Company)</option>
+                    <option value="Partnership">Partnership Firm</option>
+                    <option value="Section 8 Company">Section 8 Company</option>
+                  </select>
+                  <div style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "#6366f1",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center"
+                  }}>
+                    ▼
+                  </div>
+                </div>
               </label>
             </div>
           </div>
 
-          {/* Section 2: Engagement & Scheme */}
+          {/* Section 2: Engagement Tier & Scheme Options */}
           <div className="sales-form-section">
             <div className="sales-section-title">
               <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 8,
-                  background: "rgba(140, 95, 248, 0.15)",
-                  color: "#8c5ff8",
-                  display: "grid",
-                  placeItems: "center",
-                }}
+                className="sales-section-icon"
+                style={{ background: "rgba(16, 185, 129, 0.12)", color: "#10b981" }}
               >
                 <Icon name="document" size={15} />
               </div>
@@ -146,31 +162,86 @@ export default function SalesClientForm({
 
             <div className="sales-form-grid-2">
               <label className="field-label">
-                <span>Service Type <span style={{ color: "#f43f5e" }}>*</span></span>
-                <select
-                  name="serviceType"
-                  value={currentServiceType}
-                  onChange={onNewClientChange}
-                  required
-                >
-                  <option value="Certificate">Certificate</option>
-                  <option value="Consultancy Services">Consultancy Services</option>
-                  <option value="IT">IT</option>
-                  <option value="Marketing">Marketing</option>
-                </select>
+                <span>Service Category <span style={{ color: "#f43f5e" }}>*</span></span>
+                <div style={{ position: "relative", width: "100%" }}>
+                  <select
+                    name="serviceType"
+                    value={currentServiceType}
+                    onChange={onNewClientChange}
+                    required
+                    style={{
+                      width: "100%",
+                      paddingRight: "36px",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      MozAppearance: "none",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value="Certificate">Certificate / CA Services</option>
+                    <option value="Consultancy Services">Consultancy Services</option>
+                    <option value="IT">IT Services</option>
+                    <option value="Marketing">Marketing Services</option>
+                  </select>
+                  <div style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "#6366f1",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center"
+                  }}>
+                    ▼
+                  </div>
+                </div>
               </label>
+
               <label className="field-label">
-                <span>Selected Scheme ({currentServiceType}) <span style={{ color: "#f43f5e" }}>*</span></span>
-                <select
-                  name="scheme"
-                  value={newClient.scheme || availableSchemes[0]}
-                  onChange={onNewClientChange}
-                  required
-                >
-                  {availableSchemes.map((scheme) => (
-                    <option key={scheme} value={scheme}>{scheme}</option>
-                  ))}
-                </select>
+                <span>
+                  Select Specific Scheme / Service ({currentServiceType}) <span style={{ color: "#f43f5e" }}>*</span>
+                </span>
+                <div style={{ position: "relative", width: "100%" }}>
+                  <select
+                    name="scheme"
+                    value={newClient?.scheme || availableSchemes[0]}
+                    onChange={onNewClientChange}
+                    required
+                    style={{
+                      width: "100%",
+                      paddingRight: "36px",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      MozAppearance: "none",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {availableSchemes.map((scheme) => (
+                      <option key={scheme} value={scheme}>
+                        {scheme}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "#6366f1",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center"
+                  }}>
+                    ▼
+                  </div>
+                </div>
               </label>
             </div>
           </div>
@@ -196,23 +267,52 @@ export default function SalesClientForm({
 
             <div className="sales-form-grid-3">
               <label className="field-label">
-                <span>Base Contract Amount (₹) <span style={{ color: "#f43f5e" }}>*</span></span>
+                <span>Pitched Amount (₹) <span style={{ color: "#f43f5e" }}>*</span></span>
                 <input
                   type="number"
                   name="amount"
                   value={newClient.amount}
                   onChange={onNewClientChange}
-                  placeholder="50000"
+                  placeholder="e.g. 50000"
                   min="0"
                   required
                 />
               </label>
               <label className="field-label">
                 <span>Mode of Payment</span>
-                <select name="paymentMode" value={newClient.paymentMode} onChange={onNewClientChange}>
-                  <option value="Online">Online (18% GST Added)</option>
-                  <option value="Offline">Offline (Direct/Exempt)</option>
-                </select>
+                <div style={{ position: "relative", width: "100%" }}>
+                  <select
+                    name="paymentMode"
+                    value={newClient.paymentMode}
+                    onChange={onNewClientChange}
+                    style={{
+                      width: "100%",
+                      paddingRight: "36px",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      MozAppearance: "none",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <option value="Online">Online (18% GST Added)</option>
+                    <option value="Offline">Offline (Direct/Exempt)</option>
+                  </select>
+                  <div style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "#6366f1",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center"
+                  }}>
+                    ▼
+                  </div>
+                </div>
               </label>
               <label className="field-label">
                 <span>Payment Received (₹)</span>
@@ -242,7 +342,7 @@ export default function SalesClientForm({
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>
-                  Base Amount
+                  Pitched Amount
                 </span>
                 <strong style={{ fontSize: 18, fontWeight: 700 }}>
                   ₹{baseAmt.toLocaleString("en-IN")}
@@ -297,12 +397,37 @@ export default function SalesClientForm({
               type="submit"
               className="sales-add-btn"
             >
-              <span>+ Register Client</span>
+              <span>+ Register</span>
             </button>
           </div>
+
+          {formSuccessMsg && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: "14px 18px",
+                borderRadius: 10,
+                background: "linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%)",
+                border: "1px solid rgba(16, 185, 129, 0.35)",
+                color: "#10b981",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                fontSize: 13.5,
+                fontWeight: 600,
+                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.1)"
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              <span>{formSuccessMsg}</span>
+            </div>
+          )}
         </form>
       </div>
     </section>
   );
 }
+
 

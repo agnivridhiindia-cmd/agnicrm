@@ -9,8 +9,12 @@ import Modal from "../../components/Modal";
 import EditForm from "../../components/EditForm";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import ActivityTracker from "../../components/ActivityTracker";
-import { getTrackerState } from "../../utils/schemeTracker";
+import { getTrackerState, getCanonicalSchemeName } from "../../utils/schemeTracker";
+import { sanitizeClientRecord, normalizeSalesPersonName, sortByRoleRanking, mergeSecondaryClients } from "../../utils/branchHelper";
+import { apiFetch } from "../../services/apiClient";
+import { isMockClient } from "../../utils/revenueCalculator";
 import { ACTIVITY_STAGES } from "../Admin/mockAdminData";
+import "./owner.css";
 
 // Modular Page Components
 import OwnerOverviewPage from "./OwnerOverviewPage";
@@ -21,9 +25,6 @@ import OwnerInvoicePage from "./OwnerInvoicePage";
 import OwnerRequestsPage from "./OwnerRequestsPage";
 import OwnerReportsPage from "./OwnerReportsPage";
 import OwnerAgreementPage from "./OwnerAgreementPage";
-import "./owner.css";
-
-// Dedicated Modals
 import OwnerClientInfoModal from "./OwnerClientInfoModal";
 import OwnerEmployeeInfoModal from "./OwnerEmployeeInfoModal";
 import OwnerInvoiceDetailsModal from "./OwnerInvoiceDetailsModal";
@@ -154,39 +155,114 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       .join(" ");
   }, [userEmail]);
 
-  // Clients state with localStorage persistence
-  const [clients, setClients] = useState(() => {
-    try {
-      const saved = localStorage.getItem("agni_branch_clients");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((c, i) => ({
-            id: c.id || i + 1,
-            name: c.name,
-            company: c.company,
-            email: c.email,
-            phone: c.phone,
-            serviceType: c.scheme ? (c.scheme.includes('Grant') ? 'IT' : c.scheme.includes('Certificate') ? 'Certificate' : 'Marketing') : 'Certificate',
-            serviceName: c.scheme || 'Mudra Export Certification',
-            serviceStart: c.submissionDate || '2026-01-15',
-            totalPayment: c.totalPayment || 120000,
-            paymentReceived: c.paymentStatus === 'Paid' ? (c.totalPayment || 120000) : Math.round((c.totalPayment || 120000) * 0.6),
-            branch: c.branch ? c.branch.split(' ')[0] : 'North',
-            salesPerson: c.assignedSalesPerson || 'Mia Ross',
-            progressPercent: c.progress || (c.completedSteps ? c.completedSteps.length * 20 : 60),
-            completedSteps: c.completedSteps || (c.progress ? ACTIVITY_STAGES.slice(0, Math.round(c.progress / 20)).map(s => s.name) : ["Submission", "Doc Audit", "Manager Review"]),
-            applicationStatus: c.applicationStatus || "Manager Review",
-          }));
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to load clients in owner dashboard", e);
-    }
-    return initialOwnerClients;
-  });
+  // Clients state
+  const [clients, setClients] = useState(() => initialOwnerClients.map(sanitizeClientRecord));
 
-  const [employeesList, setEmployeesList] = useState(initialOwnerEmployees);
+  // Fetch clients from backend PostgreSQL DB on mount
+  useEffect(() => {
+    async function fetchDBOwnerClients() {
+      try {
+        const response = await apiFetch("/clients");
+
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.data)) {
+            setClients(() => {
+              const dedupeMap = new Map();
+
+              resData.data.forEach((dbC) => {
+                const c = sanitizeClientRecord(dbC);
+                const dbComp = typeof c.companyName === "string" ? c.companyName : (c.company || c.name || c.email || "");
+                const dbScheme = typeof c.serviceName === "string" ? c.serviceName : (c.scheme || "");
+                const canonicalScheme = getCanonicalSchemeName(dbScheme || c.scheme);
+                const itemKey = c.id ? String(c.id) : `${String(dbComp).toLowerCase().trim()}::${String(canonicalScheme).toLowerCase().trim()}`;
+                const dbSpRaw = typeof c.salesPerson === "string" ? c.salesPerson : (c.salesPerson?.fullName || c.salesPerson?.name || c.assignedSalesPerson || c.owner || "Mia Rose");
+                const explicitTotal = parseFloat(String(c.invoices?.[0]?.rawTotal || c.totalPayment || c.amount || 0).replace(/[^0-9.]/g, "")) || 0;
+                const recAmt = parseFloat(String(c.invoices?.[0]?.paymentReceived || c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+                const isSec = c.isPrimary === false || c.processType === "secondary" || c.serviceType === "More Services" || (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
+                const rawAmt = (!isSec && explicitTotal === 0) ? 118000 : (explicitTotal > 0 ? explicitTotal : (recAmt > 0 ? Math.round(recAmt / 1.18) : 0));
+                const finalRecAmt = (!isSec && recAmt === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? rawAmt : recAmt;
+                const clientDate = c.createdAt ? String(c.createdAt).split("T")[0] : (c.startDate || "2026-09-08");
+
+                dedupeMap.set(itemKey, {
+                  ...c,
+                  id: c.id,
+                  name: c.name || c.companyName || "Client Entity",
+                  company: dbComp || "Enterprise Account",
+                  email: c.email || "client@company.com",
+                  phone: c.phone || "+91 98765 43210",
+                  serviceType: c.serviceType || "Consultancy Services",
+                  serviceName: canonicalScheme || "PMEGP",
+                  scheme: canonicalScheme || "PMEGP",
+                  salesPerson: dbSpRaw,
+                  branch: c.branch?.name || c.branch || "West Zone (Mumbai)",
+                  totalPayment: rawAmt,
+                  paymentReceived: recAmt,
+                  paymentStatus: c.invoices?.[0]?.status || (recAmt >= rawAmt ? "Paid" : (recAmt > 0 ? "Partial" : "Pending")),
+                  applicationStatus: c.applicationStatus || c.stage || "CRM Creation",
+                  progressPercent: c.progressPercent || 20,
+                  completedSteps: c.completedSteps || ["CRM Creation"],
+                  startDate: clientDate,
+                });
+              });
+
+              const mappedDbClients = Array.from(dedupeMap.values());
+              return mergeSecondaryClients(mappedDbClients);
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch DB clients for Owner Dashboard:", err);
+      }
+    }
+
+    fetchDBOwnerClients();
+
+  }, []);
+
+  const [employeesList, setEmployeesList] = useState(() => sortByRoleRanking(initialOwnerEmployees));
+
+  // Fetch live staff users from backend PostgreSQL DB on mount
+  useEffect(() => {
+    async function fetchDBOwnerEmployees() {
+      try {
+        const response = await apiFetch("/auth/users");
+
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.users) && resData.users.length > 0) {
+            setEmployeesList((prev) => {
+              const dedupeMap = new Map();
+              resData.users.forEach((u) => {
+                if (!u) return;
+                const emailKey = (u.email || "").toLowerCase().trim();
+                dedupeMap.set(emailKey, {
+                  ...u,
+                  id: u.id,
+                  name: u.fullName || u.name,
+                  role: u.role || u.rawRole,
+                  rawRole: u.rawRole || u.role,
+                  branch: u.branch ? (typeof u.branch === "string" ? u.branch : u.branch.name) : "West Zone (Mumbai)",
+                });
+              });
+
+              initialOwnerEmployees.forEach((item) => {
+                const emailKey = (item.email || "").toLowerCase().trim();
+                if (!dedupeMap.has(emailKey)) {
+                  dedupeMap.set(emailKey, item);
+                }
+              });
+
+              return sortByRoleRanking(Array.from(dedupeMap.values()));
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch DB users for Owner Dashboard:", err);
+      }
+    }
+    fetchDBOwnerEmployees();
+  }, []);
   const [invoices] = useState(initialInvoices);
   const [requestsList, setRequestsList] = useState(initialRequests);
 
@@ -216,7 +292,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     const client = clients.find((c) => c.id === clientId);
     if (!client) return;
     const clientScheme = client.scheme || client.serviceName || client.serviceType || "PMEGP";
-    const tracker = getTrackerState({ scheme: clientScheme, completedSteps: nextCompletedSteps });
+    const tracker = getTrackerState({ ...client, scheme: clientScheme }, nextCompletedSteps);
     const activeStageName = tracker.completedStages.length > 0
       ? tracker.completedStages[tracker.completedStages.length - 1]
       : tracker.currentStage || "CRM Creation";
@@ -239,7 +315,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
 
   const handleOpenEditClient = (client) => {
     const clientScheme = client.scheme || client.serviceName || client.serviceType || "PMEGP";
-    const tracker = getTrackerState({ scheme: clientScheme, completedSteps: client.completedSteps });
+    const tracker = getTrackerState({ ...client, scheme: clientScheme }, client.completedSteps);
     setSelectedClient(null);
     setEditModal({
       type: "client",
@@ -365,10 +441,14 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
 
     if (editModal.type === "client") {
       const scheme = editModal.values.serviceName || editModal.values.scheme || editModal.values.serviceType || editModal.scheme || "PMEGP";
-      const tracker = getTrackerState({
-        scheme,
-        completedSteps: editModal.completedSteps || [],
-      });
+      const tracker = getTrackerState(
+        {
+          ...editModal.item,
+          ...editModal.values,
+          scheme,
+        },
+        editModal.completedSteps || []
+      );
       const activeStageName = tracker.completedStages.length > 0
         ? tracker.completedStages[tracker.completedStages.length - 1]
         : tracker.currentStage || "CRM Creation";
@@ -466,13 +546,12 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                     {notifications.map((notice) => (
                       <article key={notice.title}>
                         <span
-                          className={`notice-dot ${
-                            notice.tone === "#aa83eb"
+                          className={`notice-dot ${notice.tone === "#aa83eb"
                               ? "violet"
                               : notice.tone === "#88cda4"
-                              ? "green"
-                              : "coral"
-                          }`}
+                                ? "green"
+                                : "coral"
+                            }`}
                         />
                         <div>
                           <strong>{notice.title}</strong>
@@ -547,6 +626,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
             element={
               <OwnerOverviewPage
                 clients={clients}
+                employeesList={employeesList}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
@@ -559,6 +639,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
             element={
               <OwnerOverviewPage
                 clients={clients}
+                employeesList={employeesList}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
@@ -571,6 +652,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
             element={
               <OwnerOverviewPage
                 clients={clients}
+                employeesList={employeesList}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
@@ -667,6 +749,8 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
               <OwnerRevenuePage
                 revenueRange={revenueRange}
                 setRevenueRange={setRevenueRange}
+                clients={clients}
+                invoices={invoices}
               />
             }
           />
@@ -676,6 +760,8 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
               <OwnerRevenuePage
                 revenueRange={revenueRange}
                 setRevenueRange={setRevenueRange}
+                clients={clients}
+                invoices={invoices}
               />
             }
           />
@@ -772,9 +858,9 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
               {editModal.type === "client" && (() => {
                 const editScheme = editModal.values?.serviceName || editModal.values?.scheme || editModal.values?.serviceType || editModal.scheme || "PMEGP";
                 const editTracker = getTrackerState({
+                  ...editModal.values,
                   scheme: editScheme,
-                  completedSteps: editModal.completedSteps || [],
-                });
+                }, editModal.completedSteps || []);
 
                 return (
                   <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid rgba(99, 102, 241, 0.16)" }}>

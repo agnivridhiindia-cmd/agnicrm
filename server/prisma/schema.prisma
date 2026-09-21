@@ -1,0 +1,430 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  BRANCH_MANAGER
+  MANAGER
+  SALES_PERSON
+  IT
+  MARKETING
+  CLIENT
+}
+
+enum ServiceType {
+  CERTIFICATE
+  CONSULTANCY
+  IT
+  MARKETING
+}
+
+enum Stage {
+  ACTIVE
+  ONBOARDING
+  RENEWAL
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum RequestType {
+  EDIT_CLIENT
+  DELETE_CLIENT
+  NEW_SERVICE
+  BUDGET_INCREASE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PaymentMode {
+  ONLINE
+  OFFLINE
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  PENDING
+  OVERDUE
+}
+
+enum TransactionStatus {
+  SUCCESS
+  PENDING
+  FAILED
+}
+
+enum AgreementStatus {
+  DRAFT
+  GENERATED
+  SENT
+  SIGNED
+  REJECTED
+}
+
+enum ApprovalStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+}
+
+enum DocumentStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  VERIFIED
+}
+
+model Branch {
+  id              String    @id @default(uuid())
+  code            String    @unique // e.g. BR-01
+  name            String    // e.g. West Zone (Mumbai)
+  city            String
+  region          String    // e.g. West Zone, North Zone
+  targetRevenue   Decimal   @default(0) @db.Decimal(14, 2)
+  achievedRevenue Decimal   @default(0) @db.Decimal(14, 2)
+  status          String    @default("Active")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  users           User[]
+  clients         Client[]
+  invoices        Invoice[]
+
+  @@map("branches")
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String
+  fullName           String
+  phone              String?
+  role               Role
+  region             String?
+  status             String    @default("Active")
+  isDeleted          Boolean   @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  branchId           String?
+  branch             Branch?   @relation(fields: [branchId], references: [id])
+
+  reportingManagerId String?
+  reportingManager   User?     @relation("ManagerTeam", fields: [reportingManagerId], references: [id])
+  teamMembers        User[]    @relation("ManagerTeam")
+
+  salesClients       Client[]  @relation("SalesPersonClients")
+  accountInvoices    Invoice[] @relation("AccountManagerInvoices")
+  submittedRequests  Request[] @relation("RequesterRequests")
+  reviewedRequests   Request[] @relation("ReviewerRequests")
+  activityLogs       ActivityLog[]
+  notifications      Notification[]
+  recordedPayments   Payment[] @relation("UserPayments")
+
+  @@index([branchId])
+  @@index([role])
+  @@index([isDeleted])
+  @@map("users")
+}
+
+model ServiceCatalog {
+  id           String      @id @default(uuid())
+  serviceCode  String      @unique // e.g. it-srv-1, mkt-srv-1
+  categoryType ServiceType
+  name         String
+  category     String
+  description  String
+  tag          String?
+  turnaround   String?
+  baseAmount   Decimal     @db.Decimal(14, 2)
+  estimate     String?
+  features     Json?       // String array stored as JSON
+  scopeDetails String?
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("service_catalog")
+}
+
+model Client {
+  id                String          @id @default(uuid())
+  appId             String          @unique // e.g. APP-WZ-2026-001
+  name              String          // Trade/Client Name
+  companyName       String
+  contactPerson     String
+  email             String
+  phone             String
+  address           String?
+  serviceType       ServiceType
+  serviceName       String          // Scheme or catalog item name
+  stage             Stage           @default(ACTIVE)
+  applicationStatus String          @default("CRM Creation")
+  progressPercent   Int             @default(0)
+  completedSteps    Json?           // Array of completed stage names
+  slaTier           String          @default("Standard Retainer")
+  isDirectCreated   Boolean         @default(false)
+  adminNotes        String?
+  approvalStatus    ApprovalStatus  @default(PENDING_APPROVAL)
+  documentStatus    DocumentStatus  @default(NOT_SUBMITTED)
+  totalPayment      Decimal         @default(0) @db.Decimal(14, 2)
+  paymentReceived   Decimal         @default(0) @db.Decimal(14, 2)
+
+  // Extended Profile Onboarding Fields
+  businessType       String?         // Proprietorship, Partnership Firm, LLP, Pvt Ltd, OPC, Section 8 Company, Trust, Society
+  sector             String?         // Manufacturing, Service, Trading & Retail, Agriculture & Allied, IT & Technology
+  companyAge         String?         // 0, 1, 2, 3, 4, 5+
+  annualTurnover     Decimal?        @db.Decimal(14, 2) // Annual turnover amount in INR
+  fundingRequirement Decimal?        @db.Decimal(14, 2) // Required loan/funding amount in INR
+  companyDescription String?         // Overview of core business activities
+  fundingPurpose     String?         // Capital Deployment & Funding Purpose
+  gstNumber          String?         // GSTIN Number (Optional)
+  aadharNumber       String?         // 12-digit Aadhar Number
+  panNumber          String?         // 10-char PAN Number
+  msmeNumber         String?         // MSME / Udyam Registration Number
+  representativeName String?         // Authorized signatory name
+  contactNumber      String?         // Contact phone number
+
+  companyPan         String?         // Corporate PAN
+  tanNumber          String?         // TAN (Tax Deduction Number)
+  cinNumber          String?         // Corporate Identity Number (CIN)
+  twelveARegNumber   String?         // 12A Registration Number
+  eightyGCertNumber  String?         // 80G Certificate Number
+  darpanId           String?         // DARPAN Unique ID
+
+  isDeleted          Boolean         @default(false)
+  deletedAt          DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  branchId          String?
+  branch            Branch?         @relation(fields: [branchId], references: [id])
+
+  salesPersonId     String?
+  salesPerson       User?           @relation("SalesPersonClients", fields: [salesPersonId], references: [id])
+
+  invoices          Invoice[]
+  payments          Payment[]
+  documents         ClientDocument[]
+  requests          Request[]
+  agreements        Agreement[]
+  schemes           ClientScheme[]
+
+  @@index([branchId, stage])
+  @@index([salesPersonId])
+  @@index([email])
+  @@index([approvalStatus])
+  @@index([documentStatus])
+  @@index([isDeleted])
+  @@map("clients")
+}
+
+model ClientScheme {
+  id                String      @id @default(uuid())
+  schemeCode        String      @unique // e.g. SCH-2026-001 or APP-WZ-2026-001-S1
+  serviceType       ServiceType
+  serviceName       String      // e.g. PMEGP, MSME, IT Website
+  stage             Stage       @default(ACTIVE)
+  applicationStatus String      @default("CRM Creation")
+  progressPercent   Int         @default(0)
+  completedSteps    Json?       // Array of completed stage names
+  pitchedAmount     Decimal?    @default(0) @db.Decimal(14, 2)
+  receivedAmount    Decimal?    @default(0) @db.Decimal(14, 2)
+  isPrimary         Boolean     @default(true)
+  isDeleted         Boolean     @default(false)
+  deletedAt         DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  clientId          String
+  client            Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([isDeleted])
+  @@map("client_schemes")
+}
+
+model Invoice {
+  id               String        @id @default(uuid())
+  invoiceNo        String        @unique // e.g. INV-2026-001
+  issueDate        DateTime
+  dueDate          DateTime
+  paymentMode      PaymentMode
+  rawAmount        Decimal       @db.Decimal(14, 2) // Base amount pre-tax
+  gstRate          Decimal       @default(0.18) @db.Decimal(5, 4) // 18% for ONLINE, 0 for OFFLINE
+  gstAmount        Decimal       @default(0) @db.Decimal(14, 2)
+  rawTotal         Decimal       @db.Decimal(14, 2) // Total post-tax
+  paymentReceived  Decimal       @default(0) @db.Decimal(14, 2)
+  paymentPending   Decimal       @default(0) @db.Decimal(14, 2)
+  status           PaymentStatus @default(PENDING)
+  gstNo            String?
+  isDeleted        Boolean       @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  clientId         String
+  client           Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  branchId         String?
+  branch           Branch?       @relation(fields: [branchId], references: [id])
+
+  accountManagerId String?
+  accountManager   User?         @relation("AccountManagerInvoices", fields: [accountManagerId], references: [id])
+
+  payments         Payment[]
+
+  @@index([clientId])
+  @@index([branchId])
+  @@index([status])
+  @@index([isDeleted])
+  @@map("invoices")
+}
+
+model ClientDocument {
+  id                 String    @id @default(uuid())
+  documentName       String    // e.g. PAN Card, Aadhar Card, GSTIN Certificate
+  documentNumber     String?
+  fileUrl            String
+  verificationStatus String    @default("Pending Review") // Uploaded, Pending Review, Verified, Rejected
+  isDeleted          Boolean   @default(false)
+  deletedAt          DateTime?
+  uploadedAt         DateTime  @default(now())
+
+  clientId           String
+  client             Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([isDeleted])
+  @@map("client_documents")
+}
+
+model Request {
+  id               String        @id @default(uuid())
+  requestCode      String        @unique // e.g. RQ-1001
+  requestType      RequestType
+  requestedChanges Json?         // Array of { field, oldValue, newValue }
+  reason           String
+  status           RequestStatus @default(PENDING)
+  managerRemarks   String?
+  isDeleted        Boolean       @default(false)
+  deletedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  decisionDate     DateTime?
+
+  clientId         String?
+  client           Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  requesterId      String
+  requester        User          @relation("RequesterRequests", fields: [requesterId], references: [id])
+
+  reviewerId       String?
+  reviewer         User?         @relation("ReviewerRequests", fields: [reviewerId], references: [id])
+
+  @@index([clientId])
+  @@index([requesterId])
+  @@index([reviewerId])
+  @@index([status])
+  @@index([isDeleted])
+  @@map("requests")
+}
+
+model Agreement {
+  id             String          @id @default(uuid())
+  agreementCode  String          @unique // e.g. AGR-WZ-2026-001
+  templateType   String          // SCHEME, IT_SERVICE, MARKETING_SERVICE
+  templateName   String
+  status         AgreementStatus @default(DRAFT)
+  pitchedAmount  Decimal?        @db.Decimal(14, 2)
+  receivedAmount Decimal?        @db.Decimal(14, 2)
+  leftAmount     Decimal?        @db.Decimal(14, 2)
+  successRate    String?
+  docxFileUrl    String?
+  pdfFileUrl     String?
+  sentToEmail    String?
+  sentAt         DateTime?
+  signedAt       DateTime?
+  isDeleted      Boolean         @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  clientId       String
+  client         Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([isDeleted])
+  @@map("agreements")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  title     String
+  detail    String
+  tone      String?  // Hex accent color or category
+  issuer    String?
+  createdAt DateTime @default(now())
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  detail    String
+  issuer    String?
+  tone      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Payment {
+  id              String            @id @default(uuid())
+  paymentId       String            @unique // e.g. PAY-2026-001
+  amount          Decimal           @db.Decimal(14, 2)
+  paymentDate     DateTime          @default(now())
+  paymentMode     PaymentMode
+  referenceNumber String?
+  status          TransactionStatus @default(SUCCESS)
+  remarks         String?
+  isDeleted       Boolean           @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  invoiceId       String
+  invoice         Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  clientId        String
+  client          Client            @relation(fields: [clientId], references: [id])
+
+  recordedById    String
+  recordedBy      User              @relation("UserPayments", fields: [recordedById], references: [id])
+
+  @@index([clientId])
+  @@index([invoiceId])
+  @@index([isDeleted])
+  @@map("payments")
+}

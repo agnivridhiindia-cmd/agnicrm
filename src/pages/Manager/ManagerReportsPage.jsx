@@ -1,17 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import TopPerformerLeaderboard from "../../components/TopPerformerLeaderboard";
 import { PerformanceChart } from "../../components/charts";
 import SimpleModal from "../../components/SimpleModal";
-import { generateYearlySeries } from "./mockManagerData";
+import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 
-export default function ManagerReportsPage({ branchTeam = [], managedRegion = "East Zone" }) {
+export default function ManagerReportsPage({ branchTeam = [], managedRegion = "East Zone", clients = [] }) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [selectedPerformanceEmployee, setSelectedPerformanceEmployee] = useState(null);
 
+  // Calculate actual revenue metrics from the database
+  const metrics = useMemo(() => calculateRevenueMetrics(clients, []), [clients]);
+
+  // Combine branchTeam details with their calculated sales data
+  const realTeamData = useMemo(() => {
+    return branchTeam.map(emp => {
+      const spData = metrics.salespeopleBreakdown.find(sp => {
+        const targetName = (emp.name || "").toLowerCase();
+        const spName = (sp.name || "").toLowerCase();
+        return spName.includes(targetName) || targetName.includes(spName);
+      });
+      return {
+        ...emp,
+        monthlyNet: spData ? spData.monthlyNet : 0,
+        prevMonthNet: spData ? spData.prevMonthNet : 0,
+        series: spData && spData.yearlySeries ? spData.yearlySeries : new Array(12).fill(0),
+        score: spData ? `${spData.monthlyNet > 0 ? 100 : 0}%` : "0%",
+        detail: spData ? `₹${(spData.monthlyNet || 0).toLocaleString("en-IN")} Realized` : "No Sales",
+      };
+    });
+  }, [branchTeam, metrics]);
+
   function openPerformance(employee) {
-    const series = generateYearlySeries(employee);
-    setSelectedPerformanceEmployee({ ...employee, series });
+    setSelectedPerformanceEmployee(employee);
   }
 
   function closePerformance() {
@@ -41,7 +62,7 @@ export default function ManagerReportsPage({ branchTeam = [], managedRegion = "E
 
       {showLeaderboard ? (
         <div style={{ animation: "managerFadeIn 0.2s ease" }}>
-          <TopPerformerLeaderboard performers={branchTeam} />
+          <TopPerformerLeaderboard performers={realTeamData} />
         </div>
       ) : (
         <div className="analytics-card manager-table-card">
@@ -66,13 +87,12 @@ export default function ManagerReportsPage({ branchTeam = [], managedRegion = "E
                 </tr>
               </thead>
               <tbody>
-                {branchTeam.map((employee) => {
-                  const series = generateYearlySeries(employee);
-                  const lastMonth = series[10] || 75000;
-                  const thisMonth = series[11] || 88000;
+                {realTeamData.map((employee) => {
+                  const lastMonth = employee.prevMonthNet || 0;
+                  const thisMonth = employee.monthlyNet || 0;
                   const diff = thisMonth - lastMonth;
                   const isPositive = diff >= 0;
-                  const pct = Math.abs(Math.round((diff / (lastMonth || 1)) * 100));
+                  const pct = lastMonth > 0 ? Math.abs(Math.round((diff / lastMonth) * 100)) : (thisMonth > 0 ? 100 : 0);
 
                   const initials = employee.name
                     ? employee.name

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import { services } from "./mockOwnerData";
 import { getTrackerState } from "../../utils/schemeTracker";
+import "./owner.css";
 
 const PAGE_SIZE = 12;
 
@@ -23,7 +24,10 @@ export default function OwnerClientsPage({
   const activePipelineCount = clients.filter(
     (c) => (c.paymentReceived || 0) < (c.totalPayment || 0)
   ).length;
-  const totalPortfolioValue = clients.reduce((sum, c) => sum + (c.totalPayment || 0), 0);
+  const totalPortfolioValue = clients.reduce(
+    (sum, c) => sum + (parseFloat(String(c.totalPayment || 0).replace(/[^0-9.]/g, "")) || 0),
+    0
+  );
 
   // Filter clients
   const filteredClients = useMemo(() => {
@@ -36,7 +40,7 @@ export default function OwnerClientsPage({
       const schemeMatch = (c.serviceName || c.scheme || c.serviceType || "").toLowerCase().includes(searchLower);
 
       const searchOk = !searchLower || nameMatch || companyMatch || emailMatch || phoneMatch || schemeMatch;
-      const serviceOk = !serviceFilter || c.serviceType === serviceFilter || c.serviceName === serviceFilter;
+      const serviceOk = !serviceFilter || c.serviceType === serviceFilter || c.serviceName === serviceFilter || c.scheme === serviceFilter;
       
       const isPaid = (c.paymentReceived || 0) >= (c.totalPayment || 0) && (c.totalPayment || 0) > 0;
       let statusOk = true;
@@ -212,7 +216,7 @@ export default function OwnerClientsPage({
                 <th>Client &amp; Company</th>
                 <th>Contact Information</th>
                 <th>Service Scheme</th>
-                <th>Activity Status (5 Points)</th>
+                <th>Activity Status</th>
                 <th>Milestone Progress</th>
                 <th>Payment State</th>
                 <th style={{ textAlign: "right" }}>Actions</th>

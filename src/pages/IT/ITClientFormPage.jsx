@@ -49,9 +49,10 @@ export default function ITClientFormPage({
   const [submittedClient, setSubmittedClient] = useState(null);
   const [formErrors, setFormErrors] = useState({});
 
-  const amountNum = parseFloat(formData.amount) || 0;
-  const gstAmount = formData.paymentMode === "Online" ? Math.round(amountNum * 0.18) : 0;
-  const totalPayment = amountNum + gstAmount;
+  const pitchedAmt = parseFloat(formData.amount) || 0;
+  const isOnline = formData.paymentMode === "Online";
+  const gstAmount = isOnline ? Math.round(pitchedAmt * 0.18) : 0;
+  const totalPayment = isOnline ? Math.round(pitchedAmt * 1.18) : pitchedAmt;
   const receivedNum = parseFloat(formData.paymentReceived) || 0;
   const paymentPending = Math.max(totalPayment - receivedNum, 0);
 

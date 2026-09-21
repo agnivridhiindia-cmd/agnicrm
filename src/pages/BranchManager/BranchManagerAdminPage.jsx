@@ -4,12 +4,24 @@ import SimpleModal from "../../components/SimpleModal";
 
 export default function BranchManagerAdminPage({
   branchAdmins = [],
+  branchManagerName = "Ariana Lee",
+  managedRegion = "West Zone",
 }) {
   const [selectedEmployeeInfo, setSelectedEmployeeInfo] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredTeam = useMemo(() => {
     return branchAdmins.filter((emp) => {
+      if (!emp) return false;
+      const empBM = (emp.branchManagerName || emp.branchManager || "").toLowerCase().trim();
+      const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();
+
+      const targetBM = (branchManagerName || "").toLowerCase().trim();
+      const targetRegion = (managedRegion || "").toLowerCase().trim();
+
+      if (targetBM && empBM && empBM !== targetBM) return false;
+      if (targetRegion && empRegion && !empRegion.includes(targetRegion.split(" ")[0].toLowerCase()) && !targetRegion.includes(empRegion)) return false;
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = emp.name?.toLowerCase().includes(q);
@@ -20,7 +32,7 @@ export default function BranchManagerAdminPage({
       }
       return true;
     });
-  }, [branchAdmins, searchQuery]);
+  }, [branchAdmins, branchManagerName, managedRegion, searchQuery]);
 
   function openEmployeeInfo(admin) {
     setSelectedEmployeeInfo(admin);
@@ -46,7 +58,7 @@ export default function BranchManagerAdminPage({
           <p className="bm-header-eyebrow">Governance & Compliance</p>
           <h1 className="bm-header-title">Branch Administrators</h1>
           <p className="bm-header-subtitle">
-            Operations coordinators, administrative officers, and regulatory compliance staff managing branch records.
+            Operations coordinators, administrative officers, and regulatory compliance staff managing {managedRegion}.
           </p>
         </div>
       </div>
@@ -61,7 +73,7 @@ export default function BranchManagerAdminPage({
             </div>
           </div>
           <div>
-            <strong className="bm-kpi-tile-value">{branchAdmins.length}</strong>
+            <strong className="bm-kpi-tile-value">{filteredTeam.length}</strong>
             <span className="bm-kpi-tile-sub">Active Administrators</span>
           </div>
         </div>
@@ -87,8 +99,8 @@ export default function BranchManagerAdminPage({
             </div>
           </div>
           <div>
-            <strong className="bm-kpi-tile-value">North & South</strong>
-            <span className="bm-kpi-tile-sub">Coordinated Regions</span>
+            <strong className="bm-kpi-tile-value">{managedRegion}</strong>
+            <span className="bm-kpi-tile-sub">Designated Admin Territory</span>
           </div>
         </div>
       </div>
@@ -112,7 +124,7 @@ export default function BranchManagerAdminPage({
         <div className="bm-count-badge">
           <span>Showing</span>
           <strong>{filteredTeam.length}</strong>
-          <span>of {branchAdmins.length} administrators</span>
+          <span>of {filteredTeam.length} administrators</span>
         </div>
       </div>
 
@@ -164,7 +176,7 @@ export default function BranchManagerAdminPage({
                     <td>
                       <span className="bm-rep-pill">
                         <Icon name="building" size={12} />
-                        {admin.region || "Branch Admin"}
+                        {admin.region || managedRegion}
                       </span>
                     </td>
                     <td>
@@ -189,7 +201,7 @@ export default function BranchManagerAdminPage({
               {filteredTeam.length === 0 && (
                 <tr>
                   <td colSpan={6} className="bm-empty-state">
-                    No administrators found matching your search.
+                    No administrators found for this branch matching your search.
                   </td>
                 </tr>
               )}
@@ -224,12 +236,12 @@ export default function BranchManagerAdminPage({
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Governance Territory</span>
-              <span className="bm-modal-card-val">{selectedEmployeeInfo.region || "North Zone"}</span>
+              <span className="bm-modal-card-val">{selectedEmployeeInfo.region || managedRegion}</span>
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Reporting Branch Head</span>
               <span className="bm-modal-card-val">
-                {selectedEmployeeInfo.branchManagerName || "Branch Head"}
+                {selectedEmployeeInfo.branchManagerName || branchManagerName}
               </span>
             </div>
             <div className="bm-modal-card">

@@ -5,6 +5,7 @@ import {
   AGREEMENT_STATUSES,
   normalizeAgreementData,
 } from "../../services/agreementService";
+import { isPaymentDemandOrSettlement } from "../../utils/schemeTracker";
 import CurrentAgreementsTable from "./components/CurrentAgreementsTable";
 import AgreementHistoryTable from "./components/AgreementHistoryTable";
 import ClientAgreementFormModal from "./components/ClientAgreementFormModal";
@@ -18,6 +19,17 @@ export default function AgreementPage({
   showToast,
   selectedBranch,
 }) {
+  // Filter out any Payment Demand items - payment demands are NOT schemes!
+  const validAgreementClients = useMemo(() => {
+    return clients.filter((c) => {
+      if (!c) return false;
+      if (isPaymentDemandOrSettlement(c)) return false;
+      const sName = c.scheme || c.serviceName || c.particularScheme;
+      if (isPaymentDemandOrSettlement(sName)) return false;
+      return true;
+    });
+  }, [clients]);
+
   // State
   const [agreements, setAgreements] = useState([]);
   const [loadingAgreements, setLoadingAgreements] = useState(true);
@@ -77,7 +89,7 @@ export default function AgreementPage({
   // Handle Send Action
   const handleSendAgreement = async (agr) => {
     const normalized = normalizeAgreementData(agr);
-    const clientRecord = clients.find(
+    const clientRecord = validAgreementClients.find(
       (c) =>
         c.id === normalized.clientId ||
         c.appId === normalized.applicationId ||
@@ -94,8 +106,29 @@ export default function AgreementPage({
         prev.map((item) => (item.id === normalized.id ? normalizedUpdated : item))
       );
 
+      try {
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new Event("agni_agreements_updated"));
+
+        const notif = {
+          id: `notif-agr-${Date.now()}`,
+          type: "alerts",
+          tone: "#10b981",
+          title: "Legal Agreement Dispatched",
+          detail: `Admin has sent representation contract (${normalized.id}) to ${recipientEmail}. You can review and download it in your Agreement workspace.`,
+          time: "Just now",
+          createdAt: new Date().toISOString(),
+          clientEmail: recipientEmail,
+        };
+        const savedNotifs = localStorage.getItem("agni_client_notifications");
+        let list = savedNotifs ? JSON.parse(savedNotifs) : [];
+        if (!Array.isArray(list)) list = [];
+        list.unshift(notif);
+        localStorage.setItem("agni_client_notifications", JSON.stringify(list));
+      } catch (e) { }
+
       if (showToast) {
-        showToast(`✓ Agreement ${normalized.id} sent to ${recipientEmail}`);
+        showToast(`✓ Contract dispatched to ${recipientEmail}`);
       }
 
       // Complete the Agreement milestone in the CRM tracker
@@ -105,7 +138,7 @@ export default function AgreementPage({
     } catch (err) {
       console.error("Failed to send agreement:", err);
       if (showToast) {
-        showToast(`⚠️ Failed to send agreement: ${err.message}`);
+        showToast(`⚠️ Send failed: ${err.message}`);
       }
     }
   };
@@ -113,9 +146,28 @@ export default function AgreementPage({
   // Handle Retry Action
   const handleRetryAgreement = async (agr) => {
     const normalized = normalizeAgreementData(agr);
+    const clientRecord = validAgreementClients.find(
+      (c) =>
+        c.id === normalized.clientId ||
+        c.appId === normalized.applicationId ||
+        c.id === normalized.crmId
+    );
+
     try {
-      if (showToast) showToast(`Retrying agreement generation for ${normalized.id}...`);
-      const retried = await agreementService.retryGeneration(normalized.id);
+      const retried = await agreementService.createAgreement({
+        clientId: normalized.clientId || clientRecord?.id,
+        crmId: normalized.crmId || clientRecord?.id,
+        appId: normalized.applicationId || clientRecord?.appId,
+        templateName: normalized.agreement?.templateName || "SCHEME_AGREEMENT",
+        pitchedAmount: normalized.agreement?.pitchedAmount || 100000,
+        receivedAmount: normalized.agreement?.receivedAmount || 50000,
+        leftAmount: normalized.agreement?.leftAmount || 50000,
+        successRate: normalized.agreement?.successRate || "95.0%",
+        clientName: clientRecord?.name || normalized.client?.companyName,
+        companyName: clientRecord?.company || normalized.client?.companyName,
+        email: clientRecord?.email || normalized.client?.email,
+      });
+
       const normalizedRetried = normalizeAgreementData(retried);
       setAgreements((prev) =>
         prev.map((item) => (item.id === normalized.id ? normalizedRetried : item))
@@ -129,19 +181,39 @@ export default function AgreementPage({
 
   // Metrics computation
   const metrics = useMemo(() => {
-    const totalClients = clients.length;
-    const sentCount = agreements.filter((a) => a.status === AGREEMENT_STATUSES.SENT || a.agreement?.status === AGREEMENT_STATUSES.SENT).length;
-    const readyCount = agreements.filter((a) => a.status === AGREEMENT_STATUSES.READY || a.agreement?.status === AGREEMENT_STATUSES.READY).length;
-    const pendingCount = Math.max(0, totalClients - agreements.length);
+    const totalClients = validAgreementClients.length;
+    const sentCount = agreements.filter((a) => {
+      const s = a.status || a.agreement?.status;
+      return s === AGREEMENT_STATUSES.SENT || s === "Sent" || a.sentAt;
+    }).length;
+
+    // Active queue: clients whose agreements are yet to be sent
+    const pendingQueueCount = validAgreementClients.filter((c) => {
+      const agr = agreements.find(
+        (a) =>
+          a.clientId === c.id ||
+          a.crmId === c.id ||
+          a.applicationId === c.appId ||
+          a.appId === c.appId ||
+          String(a.id) === String(c.id)
+      );
+      const status = agr ? (agr.agreement?.status || agr.status) : AGREEMENT_STATUSES.PENDING;
+      return status !== AGREEMENT_STATUSES.SENT && status !== "Sent";
+    }).length;
+
+    const readyCount = agreements.filter((a) => {
+      const s = a.status || a.agreement?.status;
+      return s === AGREEMENT_STATUSES.READY || s === "Ready";
+    }).length;
 
     return {
       totalClients,
       sentCount,
       readyCount,
-      pendingCount,
+      pendingCount: pendingQueueCount,
       totalAgreements: agreements.length,
     };
-  }, [clients, agreements]);
+  }, [validAgreementClients, agreements]);
 
   return (
     <section className="admin-page-container">
@@ -169,7 +241,7 @@ export default function AgreementPage({
             }}
             onClick={() => setViewMode("current")}
           >
-            <span>Active Queue</span>
+            <span>Active Queue (Yet to Send)</span>
             <span
               style={{
                 fontSize: 11,
@@ -178,7 +250,7 @@ export default function AgreementPage({
                 background: viewMode === "current" ? "rgba(255, 255, 255, 0.25)" : "rgba(154, 116, 233, 0.2)",
               }}
             >
-              {clients.length}
+              {metrics.pendingCount}
             </span>
           </button>
 
@@ -195,7 +267,7 @@ export default function AgreementPage({
             onClick={() => setViewMode("history")}
           >
             <Icon name="requests" size={15} />
-            <span>History Archive</span>
+            <span>History Archive (Dispatched)</span>
             <span
               style={{
                 fontSize: 11,
@@ -204,7 +276,7 @@ export default function AgreementPage({
                 background: viewMode === "history" ? "rgba(255, 255, 255, 0.25)" : "rgba(154, 116, 233, 0.2)",
               }}
             >
-              {agreements.length}
+              {metrics.sentCount}
             </span>
           </button>
         </div>
@@ -256,25 +328,25 @@ export default function AgreementPage({
               fontSize: 18,
             }}
           >
-            ✓
+            ✉️
           </div>
         </div>
 
         <div className="admin-subcard" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <span className="admin-kicker" style={{ fontSize: 11, color: "#6366f1" }}>Ready for Review</span>
-            <strong style={{ display: "block", fontSize: 22, color: "#6366f1", margin: "2px 0 0" }}>
+            <span className="admin-kicker" style={{ fontSize: 11, color: "#9a74e9" }}>Ready &amp; Generated</span>
+            <strong style={{ display: "block", fontSize: 22, color: "#9a74e9", margin: "2px 0 0" }}>
               {metrics.readyCount}
             </strong>
-            <small style={{ color: "#64748b", fontSize: 11.5 }}>Generated &amp; Vetted</small>
+            <small style={{ color: "#64748b", fontSize: 11.5 }}>Docx / PDF Available</small>
           </div>
           <div
             style={{
               width: 42,
               height: 42,
               borderRadius: 12,
-              background: "rgba(99, 102, 241, 0.12)",
-              color: "#6366f1",
+              background: "rgba(154, 116, 233, 0.12)",
+              color: "#9a74e9",
               display: "grid",
               placeItems: "center",
               fontSize: 18,
@@ -286,11 +358,11 @@ export default function AgreementPage({
 
         <div className="admin-subcard" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <span className="admin-kicker" style={{ fontSize: 11, color: "#f59e0b" }}>Pending Inception</span>
+            <span className="admin-kicker" style={{ fontSize: 11, color: "#f59e0b" }}>Pending Contract Creation</span>
             <strong style={{ display: "block", fontSize: 22, color: "#f59e0b", margin: "2px 0 0" }}>
               {metrics.pendingCount}
             </strong>
-            <small style={{ color: "#64748b", fontSize: 11.5 }}>Awaiting Agreement Draft</small>
+            <small style={{ color: "#64748b", fontSize: 11.5 }}>Requires 7-field form fill</small>
           </div>
           <div
             style={{
@@ -317,7 +389,7 @@ export default function AgreementPage({
         />
       ) : (
         <CurrentAgreementsTable
-          clients={clients}
+          clients={validAgreementClients}
           agreements={agreements}
           onViewDetails={setViewingDetailsClient}
           onCreateAgreement={setCreatingClient}

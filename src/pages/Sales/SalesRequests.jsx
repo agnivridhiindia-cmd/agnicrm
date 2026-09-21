@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { apiFetch } from "../../services/apiClient";
 import RequestTable from "./RequestTable";
 import RequestHistory from "./RequestHistory";
 import CreateRequestModal from "./CreateRequestModal";
 import RequestDetailsModal from "./RequestDetailsModal";
+import ApproveSchemeModal from "./ApproveSchemeModal";
 import Icon from "../../components/Icon";
 import { mockRequests } from "./mockRequests";
 import { mockClients } from "./mockClients";
@@ -14,10 +16,84 @@ const TABS = [
 
 export default function SalesRequests() {
   const [activeTab, setActiveTab] = useState("Pending Requests");
-  const [requests, setRequests] = useState(mockRequests);
+  const [requests, setRequests] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [approvingScheme, setApprovingScheme] = useState(null);
   const [notification, setNotification] = useState("");
+
+  const fetchRequests = async () => {
+    try {
+      const res = await apiFetch("/requests");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const mapped = data.data.map((r) => {
+            const pendingData = r.requestType === "NEW_SERVICE" && r.requestedChanges ? r.requestedChanges : null;
+            const clientName = r.client?.companyName || r.client?.name || pendingData?.companyName || pendingData?.name || "Client Account";
+            return {
+              id: r.requestCode || r.id,
+              clientName,
+              companyName: clientName,
+              requestType: r.requestType === "NEW_SERVICE" ? "Client Create" : r.requestType,
+              status: r.status === "PENDING" ? "Pending" : r.status === "APPROVED" ? "Approved" : r.status === "REJECTED" ? "Rejected" : "Pending",
+              category: r.requestType === "NEW_SERVICE" ? "Manager Approval: Client Create" : r.requestType,
+              decisionDate: r.decisionDate ? new Date(r.decisionDate).toISOString().split("T")[0] : "",
+              managerRemarks: r.managerRemarks || "",
+              raw: r,
+            };
+          });
+          setRequests(mapped);
+        }
+      }
+
+      const savedSchemes = localStorage.getItem("agni_pending_scheme_requests");
+      if (savedSchemes) {
+        try {
+          const clientReqs = JSON.parse(savedSchemes);
+          if (Array.isArray(clientReqs)) {
+            const mappedClientReqs = clientReqs.map(r => ({
+              id: r.id,
+              clientName: r.clientName,
+              companyName: r.clientName,
+              requestType: "Eligible Scheme",
+              status: r.status.includes("Pending") ? "Pending" : r.status,
+              category: "Eligible Scheme",
+              schemeName: r.schemeName,
+              decisionDate: r.decisionDate || "",
+              managerRemarks: r.managerRemarks || "",
+              raw: r,
+            }));
+            setRequests(prev => {
+              const mapIds = new Set(prev.map(p => p.id));
+              const newReqs = mappedClientReqs.filter(r => !mapIds.has(r.id));
+              return [...prev, ...newReqs];
+            });
+          }
+        } catch (e) { }
+      }
+
+    } catch (e) {
+      console.error("Failed to fetch requests", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+
+    const handleSync = () => fetchRequests();
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("agni_pending_updated", handleSync);
+    window.addEventListener("agni_clients_updated", handleSync);
+    const interval = setInterval(handleSync, 5000);
+
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("agni_pending_updated", handleSync);
+      window.removeEventListener("agni_clients_updated", handleSync);
+      clearInterval(interval);
+    };
+  }, []);
 
   const pendingRequests = useMemo(
     () => requests.filter((request) => request.status === "Pending"),
@@ -52,17 +128,86 @@ export default function SalesRequests() {
       prev.map((request) =>
         request.id === requestId
           ? {
-              ...request,
-              status: "Cancelled",
-              decisionDate: new Date().toISOString().split("T")[0],
-              managerRemarks: "Cancelled by salesperson.",
-            }
+            ...request,
+            status: "Cancelled",
+            decisionDate: new Date().toISOString().split("T")[0],
+            managerRemarks: "Cancelled by salesperson.",
+          }
           : request
       )
     );
     setNotification(`Request ${requestId} has been cancelled.`);
     setTimeout(() => setNotification(""), 3500);
   };
+
+  const handleApproveScheme = async (details) => {
+    if (!approvingScheme) return;
+    try {
+      const savedSchemes = localStorage.getItem("agni_pending_scheme_requests");
+      if (savedSchemes) {
+        let allReqs = JSON.parse(savedSchemes);
+        allReqs = allReqs.map(r =>
+          r.id === approvingScheme.id
+            ? {
+                ...r,
+                status: "Approved & Active",
+                pitchedAmount: details.pitchedAmount,
+                paymentMode: details.paymentMode,
+                totalPayment: details.totalPayment,
+                amountRequired: details.amountRequired,
+                decisionDate: new Date().toISOString()
+              }
+            : r
+        );
+        localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
+      }
+
+      const clientEmail = approvingScheme.raw?.clientEmail || approvingScheme.raw?.email || approvingScheme.email;
+      if (clientEmail) {
+        await apiFetch("/clients", {
+          method: "POST",
+          body: {
+            companyName: approvingScheme.companyName || approvingScheme.clientName,
+            contactPerson: approvingScheme.clientName,
+            name: approvingScheme.clientName,
+            email: clientEmail,
+            phone: approvingScheme.raw?.phone || "+91 98765 43210",
+            serviceName: approvingScheme.schemeName,
+            serviceType: "CONSULTANCY",
+            amount: details.totalPayment || details.pitchedAmount,
+            paymentMode: (details.paymentMode || "ONLINE").toUpperCase(),
+            paymentReceived: 0,
+            fundingRequirement: details.amountRequired,
+            approvalStatus: "ACTIVE",
+          }
+        });
+      }
+
+      window.dispatchEvent(new Event("agni_pending_updated"));
+      window.dispatchEvent(new CustomEvent("agni_pending_updated"));
+      window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+      window.dispatchEvent(new Event("storage"));
+
+      setNotification(`✓ Scheme ${approvingScheme.schemeName} approved successfully for ${approvingScheme.clientName}!`);
+      setTimeout(() => setNotification(""), 4500);
+    } catch (e) {
+      console.error(e);
+    }
+    setApprovingScheme(null);
+  };
+
+  const handleDeclineScheme = (requestId) => {
+    const savedSchemes = localStorage.getItem("agni_pending_scheme_requests");
+    if (savedSchemes) {
+      let allReqs = JSON.parse(savedSchemes);
+      allReqs = allReqs.map(r => r.id === requestId ? { ...r, status: "Declined", decisionDate: new Date().toISOString() } : r);
+      localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
+      window.dispatchEvent(new Event("agni_pending_updated"));
+      setNotification(`Request ${requestId} declined.`);
+      setTimeout(() => setNotification(""), 4500);
+    }
+  };
+
 
   return (
     <section className="sales-page-view">
@@ -231,7 +376,13 @@ export default function SalesRequests() {
       {/* Main Table Card Container */}
       <div className="analytics-card" style={{ padding: 0, overflow: "hidden" }}>
         {activeTab === "Pending Requests" ? (
-          <RequestTable requests={pendingRequests} onView={setSelectedRequest} onCancel={cancelPendingRequest} />
+          <RequestTable
+            requests={pendingRequests}
+            onView={setSelectedRequest}
+            onCancel={cancelPendingRequest}
+            onApproveScheme={setApprovingScheme}
+            onDeclineScheme={handleDeclineScheme}
+          />
         ) : (
           <RequestHistory requests={historyRequests} onView={setSelectedRequest} />
         )}
@@ -248,7 +399,21 @@ export default function SalesRequests() {
       {selectedRequest && (
         <RequestDetailsModal request={selectedRequest} onClose={() => setSelectedRequest(null)} />
       )}
+
+      {approvingScheme && (
+        <ApproveSchemeModal
+          request={approvingScheme}
+          onClose={() => setApprovingScheme(null)}
+          onSubmit={handleApproveScheme}
+        />
+      )}
     </section>
   );
+}
+
+export function isEligibleSchemeRequest(req = {}) {
+  if (!req) return false;
+  const type = String(req.requestType || req.type || "").toLowerCase();
+  return type.includes("scheme") || type.includes("service") || type.includes("enrollment");
 }
 

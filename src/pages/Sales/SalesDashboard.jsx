@@ -4,6 +4,7 @@ import DashboardHeader from "../../components/dashboard/DashboardHeader";
 import HeaderSearch from "../../components/dashboard/HeaderSearch";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
+import Modal from "../../components/Modal";
 import "./salesdashboard.css";
 
 // Sub-components
@@ -22,6 +23,8 @@ import { useSalesClients } from "./hooks/useSalesClients";
 import { navItems, notifications } from "./mockSalesData";
 
 export default function SalesDashboard({ onSignOut, userEmail }) {
+  const [showRegisterModal, setShowRegisterModal] = React.useState(false);
+
   const {
     activeNav,
     setActiveNav,
@@ -37,6 +40,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
     setToastMessage,
     showToast,
     salesPersonName,
+    notificationsList,
     notificationWrapRef,
     notificationsListRef,
     handleNotificationsListScroll,
@@ -52,16 +56,29 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
     setStageFilter,
     paymentFilter,
     setPaymentFilter,
+    pipelineFilter,
+    setPipelineFilter,
+    selectedYear,
+    setSelectedYear,
     newClient,
+    formSuccessMsg,
     filteredClients,
     kpiCards,
+    quotaMetrics,
+    monthlyQuotaChartData,
     handleNewClientChange,
     handleClearClientForm,
     handleAddClient,
+    handleVerifyDocument,
+    handleSaveClientSchemes,
+    pendingSchemeRequests,
+    handleApproveSchemeRequest,
+    handleDeclineSchemeRequest,
   } = useSalesClients(salesPersonName, (createdClient) => {
     showToast(
-      `✓ Client "${createdClient.name}" created successfully! Details can now be viewed in the 'Details' tab.`
+      `✓ Client registration for "${createdClient?.company || createdClient?.name || 'New Client'}" submitted to Sales Manager for approval!`
     );
+    setShowRegisterModal(false);
   });
 
   return (
@@ -109,23 +126,22 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
                 <section className="notifications-popover" aria-label="Notifications">
                   <header>
                     <h2>Notifications</h2>
-                    <span>{notifications.length} new</span>
+                    <span>{notificationsList.length} new</span>
                   </header>
                   <div
                     ref={notificationsListRef}
                     className="notifications-scroll"
                     onScroll={handleNotificationsListScroll}
                   >
-                    {notifications.map((notice) => (
-                      <article key={notice.title}>
+                    {notificationsList.map((notice, idx) => (
+                      <article key={notice.id || notice.title + idx}>
                         <span
-                          className={`notice-dot ${
-                            notice.tone === '#aa83eb'
-                              ? 'violet'
-                              : notice.tone === '#88cda4'
+                          className={`notice-dot ${notice.tone === '#aa83eb'
+                            ? 'violet'
+                            : notice.tone === '#88cda4'
                               ? 'green'
                               : 'coral'
-                          }`}
+                            }`}
                         />
                         <div>
                           <strong>{notice.title}</strong>
@@ -140,13 +156,13 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
             <UserProfileMenu
               user={{
                 name: salesPersonName,
-                email: "yash.patel@agnicrm.com",
+                email: `${salesPersonName.toLowerCase().replace(/\s+/g, ".")}@agnicrm.com`,
                 phone: "+91 98201 54321",
                 branch: "West Zone (Mumbai)",
                 designation: "Senior Sales Officer",
                 empId: "EMP-SLS-2024",
-                quota: "₹15,00,000",
-                achieved: "₹11,40,000 (76%)",
+                quota: "₹80,000",
+                achieved: `${quotaMetrics?.achieved || "₹0"} (${quotaMetrics?.progress || "0%"})`,
                 reportingManager: "Vikramaditya Sharma",
               }}
               role="Sales"
@@ -175,31 +191,45 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
         {activeNav === "Dashboard" && (
           <SalesOverview
             kpiCards={kpiCards}
+            monthlyQuotaChartData={monthlyQuotaChartData}
+            selectedYear={selectedYear}
+            setSelectedYear={setSelectedYear}
             dark={dark}
             onNavigate={(nav) => setActiveNav(nav)}
+            onSelectKpiFilter={(filterKey) => {
+              setPipelineFilter(filterKey);
+              setActiveNav("Clients");
+            }}
           />
         )}
 
-        {activeNav === "Clients" && (
+        {activeNav === "Register" && (
           <SalesClientForm
             newClient={newClient}
             onNewClientChange={handleNewClientChange}
             onAddClient={handleAddClient}
             onClearForm={handleClearClientForm}
-            onGoToDetails={() => setActiveNav("Details")}
+            onGoToDetails={() => setActiveNav("Clients")}
+            formSuccessMsg={formSuccessMsg}
             dark={dark}
           />
         )}
 
-        {activeNav === "Requests" && <SalesRequests />}
+        {activeNav === "Requests" && (
+          <SalesRequests
+            userEmail={userEmail}
+            userRole={localStorage.getItem("agni_user_role")}
+            salesPersonName={salesPersonName}
+          />
+        )}
 
-        {activeNav === "Invoices" && <SalesInvoices />}
+        {activeNav === "Invoices" && <SalesInvoices clients={clients} userEmail={userEmail} salesPersonName={salesPersonName} />}
 
-        {activeNav === "Payment" && <SalesPayments />}
+        {activeNav === "Payment" && <SalesPayments clients={clients} userEmail={userEmail} salesPersonName={salesPersonName} />}
 
         {activeNav === "Performance" && <SalesPerformance />}
 
-        {activeNav === "Details" && (
+        {activeNav === "Clients" && (
           <section>
             {!selectedClient ? (
               <SalesClientDirectory
@@ -211,25 +241,58 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
                 setStageFilter={setStageFilter}
                 paymentFilter={paymentFilter}
                 setPaymentFilter={setPaymentFilter}
+                pipelineFilter={pipelineFilter}
+                setPipelineFilter={setPipelineFilter}
                 onSelectClient={(client) => setSelectedClient(client)}
-                onCreateNewClient={() => setActiveNav("Clients")}
+                onCreateNewClient={() => setShowRegisterModal(true)}
                 salesPersonName={salesPersonName}
                 dark={dark}
               />
             ) : (
               <SalesClientDossier
                 selectedClient={selectedClient}
+                allClients={clients}
                 onBack={() => setSelectedClient(null)}
                 salesPersonName={salesPersonName}
-                onSchemeSave={() => {
-                  setActiveNav('Details');
-                  setSelectedClient((prev) => prev || selectedClient);
+                onSchemeSave={(updatedSchemes) => {
+                  if (selectedClient && updatedSchemes) {
+                    handleSaveClientSchemes(selectedClient.id, updatedSchemes);
+                    showToast("✓ Recommended eligible schemes saved! Updated client dashboard visibility.");
+                  }
+                }}
+                onVerifyDocument={handleVerifyDocument}
+                pendingSchemeRequests={pendingSchemeRequests}
+                onApproveSchemeRequest={(reqId, reqAmt, pitchedAmt) => {
+                  handleApproveSchemeRequest(reqId, reqAmt, pitchedAmt);
+                  const formattedAmt = pitchedAmt && !isNaN(Number(pitchedAmt)) ? ` (Pitched Fee Paid: ₹${Number(pitchedAmt).toLocaleString('en-IN')})` : '';
+                  showToast(`✓ Scheme enrollment approved!${formattedAmt} Quota Achieved & Client Database updated.`);
+                }}
+                onDeclineSchemeRequest={(reqId) => {
+                  handleDeclineSchemeRequest(reqId);
+                  showToast("Application request declined.");
                 }}
               />
             )}
           </section>
         )}
       </section>
+
+      {showRegisterModal && (
+        <Modal
+          title="Register New Client"
+          onClose={() => setShowRegisterModal(false)}
+        >
+          <SalesClientForm
+            newClient={newClient}
+            onNewClientChange={handleNewClientChange}
+            onAddClient={handleAddClient}
+            onClearForm={handleClearClientForm}
+            onGoToDetails={() => { setShowRegisterModal(false); setActiveNav("Clients"); }}
+            formSuccessMsg={formSuccessMsg}
+            dark={dark}
+          />
+        </Modal>
+      )}
     </main>
   );
 }

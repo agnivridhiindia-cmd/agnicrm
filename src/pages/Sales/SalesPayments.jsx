@@ -1,103 +1,17 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { apiFetch } from "../../services/apiClient";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
-import { mockClients } from "./mockClients";
+
+import { useApiPayments } from "../../hooks/useApiPayments";
+import { useApiClients } from "../../hooks/useApiClients";
+import { isClientCreatedByUser } from "./hooks/useSalesClients";
+import { isMockClient } from "../../utils/revenueCalculator";
 
 const PAYMENT_TABS = ["All Records", "Payment Requests", "Completed Payments"];
 const PAYMENT_MODES = ["Bank Transfer", "UPI", "Cheque", "Online Gateway"];
 
-const initialPayments = [
-  {
-    id: "PAY-2026-001",
-    clientId: 1,
-    clientName: "Bright Retail",
-    clientEmail: "hello@brightretail.com",
-    clientPhone: "+91 98765 32100",
-    clientCompany: "Bright Retail Pvt Ltd",
-    type: "Payment",
-    amount: 42000,
-    paymentMode: "Bank Transfer",
-    transactionRef: "NEFT-AB1234567890",
-    date: "2026-08-02",
-    dueDate: "2026-08-15",
-    status: "Paid",
-    relatedInvoice: "INV-2026-001",
-    description: "Full payment against Corporate Health Shield annual premium.",
-    receivedBy: "Sales Person",
-  },
-  {
-    id: "PAY-2026-002",
-    clientId: 2,
-    clientName: "Urban Foods",
-    clientEmail: "sales@urbanfoods.com",
-    clientPhone: "+91 91234 55678",
-    clientCompany: "Urban Foods Ltd",
-    type: "Payment",
-    amount: 30000,
-    paymentMode: "UPI",
-    transactionRef: "UPI-987654321012",
-    date: "2026-07-22",
-    dueDate: "2026-08-05",
-    status: "Paid",
-    relatedInvoice: "INV-2026-002",
-    description: "50% advance for Brand Growth Suite activation.",
-    receivedBy: "Sales Person",
-  },
-  {
-    id: "REQ-2026-003",
-    clientId: 3,
-    clientName: "Nova Textiles",
-    clientEmail: "contact@novatextiles.com",
-    clientPhone: "+91 99876 44556",
-    clientCompany: "Nova Textiles Co",
-    type: "Payment Request",
-    amount: 85000,
-    paymentMode: "Bank Transfer",
-    transactionRef: "IMPS-5544332211",
-    date: "2026-07-11",
-    dueDate: "2026-07-25",
-    status: "Paid",
-    relatedInvoice: "INV-2026-003",
-    description: "Enterprise IT Infra Shield setup + 1 year AMC.",
-    receivedBy: "Sales Person",
-  },
-  {
-    id: "REQ-2026-004",
-    clientId: 4,
-    clientName: "Peak Logistics",
-    clientEmail: "contact@peaklogistics.com",
-    clientPhone: "+91 90123 45678",
-    clientCompany: "Peak Logistics Pvt Ltd",
-    type: "Payment Request",
-    amount: 54000,
-    paymentMode: "Cheque",
-    transactionRef: "",
-    date: "2026-08-05",
-    dueDate: "2026-08-20",
-    status: "Requested",
-    relatedInvoice: "INV-2026-004",
-    description: "Fleet Comprehensive Cover - annual premium, payable via A/C payee cheque.",
-    receivedBy: "Sales Person",
-  },
-  {
-    id: "REQ-2026-005",
-    clientId: 1,
-    clientName: "Bright Retail",
-    clientEmail: "hello@brightretail.com",
-    clientPhone: "+91 98765 32100",
-    clientCompany: "Bright Retail Pvt Ltd",
-    type: "Payment Request",
-    amount: 18500,
-    paymentMode: "UPI",
-    transactionRef: "",
-    date: "2026-08-08",
-    dueDate: "2026-08-22",
-    status: "Requested",
-    relatedInvoice: "INV-2026-005",
-    description: "Add-on rider - critical illness cover for 12 employees.",
-    receivedBy: "Sales Person",
-  },
-];
+const initialPayments = [];
 
 const statusBadge = {
   Paid: "#10b981",
@@ -115,20 +29,60 @@ const generatePaymentId = (existing) => {
   return `REQ-2026-${String(nextNum).padStart(3, "0")}`;
 };
 
-function CreatePaymentRequestModal({ clients, onClose, onSubmit }) {
-  const [formData, setFormData] = useState({
-    clientId: clients[0]?.id ? String(clients[0].id) : "",
-    amount: "",
-    paymentMode: "Bank Transfer",
-    dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    relatedInvoice: "",
-    description: "",
+function getPendingPayment(client) {
+  if (!client) return 0;
+  if (client.paymentPending !== undefined && client.paymentPending !== null && client.paymentPending !== "") {
+    const parsed = parseFloat(String(client.paymentPending).replace(/[^0-9.]/g, ""));
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  const total = parseFloat(String(client.totalPayment || client.amount || 0).replace(/[^0-9.]/g, ""));
+  const rec = parseFloat(String(client.paymentReceived || 0).replace(/[^0-9.]/g, ""));
+  return Math.max(0, total - rec);
+}
+
+function CreatePaymentRequestModal({ clients = [], onClose, onSubmit }) {
+  const pendingClients = useMemo(() => {
+    const filtered = (clients || []).filter((c) => getPendingPayment(c) > 0);
+    return filtered.length > 0 ? filtered : (clients || []);
+  }, [clients]);
+
+  const [formData, setFormData] = useState(() => {
+    const firstClient = pendingClients[0];
+    const initialAmt = firstClient ? getPendingPayment(firstClient) : "";
+    return {
+      clientId: firstClient ? String(firstClient.id || firstClient.email) : "",
+      amount: initialAmt ? String(initialAmt) : "",
+      dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    };
   });
 
+  useEffect(() => {
+    if (pendingClients.length > 0 && !formData.clientId) {
+      const first = pendingClients[0];
+      const amt = first ? getPendingPayment(first) : "";
+      setFormData((prev) => ({
+        ...prev,
+        clientId: String(first.id || first.email || ""),
+        amount: amt ? String(amt) : prev.amount,
+      }));
+    }
+  }, [pendingClients]);
+
   const selectedClient = useMemo(
-    () => clients.find((client) => String(client.id) === String(formData.clientId)),
-    [clients, formData.clientId]
+    () => pendingClients.find((client) => String(client.id || client.email) === String(formData.clientId)) || pendingClients[0],
+    [pendingClients, formData.clientId]
   );
+
+  const handleClientChange = (e) => {
+    const newClientId = e.target.value;
+    const found = pendingClients.find((c) => String(c.id || c.email) === String(newClientId));
+    const pendingAmt = found ? getPendingPayment(found) : 0;
+    setFormData((prev) => ({
+      ...prev,
+      clientId: newClientId,
+      amount: pendingAmt > 0 ? String(pendingAmt) : prev.amount,
+    }));
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -143,20 +97,20 @@ function CreatePaymentRequestModal({ clients, onClose, onSubmit }) {
 
     const request = {
       id: generatePaymentId([]),
-      clientId: selectedClient ? selectedClient.id : 1,
-      clientName: selectedClient?.name ?? "Client",
+      clientId: selectedClient ? (selectedClient.id || selectedClient.email) : 1,
+      clientName: selectedClient?.company || selectedClient?.name || "Client",
       clientEmail: selectedClient?.email ?? "",
       clientPhone: selectedClient?.phone ?? "",
-      clientCompany: selectedClient?.company ?? "",
+      clientCompany: selectedClient?.company || selectedClient?.name || "",
       type: "Payment Request",
       amount: Number(formData.amount),
-      paymentMode: formData.paymentMode,
+      paymentMode: "Online Gateway",
       transactionRef: "",
       date: new Date().toISOString().split("T")[0],
       dueDate: formData.dueDate,
       status: "Requested",
-      relatedInvoice: formData.relatedInvoice || "INV-2026-001",
-      description: formData.description || "Payment demand for outstanding contract milestone.",
+      relatedInvoice: "",
+      description: `Payment demand for ${selectedClient?.company || selectedClient?.name || "Client"} (${selectedClient?.scheme || "Service"}).`,
       receivedBy: "Sales Person",
     };
 
@@ -173,24 +127,83 @@ function CreatePaymentRequestModal({ clients, onClose, onSubmit }) {
           </p>
           <h2 style={{ margin: "4px 0 4px", fontSize: 18, fontWeight: 800 }}>Create New Payment Demand</h2>
           <p style={{ margin: 0, color: "#7a748e", fontSize: 13 }}>
-            Generate a formal payment request notification and track settlement progress.
+            Generate a formal payment request notification for clients with outstanding payment balances.
           </p>
         </div>
 
-        <label className="field-label">
-          <span>Target Client Account <span style={{ color: "#f43f5e" }}>*</span></span>
-          <select name="clientId" value={formData.clientId} onChange={handleChange} style={{ padding: "10px 14px", borderRadius: 10 }} required>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name} — {client.company}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label className="field-label" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+              Target Client Account <span style={{ color: "#f43f5e" }}>*</span>
+            </span>
+            <select
+              name="clientId"
+              value={formData.clientId}
+              onChange={handleClientChange}
+              style={{
+                width: "100%",
+                padding: "11px 14px",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+                fontSize: 13.5,
+                fontWeight: 500,
+                fontFamily: "inherit",
+                background: "#fff",
+                color: "#0f172a",
+                cursor: "pointer",
+                boxSizing: "border-box",
+              }}
+              required
+            >
+              {pendingClients.length === 0 && <option value="">No clients with remaining payment balance</option>}
+              {pendingClients.map((client, idx) => {
+                const val = String(client.id || client.email || idx);
+                const company = client.company || client.name || "Client Account";
+                const contact = client.contactPerson && client.contactPerson !== company ? ` (${client.contactPerson})` : "";
+                const scheme = client.scheme || client.serviceName || client.serviceType || "Service";
+                const remaining = getPendingPayment(client);
+                const remainingFormatted = remaining > 0 ? `₹${remaining.toLocaleString("en-IN")}` : "₹0";
+
+                const label = `${company}${contact} — ${scheme} | Remaining: ${remainingFormatted}`;
+
+                return (
+                  <option key={val} value={val}>
+                    {label}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+
+          {selectedClient && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justify: "space-between",
+                padding: "8px 12px",
+                borderRadius: 6,
+                background: "rgba(140, 95, 248, 0.06)",
+                border: "1px solid rgba(140, 95, 248, 0.15)",
+                fontSize: 12.5,
+                marginTop: 2,
+              }}
+            >
+              <span style={{ color: "#475569" }}>
+                <strong>Scheme:</strong> {selectedClient.scheme || selectedClient.serviceName || "N/A"}
+              </span>
+              <span style={{ color: "#8c5ff8", fontWeight: 700 }}>
+                Remaining Balance: ₹{getPendingPayment(selectedClient).toLocaleString("en-IN")}
+              </span>
+            </div>
+          )}
+        </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <label className="field-label">
-            <span>Requested Amount (₹) <span style={{ color: "#f43f5e" }}>*</span></span>
+          <label className="field-label" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+              Requested Amount (₹) <span style={{ color: "#f43f5e" }}>*</span>
+            </span>
             <input
               type="number"
               name="amount"
@@ -198,76 +211,65 @@ function CreatePaymentRequestModal({ clients, onClose, onSubmit }) {
               onChange={handleChange}
               placeholder="e.g. 25000"
               min="1"
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+                fontSize: 14,
+                fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
               required
             />
           </label>
 
-          <label className="field-label">
-            <span>Preferred Payment Mode</span>
-            <select name="paymentMode" value={formData.paymentMode} onChange={handleChange}>
-              {PAYMENT_MODES.map((mode) => (
-                <option key={mode} value={mode}>{mode}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <label className="field-label">
-            <span>Due Date <span style={{ color: "#f43f5e" }}>*</span></span>
-            <input type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required />
-          </label>
-
-          <label className="field-label">
-            <span>Related Invoice Ref (optional)</span>
+          <label className="field-label" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+              Due Date <span style={{ color: "#f43f5e" }}>*</span>
+            </span>
             <input
-              type="text"
-              name="relatedInvoice"
-              value={formData.relatedInvoice}
+              type="date"
+              name="dueDate"
+              value={formData.dueDate}
               onChange={handleChange}
-              placeholder="e.g. INV-2026-008"
+              style={{
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: 8,
+                border: "1px solid #cbd5e1",
+                fontSize: 14,
+                fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
+              required
             />
           </label>
         </div>
-
-        <label className="field-label">
-          <span>Description / Milestone Remarks</span>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows={3}
-            placeholder="Explain the payment installment or purpose..."
-            style={{ resize: "vertical", minHeight: 80, padding: "10px 14px", borderRadius: 10, fontFamily: "inherit" }}
-          />
-        </label>
 
         {/* Live Summary Box */}
         <div
           style={{
             background: "linear-gradient(135deg, rgba(140, 95, 248, 0.08) 0%, rgba(109, 59, 245, 0.03) 100%)",
             padding: "16px 20px",
-            borderRadius: 14,
+            borderRadius: 12,
             border: "1px solid rgba(140, 95, 248, 0.2)",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 14,
+            display: "flex",
+            justify: "space-between",
+            alignItems: "center",
           }}
         >
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, display: "block", marginBottom: 3 }}>
+            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, display: "block", marginBottom: 2 }}>
               Total Demand
             </span>
-            <strong style={{ color: "#10b981", fontSize: 18, fontWeight: 700 }}>
+            <strong style={{ color: "#10b981", fontSize: 20, fontWeight: 800 }}>
               {formatCurrency(formData.amount || 0)}
             </strong>
           </div>
-          <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, display: "block", marginBottom: 3 }}>
-              Payment Method
-            </span>
-            <strong style={{ fontSize: 15, color: "#8c5ff8" }}>{formData.paymentMode}</strong>
-          </div>
+          <span style={{ fontSize: 12, color: "#8c5ff8", fontWeight: 600, background: "rgba(140, 95, 248, 0.12)", padding: "6px 12px", borderRadius: 20 }}>
+            Status: Pending Demand
+          </span>
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 12, marginTop: 4 }}>
@@ -404,25 +406,94 @@ function PaymentDetailsModal({ payment, onClose, onDownload }) {
   );
 }
 
-export default function SalesPayments() {
+export default function SalesPayments({ clients: propClients, userEmail, salesPersonName }) {
   const [activeTab, setActiveTab] = useState("All Records");
-  const [payments, setPayments] = useState(initialPayments);
+  
+  const { payments: apiPayments, refreshPayments } = useApiPayments();
+  const payments = useMemo(() => apiPayments, [apiPayments]);
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [modeFilter, setModeFilter] = useState("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [notification, setNotification] = useState("");
 
-  // KPI Calculations
+  const [clientUpdatesVersion, setClientUpdatesVersion] = useState(0);
+
+  const currentSalesName = salesPersonName || localStorage.getItem("agni_user_name") || "";
+  const currentUserEmail = userEmail || localStorage.getItem("agni_user_email") || "";
+  const userRole = localStorage.getItem("agni_user_role") || "";
+
+  const { clients: apiClients } = useApiClients();
+
+  // Consolidate current salesperson's active clients
+  const userSalesClients = useMemo(() => {
+    const list = [];
+    const addedKeys = new Set();
+    const addC = (c) => {
+      if (!c) return;
+      if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
+        if (!isClientCreatedByUser(c, currentSalesName, currentUserEmail)) return;
+      }
+      const key = String((c.company || c.name || c.email || c.id) + "_" + (c.scheme || "")).trim().toLowerCase();
+      if (key && !addedKeys.has(key)) {
+        addedKeys.add(key);
+        list.push(c);
+      }
+    };
+
+    if (Array.isArray(propClients)) propClients.forEach(addC);
+    if (Array.isArray(apiClients)) apiClients.forEach(addC);
+
+    return list;
+  }, [propClients, apiClients, currentSalesName, currentUserEmail, userRole]);
+
+  // Filter payment records belonging specifically to current salesperson
+  const userPayments = useMemo(() => {
+    return payments.filter((p) => {
+      if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
+        const pSalesperson = (p.salesPerson || p.salesPersonEmail || p.receivedBy || "").toLowerCase();
+        const pClientEmail = (p.clientEmail || "").toLowerCase();
+        const pClientCompany = (p.clientCompany || p.clientName || "").toLowerCase();
+        const matchesClient = userSalesClients.some((c) => {
+          const cEmail = (c.email || "").toLowerCase();
+          const cCompany = (c.company || c.name || "").toLowerCase();
+          return (cEmail && pClientEmail && (cEmail === pClientEmail || pClientEmail.includes(cEmail))) ||
+                 (cCompany && pClientCompany && (cCompany === pClientCompany || pClientCompany.includes(cCompany)));
+        });
+        const matchesSalesperson = pSalesperson && currentSalesName && (pSalesperson.includes(currentSalesName.toLowerCase()) || (currentUserEmail && pSalesperson.includes(currentUserEmail.toLowerCase())));
+
+        if (!matchesClient && !matchesSalesperson) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [payments, userRole, currentSalesName, currentUserEmail, userSalesClients]);
+
+  // Dynamic KPI Calculations derived directly from salesperson's payment transactions & client demands
   const stats = useMemo(() => {
-    const totalCollected = payments
-      .filter((p) => p.status === "Paid")
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    let totalCollected = 0;
+    let totalPendingFromRequests = 0;
 
-    const totalPending = payments
-      .filter((p) => p.status === "Requested" || p.status === "Pending")
-      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    userPayments.forEach((p) => {
+      const amt = Number(p.amount || 0);
+      if (p.status === "Paid") {
+        totalCollected += amt;
+      } else {
+        totalPendingFromRequests += amt;
+      }
+    });
 
+    // Sum pending demand directly from active client contracts/services belonging to salesperson
+    let clientPendingDemand = 0;
+    userSalesClients.forEach((c) => {
+      const pend = parseFloat(c.paymentPending) || 0;
+      if (pend > 0) {
+        clientPendingDemand += pend;
+      }
+    });
+
+    const totalPending = clientPendingDemand > 0 ? clientPendingDemand : totalPendingFromRequests;
     const totalDemand = totalCollected + totalPending;
     const collectionRate = totalDemand > 0 ? Math.round((totalCollected / totalDemand) * 100) : 0;
 
@@ -430,12 +501,29 @@ export default function SalesPayments() {
       totalCollected,
       totalPending,
       collectionRate,
-      count: payments.length,
+      count: userPayments.length,
     };
-  }, [payments]);
+  }, [userPayments, userSalesClients]);
 
   const filteredPayments = useMemo(() => {
     return payments.filter((p) => {
+      if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
+        const pSalesperson = (p.salesPerson || p.salesPersonEmail || p.receivedBy || "").toLowerCase();
+        const pClientEmail = (p.clientEmail || "").toLowerCase();
+        const pClientCompany = (p.clientCompany || p.clientName || "").toLowerCase();
+        const matchesClient = userSalesClients.some((c) => {
+          const cEmail = (c.email || "").toLowerCase();
+          const cCompany = (c.company || c.name || "").toLowerCase();
+          return (cEmail && pClientEmail && (cEmail === pClientEmail || pClientEmail.includes(cEmail))) ||
+                 (cCompany && pClientCompany && (cCompany === pClientCompany || pClientCompany.includes(cCompany)));
+        });
+        const matchesSalesperson = pSalesperson && currentSalesName && (pSalesperson.includes(currentSalesName.toLowerCase()) || (currentUserEmail && pSalesperson.includes(currentUserEmail.toLowerCase())));
+
+        if (!matchesClient && !matchesSalesperson) {
+          return false;
+        }
+      }
+
       // Tab filter
       if (activeTab === "Payment Requests" && !(p.type === "Payment Request" || p.status === "Requested")) {
         return false;
@@ -444,16 +532,11 @@ export default function SalesPayments() {
         return false;
       }
 
-      // Mode filter
-      if (modeFilter !== "all" && p.paymentMode !== modeFilter) {
-        return false;
-      }
-
       // Search filter
       if (searchTerm.trim()) {
         const query = searchTerm.toLowerCase();
-        const matchId = p.id.toLowerCase().includes(query);
-        const matchClient = p.clientName.toLowerCase().includes(query);
+        const matchId = (p.id || "").toLowerCase().includes(query);
+        const matchClient = (p.clientName || "").toLowerCase().includes(query);
         const matchCompany = (p.clientCompany || "").toLowerCase().includes(query);
         const matchInvoice = (p.relatedInvoice || "").toLowerCase().includes(query);
         if (!matchId && !matchClient && !matchCompany && !matchInvoice) return false;
@@ -461,34 +544,148 @@ export default function SalesPayments() {
 
       return true;
     });
-  }, [payments, activeTab, modeFilter, searchTerm]);
+  }, [payments, activeTab, searchTerm, userRole, currentSalesName, currentUserEmail, userSalesClients]);
 
-  const addPaymentRequest = (newReq) => {
-    const reqWithId = {
-      ...newReq,
-      id: generatePaymentId(payments),
-    };
-    setPayments((prev) => [reqWithId, ...prev]);
-    setShowCreateModal(false);
-    setNotification(`Payment request ${reqWithId.id} created successfully.`);
-    setTimeout(() => setNotification(""), 4200);
+  const updateClientPaymentMetrics = (clientIdentifier, amountDiff, actionType) => {
+    if (!amountDiff || amountDiff <= 0) return;
+    try {
+      const targetStr = String(clientIdentifier || "").toLowerCase().trim();
+      const updateListInKey = (key) => {
+        const saved = localStorage.getItem(key);
+        if (!saved) return;
+        const list = JSON.parse(saved);
+        if (!Array.isArray(list)) return;
+
+        let modified = false;
+        const nextList = list.map((c) => {
+          const cId = String(c.id || "").toLowerCase().trim();
+          const cEmail = String(c.email || "").toLowerCase().trim();
+          const cCompany = String(c.company || c.name || "").toLowerCase().trim();
+
+          if ((targetStr && (cId === targetStr || cEmail === targetStr || cCompany === targetStr)) || list.length === 1) {
+            modified = true;
+            const currentRec = parseFloat(String(c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+            const currentPend = parseFloat(String(c.paymentPending || 0).replace(/[^0-9.]/g, "")) || 0;
+
+            if (actionType === "MARK_PAID") {
+              const totalPaymentVal = parseFloat(String(c.totalPayment || c.amount || 0).replace(/[^0-9.]/g, "")) || (currentRec + currentPend);
+              const newRec = currentRec + amountDiff;
+              const newPend = Math.max(0, totalPaymentVal - newRec);
+              return {
+                ...c,
+                paymentReceived: String(newRec),
+                paymentPending: String(newPend),
+              };
+            }
+          }
+          return c;
+        });
+
+        if (modified) {
+          localStorage.setItem(key, JSON.stringify(nextList));
+        }
+      };
+
+      updateListInKey("agni_sales_clients");
+      updateListInKey("agni_branch_clients");
+      setClientUpdatesVersion((v) => v + 1);
+    } catch (e) {}
   };
 
-  const markAsPaid = (paymentId) => {
-    setPayments((prev) =>
-      prev.map((p) =>
-        p.id === paymentId
-          ? {
-              ...p,
-              status: "Paid",
-              type: "Payment",
-              transactionRef: `SETTLED-${Math.floor(100000 + Math.random() * 900000)}`,
+  const addPaymentRequest = async (newReq) => {
+    try {
+      // 1. Save locally to agni_sales_payments and agni_payment_demands
+      const cEmail = (newReq.clientEmail || "").toLowerCase().trim();
+      const saveToKey = (key) => {
+        try {
+          const saved = localStorage.getItem(key);
+          const list = saved ? JSON.parse(saved) : [];
+          const updated = [newReq, ...list.filter((p) => p.id !== newReq.id)];
+          localStorage.setItem(key, JSON.stringify(updated));
+        } catch (e) {}
+      };
+
+      saveToKey("agni_sales_payments");
+      saveToKey("agni_payment_demands");
+      saveToKey("agni_client_requests");
+      if (cEmail) saveToKey(`agni_payment_demands_${cEmail}`);
+
+      // 2. Dispatch global events
+      window.dispatchEvent(new Event("agni_payments_updated"));
+      window.dispatchEvent(new Event("agni_clients_updated"));
+
+      if (newReq.relatedInvoiceId || newReq.invoiceId) {
+        try {
+          await apiFetch(`/invoices/${newReq.relatedInvoiceId || newReq.invoiceId}/payments`, {
+            method: "POST",
+            body: JSON.stringify({
+              amount: Number(newReq.amount || 0),
+              paymentMode: "ONLINE",
+              remarks: "Payment request added",
+            })
+          });
+        } catch (e) {}
+      }
+
+      refreshPayments();
+      setNotification(`✓ Payment request for ${newReq.clientName} created successfully.`);
+    } catch(err) {
+      console.error("Could not send payment request:", err);
+      setNotification(`✓ Payment request for ${newReq.clientName} recorded.`);
+    } finally {
+      setTimeout(() => setNotification(""), 4200);
+      setShowCreateModal(false);
+    }
+  };
+
+  const markAsPaid = async (paymentTarget) => {
+    try {
+      const pId = typeof paymentTarget === "object" ? paymentTarget.id : paymentTarget;
+      const targetPay = payments.find((p) => String(p.id) === String(pId)) || paymentTarget;
+
+      const updatePaymentStatusLocal = (key) => {
+        try {
+          const saved = localStorage.getItem(key);
+          if (!saved) return;
+          const list = JSON.parse(saved);
+          if (!Array.isArray(list)) return;
+          const updated = list.map((p) => {
+            if (String(p.id) === String(pId)) {
+              return {
+                ...p,
+                status: "Paid",
+                transactionRef: p.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`,
+                paidAt: new Date().toISOString(),
+              };
             }
-          : p
-      )
-    );
-    setNotification(`Payment ${paymentId} marked as Paid.`);
-    setTimeout(() => setNotification(""), 4200);
+            return p;
+          });
+          localStorage.setItem(key, JSON.stringify(updated));
+        } catch (e) {}
+      };
+
+      updatePaymentStatusLocal("agni_sales_payments");
+      updatePaymentStatusLocal("agni_payment_demands");
+      updatePaymentStatusLocal("agni_client_requests");
+      if (targetPay && targetPay.clientEmail) {
+        updatePaymentStatusLocal(`agni_payment_demands_${targetPay.clientEmail.toLowerCase().trim()}`);
+      }
+
+      if (targetPay && targetPay.amount) {
+        updateClientPaymentMetrics(targetPay.clientId || targetPay.clientEmail || targetPay.clientCompany, Number(targetPay.amount), "MARK_PAID");
+      }
+
+      window.dispatchEvent(new Event("agni_payments_updated"));
+      window.dispatchEvent(new Event("agni_clients_updated"));
+      window.dispatchEvent(new Event("storage"));
+
+      refreshPayments();
+      setNotification(`✓ Payment ${pId} marked as Settled & Paid successfully.`);
+    } catch (e) {
+      console.warn("Could not mark payment as paid:", e);
+    } finally {
+      setTimeout(() => setNotification(""), 4200);
+    }
   };
 
   const downloadReceipt = (payment) => {
@@ -607,10 +804,10 @@ Thank you for choosing AgniCRM.
             const isActive = activeTab === tab;
             const count =
               tab === "All Records"
-                ? payments.length
+                ? userPayments.length
                 : tab === "Payment Requests"
-                ? payments.filter((p) => p.type === "Payment Request" || p.status === "Requested").length
-                : payments.filter((p) => p.status === "Paid").length;
+                ? userPayments.filter((p) => p.type === "Payment Request" || p.status === "Requested").length
+                : userPayments.filter((p) => p.status === "Paid").length;
 
             return (
               <button
@@ -628,7 +825,7 @@ Thank you for choosing AgniCRM.
           })}
         </div>
 
-        {/* Search & Mode Filters */}
+        {/* Search Filter */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
           <div className="sales-search-box">
             <span className="sales-search-icon">
@@ -641,17 +838,6 @@ Thank you for choosing AgniCRM.
               placeholder="Search payment or client..."
             />
           </div>
-
-          <select
-            className="sales-filter-select"
-            value={modeFilter}
-            onChange={(e) => setModeFilter(e.target.value)}
-          >
-            <option value="all">All Payment Modes</option>
-            {PAYMENT_MODES.map((mode) => (
-              <option key={mode} value={mode}>{mode}</option>
-            ))}
-          </select>
         </div>
       </div>
 
@@ -768,7 +954,7 @@ Thank you for choosing AgniCRM.
 
       {showCreateModal && (
         <CreatePaymentRequestModal
-          clients={mockClients}
+          clients={userSalesClients.length > 0 ? userSalesClients : (propClients && propClients.length > 0 ? propClients : [])}
           onClose={() => setShowCreateModal(false)}
           onSubmit={addPaymentRequest}
         />

@@ -97,7 +97,7 @@ export const workforceKpiCards = [
     slug: "branch-managers",
   },
   {
-    label: "Total Managers",
+    label: "Total Sales Managers",
     value: "42",
     trend: "+8%",
     description: "Regional sales leads",
@@ -126,7 +126,7 @@ export const topPerformers = [
   { name: "Daniel Cruz", role: "Branch Manager", score: "88%", detail: "Customer retention" },
   { name: "Sara Reddy", role: "Branch Manager", score: "85%", detail: "Process improvements" },
   { name: "Kavya Patel", role: "Branch Manager", score: "82%", detail: "Team mentoring" },
-  { name: "Mia Ross", role: "Sales Person", score: "89%", detail: "Lead conversion" },
+  { name: "Mia Rose", role: "Sales Person", score: "89%", detail: "Lead conversion" },
   { name: "Noah Kim", role: "Sales Person", score: "87%", detail: "Revenue uplift" },
   { name: "Rohan Varma", role: "Sales Person", score: "84%", detail: "New accounts" },
   { name: "Meera Singh", role: "Sales Person", score: "80%", detail: "Deal closure" },
@@ -185,7 +185,7 @@ export const notifications = [
   {
     title: "Team message",
     detail: "Sales team reached 82% of monthly goal.",
-    issuer: "Mia Ross",
+    issuer: "Mia Rose",
     tone: "#88cda4",
   },
   {
@@ -202,268 +202,50 @@ export const services = [
   { name: "Marketing" },
 ];
 
-export const initialOwnerClients = [
-  { id: 1, name: 'Acme Industries', company: 'Acme Industries Pvt. Ltd.', email: 'contact@acme.com', phone: '+91 98765 43210', serviceType: 'Certificate', serviceName: 'Mudra Export Certification', serviceStart: '2026-01-15', totalPayment: 120000, paymentReceived: 80000, branch: 'North', salesPerson: 'Mia Ross', progressPercent: 80, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement"], applicationStatus: "Agreement" },
-  { id: 2, name: 'Summit Co', company: 'Summit Co.', email: 'hello@summitco.com', phone: '+91 91234 56789', serviceType: 'IT', serviceName: 'Enterprise CRM Setup', serviceStart: '2026-03-01', totalPayment: 85000, paymentReceived: 50000, branch: 'South', salesPerson: 'Mia Ross', progressPercent: 60, completedSteps: ["Submission", "Doc Audit", "Manager Review"], applicationStatus: "Manager Review" },
-  { id: 3, name: 'Blue Retail', company: 'Blue Retail Pvt Ltd', email: 'info@blueretail.com', phone: '+91 99876 54321', serviceType: 'Marketing', serviceName: 'Website & Brand Growth Suite', serviceStart: '2026-05-20', totalPayment: 60000, paymentReceived: 60000, branch: 'East', salesPerson: 'Mia Ross', progressPercent: 100, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement", "Final Approval"], applicationStatus: "Final Approval" },
-  { id: 4, name: 'Nexus Logistics', company: 'Nexus Logistics Solutions', email: 'support@nexuslogistics.com', phone: '+91 98111 22233', serviceType: 'IT', serviceName: 'Supply Chain Analytics Platform', serviceStart: '2026-06-10', totalPayment: 150000, paymentReceived: 100000, branch: 'West', salesPerson: 'Alex Vance', progressPercent: 40, completedSteps: ["Submission", "Doc Audit"], applicationStatus: "Doc Audit" },
-  { id: 5, name: 'Apex Healthcare', company: 'Apex Healthcare Systems', email: 'info@apexhealth.com', phone: '+91 97222 33344', serviceType: 'Certificate', serviceName: 'Corporate Health Shield Annual', serviceStart: '2026-08-01', totalPayment: 42000, paymentReceived: 42000, branch: 'North', salesPerson: 'Alex Vance', progressPercent: 100, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement", "Final Approval"], applicationStatus: "Final Approval" },
-];
+export const initialOwnerClients = [];
+
 
 export const initialOwnerEmployees = [
-  { id: 1, name: 'Ariana Lee', email: 'ariana@agni.com', phone: '+91 91234 00111', role: 'branch manager', branch: 'North', region: 'North Zone', reportingManager: 'Devika Shah' },
-  { id: 2, name: 'Eli Brooks', email: 'eli@agni.com', phone: '+91 91234 00222', role: 'manager', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
-  { id: 3, name: 'Mia Ross', email: 'mia@agni.com', phone: '+91 91234 10101', role: 'sales', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Eli Brooks' },
-  { id: 4, name: 'Noah Kim', email: 'noah@agni.com', phone: '+91 91234 10202', role: 'IT', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
-  { id: 5, name: 'Sara Kim', email: 'sara@agni.com', phone: '+91 91234 20202', role: 'admin', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
-  { id: 6, name: 'Daniel Cruz', email: 'daniel@agni.com', phone: '+91 91234 30303', role: 'market', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
-  { id: 7, name: 'Priya Menon', email: 'priya@agni.com', phone: '+91 91234 40404', role: 'admin', branch: 'South', region: 'South Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
-  { id: 8, name: 'Alex Vance', email: 'alex@agni.com', phone: '+91 91234 50505', role: 'sales', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Eli Brooks' },
+  // --- BRANCH 1: WEST ZONE (MUMBAI) ---
+  { id: 1, name: "Ariana Lee", email: "ariana@agni.com", phone: "+91 98202 22334", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "West Zone (Mumbai)", region: "West Zone", reportingManager: "Devika Shah (Owner)" },
+  { id: 2, name: "Eli Brooks", email: "eli@agni.com", phone: "+91 91234 00222", role: "sales manager", rawRole: "MANAGER", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
+  { id: 3, name: "Mia Rose", email: "mia@agni.com", phone: "+91 98205 55667", role: "sales", rawRole: "SALES_PERSON", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
+  { id: 4, name: "Lucas Scott", email: "lucas@agni.com", phone: "+91 98205 55670", role: "sales", rawRole: "SALES_PERSON", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
+  { id: 5, name: "Noah Kim", email: "noah@agni.com", phone: "+91 98205 55668", role: "IT", rawRole: "IT", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
+  { id: 6, name: "Daniel Cruz", email: "daniel@agni.com", phone: "+91 98205 55669", role: "market", rawRole: "MARKETING", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
+  { id: 7, name: "Vikramaditya Roy", email: "admin@agni.com", phone: "+91 98201 11223", role: "admin", rawRole: "ADMIN", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
+
+  // --- BRANCH 2: NORTH ZONE (DELHI) ---
+  { id: 8, name: "Rajesh Khanna", email: "rajesh.bm@agni.com", phone: "+91 98111 22334", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "North Zone (Delhi)", region: "North Zone", reportingManager: "Devika Shah (Owner)" },
+  { id: 9, name: "Ananya Sen", email: "ananya.sm@agni.com", phone: "+91 98111 22335", role: "sales manager", rawRole: "MANAGER", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
+  { id: 10, name: "Rohan Gupta", email: "rohan.sales@agni.com", phone: "+91 98111 22336", role: "sales", rawRole: "SALES_PERSON", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
+  { id: 11, name: "Kavya Sharma", email: "kavya.sales@agni.com", phone: "+91 98111 22337", role: "sales", rawRole: "SALES_PERSON", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
+  { id: 12, name: "Aarav Mehta", email: "aarav.it@agni.com", phone: "+91 98111 22338", role: "IT", rawRole: "IT", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
+  { id: 13, name: "Neha Kapoor", email: "neha.mkt@agni.com", phone: "+91 98111 22340", role: "market", rawRole: "MARKETING", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
+  { id: 14, name: "Amit Joshi", email: "amit.admin@agni.com", phone: "+91 98111 22342", role: "admin", rawRole: "ADMIN", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
+
+  // --- BRANCH 3: SOUTH ZONE (BENGALURU) ---
+  { id: 15, name: "Suresh Reddy", email: "suresh.bm@agni.com", phone: "+91 98450 11223", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "South Zone (Bengaluru)", region: "South Zone", reportingManager: "Devika Shah (Owner)" },
+  { id: 16, name: "Karthik Iyer", email: "karthik.sm@agni.com", phone: "+91 98450 11224", role: "sales manager", rawRole: "MANAGER", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
+  { id: 17, name: "Arjun Hegde", email: "arjun.sales@agni.com", phone: "+91 98450 11225", role: "sales", rawRole: "SALES_PERSON", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Karthik Iyer" },
+  { id: 18, name: "Deepa Rao", email: "deepa.sales@agni.com", phone: "+91 98450 11226", role: "sales", rawRole: "SALES_PERSON", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Karthik Iyer" },
+  { id: 19, name: "Niharika Bhat", email: "niharika.it@agni.com", phone: "+91 98450 11227", role: "IT", rawRole: "IT", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
+  { id: 20, name: "Pooja Menon", email: "pooja.mkt@agni.com", phone: "+91 98450 11228", role: "market", rawRole: "MARKETING", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
+  { id: 21, name: "Lakshmi Narayanan", email: "lakshmi.admin@agni.com", phone: "+91 98450 11229", role: "admin", rawRole: "ADMIN", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
+
+  // --- BRANCH 4: EAST ZONE (KOLKATA) ---
+  { id: 22, name: "Subhash Banerjee", email: "subhash.bm@agni.com", phone: "+91 98300 44556", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "East Zone (Kolkata)", region: "East Zone", reportingManager: "Devika Shah (Owner)" },
+  { id: 23, name: "Debolina Roy", email: "debolina.sm@agni.com", phone: "+91 98300 44557", role: "sales manager", rawRole: "MANAGER", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
+  { id: 24, name: "Sourav Das", email: "sourav.sales@agni.com", phone: "+91 98300 44558", role: "sales", rawRole: "SALES_PERSON", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Debolina Roy" },
+  { id: 25, name: "Riya Mukherjee", email: "riya.sales@agni.com", phone: "+91 98300 44559", role: "sales", rawRole: "SALES_PERSON", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Debolina Roy" },
+  { id: 26, name: "Arindam Bose", email: "arindam.it@agni.com", phone: "+91 98300 44560", role: "IT", rawRole: "IT", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
+  { id: 27, name: "Tanmoy Dutta", email: "tanmoy.mkt@agni.com", phone: "+91 98300 44561", role: "market", rawRole: "MARKETING", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
+  { id: 28, name: "Pronab Paul", email: "pronab.admin@agni.com", phone: "+91 98300 44562", role: "admin", rawRole: "ADMIN", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
 ];
 
-export const initialInvoices = [
-  {
-    id: "INV-2026-001",
-    clientName: "Acme Industries",
-    company: "Acme Industries Pvt. Ltd.",
-    serviceName: "Mudra Export Certification",
-    branch: "North",
-    region: "North Zone",
-    issueDate: "15 Jan 2026",
-    dueDate: "30 Jan 2026",
-    amount: "₹1,20,000",
-    rawAmount: 120000,
-    tax: "₹21,600 (18% GST)",
-    totalAmount: "₹1,41,600",
-    rawTotal: 141600,
-    status: "Paid",
-    accountManager: "Ariana Lee",
-    gstNo: "27AAACA0000A1Z5"
-  },
-  {
-    id: "INV-2026-002",
-    clientName: "Summit Co",
-    company: "Summit Co.",
-    serviceName: "Enterprise CRM Setup",
-    branch: "South",
-    region: "South Zone",
-    issueDate: "01 Mar 2026",
-    dueDate: "15 Mar 2026",
-    amount: "₹85,000",
-    rawAmount: 85000,
-    tax: "₹15,300 (18% GST)",
-    totalAmount: "₹1,00,300",
-    rawTotal: 100300,
-    status: "Paid",
-    accountManager: "Eli Brooks",
-    gstNo: "33AAACS1234B1Z2"
-  },
-  {
-    id: "INV-2026-003",
-    clientName: "Blue Retail",
-    company: "Blue Retail Pvt Ltd",
-    serviceName: "Website & Brand Growth Suite",
-    branch: "East",
-    region: "East Zone",
-    issueDate: "20 May 2026",
-    dueDate: "05 Jun 2026",
-    amount: "₹60,000",
-    rawAmount: 60000,
-    tax: "₹10,800 (18% GST)",
-    totalAmount: "₹70,800",
-    rawTotal: 70800,
-    status: "Paid",
-    accountManager: "Mia Ross",
-    gstNo: "19AAACB9876C1Z9"
-  },
-  {
-    id: "INV-2026-004",
-    clientName: "Nexus Logistics",
-    company: "Nexus Logistics Solutions",
-    serviceName: "Supply Chain Analytics Platform",
-    branch: "West",
-    region: "West Zone",
-    issueDate: "10 Jun 2026",
-    dueDate: "25 Jun 2026",
-    amount: "₹1,50,000",
-    rawAmount: 150000,
-    tax: "₹27,000 (18% GST)",
-    totalAmount: "₹1,77,000",
-    rawTotal: 177000,
-    status: "Pending",
-    accountManager: "Noah Kim",
-    gstNo: "24AAACN5544D1Z7"
-  },
-  {
-    id: "INV-2026-005",
-    clientName: "Apex Healthcare",
-    company: "Apex Healthcare Systems",
-    serviceName: "Corporate Health Shield Annual",
-    branch: "North",
-    region: "North Zone",
-    issueDate: "01 Aug 2026",
-    dueDate: "15 Aug 2026",
-    amount: "₹42,000",
-    rawAmount: 42000,
-    tax: "₹7,560 (18% GST)",
-    totalAmount: "₹49,560",
-    rawTotal: 49560,
-    status: "Pending",
-    accountManager: "Sara Kim",
-    gstNo: "27AAACA9911E1Z3"
-  },
-  {
-    id: "INV-2026-006",
-    clientName: "Vanguard Tech",
-    company: "Vanguard Tech Innovations",
-    serviceName: "Cloud Security & Audit Compliance",
-    branch: "Central",
-    region: "Central Zone",
-    issueDate: "12 Jul 2026",
-    dueDate: "27 Jul 2026",
-    amount: "₹95,000",
-    rawAmount: 95000,
-    tax: "₹17,100 (18% GST)",
-    totalAmount: "₹1,12,100",
-    rawTotal: 112100,
-    status: "Overdue",
-    accountManager: "Daniel Cruz",
-    gstNo: "23AAACV3322F1Z8"
-  },
-  {
-    id: "INV-2026-007",
-    clientName: "Zenith Financials",
-    company: "Zenith Advisory & Capital Ltd",
-    serviceName: "FinTech Compliance Certification",
-    branch: "South",
-    region: "South Zone",
-    issueDate: "05 Feb 2026",
-    dueDate: "20 Feb 2026",
-    amount: "₹1,10,000",
-    rawAmount: 110000,
-    tax: "₹19,800 (18% GST)",
-    totalAmount: "₹1,29,800",
-    rawTotal: 129800,
-    status: "Paid",
-    accountManager: "Priya Menon",
-    gstNo: "33AAACZ7788G1Z1"
-  },
-  {
-    id: "INV-2026-008",
-    clientName: "Horizon Real Estate",
-    company: "Horizon Infra Projects Pvt Ltd",
-    serviceName: "Digital Marketing & Campaign Setup",
-    branch: "East",
-    region: "East Zone",
-    issueDate: "18 Apr 2026",
-    dueDate: "03 May 2026",
-    amount: "₹75,000",
-    rawAmount: 75000,
-    tax: "₹13,500 (18% GST)",
-    totalAmount: "₹88,500",
-    rawTotal: 88500,
-    status: "Paid",
-    accountManager: "Lily Chen",
-    gstNo: "19AAACH4455H1Z4"
-  }
-];
+export const initialInvoices = [];
 
-export const initialRequests = [
-  {
-    id: "RQ-1001",
-    clientId: 1,
-    clientName: "Acme Industries",
-    requester: "Ariana Lee",
-    role: "branch manager",
-    branch: "North",
-    region: "North Zone",
-    managerName: "Ariana Lee (Branch Manager)",
-    requestType: "Edit Client",
-    requestedChanges: [
-      { field: "Company Name", oldValue: "Acme Industries Pvt. Ltd.", newValue: "Acme Global Solutions Pvt Ltd" },
-      { field: "Phone Number", oldValue: "+91 98765 43210", newValue: "+91 98765 43999" },
-    ],
-    reason: "Branch Manager requested update for company legal name & primary phone number after branch audit.",
-    status: "Pending",
-    createdAt: "2026-08-01",
-    decisionDate: null,
-    managerRemarks: null,
-  },
-  {
-    id: "RQ-1002",
-    clientId: 2,
-    clientName: "Summit Co",
-    requester: "Ariana Lee",
-    role: "branch manager",
-    branch: "South",
-    region: "South Zone",
-    managerName: "Ariana Lee (Branch Manager)",
-    requestType: "Delete Client",
-    requestedChanges: [],
-    reason: "Branch Manager requested account termination following business closure.",
-    status: "Pending",
-    createdAt: "2026-08-05",
-    decisionDate: null,
-    managerRemarks: null,
-  },
-  {
-    id: "RQ-1003",
-    clientId: 3,
-    clientName: "Blue Retail",
-    requester: "Ariana Lee",
-    role: "branch manager",
-    branch: "East",
-    region: "East Zone",
-    managerName: "Ariana Lee (Branch Manager)",
-    requestType: "Edit Client",
-    requestedChanges: [
-      { field: "GST Number", oldValue: "27LMNOP4321D1Z3", newValue: "27LMNOP4321D1Z8" },
-      { field: "Address", oldValue: "17 Industrial Park, Surat", newValue: "17 Industrial Park, Phase 2, Surat" }
-    ],
-    reason: "Branch Manager submitted verified GST certificate and address update.",
-    status: "Approved",
-    createdAt: "2026-06-12",
-    decisionDate: "2026-06-15",
-    managerRemarks: "Approved by Owner after verifying GST documentation.",
-  },
-  {
-    id: "RQ-1004",
-    clientId: 4,
-    clientName: "Nexus Logistics",
-    requester: "Ariana Lee",
-    role: "branch manager",
-    branch: "West",
-    region: "West Zone",
-    managerName: "Ariana Lee (Branch Manager)",
-    requestType: "Delete Client",
-    requestedChanges: [],
-    reason: "Branch Manager requested duplicate client account deletion.",
-    status: "Rejected",
-    createdAt: "2026-05-10",
-    decisionDate: "2026-05-12",
-    managerRemarks: "Rejected by Owner: Active contract is still running.",
-  },
-  {
-    id: "RQ-1005",
-    clientId: 5,
-    clientName: "Apex Healthcare",
-    requester: "Ariana Lee",
-    role: "branch manager",
-    branch: "North",
-    region: "North Zone",
-    managerName: "Ariana Lee (Branch Manager)",
-    requestType: "Edit Client",
-    requestedChanges: [
-      { field: "Contact Person", oldValue: "Deepa Joshi", newValue: "Deepa Joshi-Singh" },
-      { field: "Email", oldValue: "info@apexhealth.com", newValue: "contact@apexhealth.com" }
-    ],
-    reason: "Branch Manager submitted updated primary contact details after executive transition.",
-    status: "Cancelled",
-    createdAt: "2026-04-02",
-    decisionDate: "2026-04-03",
-    managerRemarks: "Cancelled by branch manager prior to review.",
-  }
-];
+export const initialRequests = [];
 
 export const reportRoleOptions = [
   { label: 'All roles', value: '' },
@@ -481,7 +263,6 @@ export const branchOptions = [
   { label: 'South', value: 'South' },
   { label: 'East', value: 'East' },
   { label: 'West', value: 'West' },
-  { label: 'Central', value: 'Central' },
 ];
 
 export const regionOptions = [
@@ -490,10 +271,9 @@ export const regionOptions = [
   { label: 'South Zone', value: 'South Zone' },
   { label: 'East Zone', value: 'East Zone' },
   { label: 'West Zone', value: 'West Zone' },
-  { label: 'Central Zone', value: 'Central Zone' },
 ];
 
-export const employeeRoles = ['All roles', 'branch manager', 'manager', 'IT', 'admin', 'market', 'sales', 'hr'];
+export const employeeRoles = ['All roles', 'branch manager', 'manager', 'IT', 'admin', 'market', 'sales'];
 
 export const monthNamesList = ["All", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 

@@ -264,6 +264,12 @@ const ownerIcons = {
       <line x1="12" y1="16" x2="12.01" y2="16" />
     </>
   ),
+  incentive: (
+    <>
+      <circle cx="12" cy="8" r="6" />
+      <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 18, className }) {

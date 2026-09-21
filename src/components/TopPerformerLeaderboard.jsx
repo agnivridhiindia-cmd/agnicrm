@@ -1,6 +1,7 @@
 import React from 'react';
 
 function scoreValue(score) {
+  if (typeof score !== 'string') return 0;
   return parseInt(score.replace('%', ''), 10) || 0;
 }
 

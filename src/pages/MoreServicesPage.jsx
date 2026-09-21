@@ -1,4 +1,5 @@
 import React from "react";
+import { getManagerBranchDetails, normalizeSalesPersonName } from "../utils/branchHelper";
 
 const serviceGroups = [
   {
@@ -10,21 +11,101 @@ const serviceGroups = [
     items: [
       {
         id: "cert-1",
-        name: "Digital Signature Certificate (Class 3)",
+        name: "DSC (Digital Signature Certificate Class 3)",
         description: "Issuance and activation of secure encrypted DSC tokens for directors, C-suite executives, and authorized signers.",
         tag: "Encrypted Token",
-        turnaround: "Same-Day Activation",
-        estimate: "₹2,500 / Token",
         features: ["FIPS-140-2 Level 2 Token", "Encrypted Key Storage", "Remote Identity Verification", "2-Year Validity"]
       },
       {
         id: "cert-2",
-        name: "ISO & Compliance Certification Support",
-        description: "End-to-end documentation audit, gap analysis, and fast-track processing for ISO 9001, ISO 27001, and Mudra certification.",
-        tag: "Audit & Certification",
-        turnaround: "5-7 Business Days",
-        estimate: "Custom Proposal",
+        name: "ISO Certification",
+        description: "End-to-end documentation audit, gap analysis, and fast-track processing for ISO 9001, ISO 27001, and quality management standards.",
+        tag: "Audit & Quality",
         features: ["Certified External Lead Auditor", "Gap Analysis Report", "Documentation Drafting", "Guaranteed Compliance Pass"]
+      },
+      {
+        id: "cert-3",
+        name: "GST Registration",
+        description: "Official Goods and Services Tax (GSTIN) registration, ARN generation, and state tax portal filing.",
+        tag: "Tax Identification",
+        features: ["State Portal Filing", "ARN Generation", "Input Tax Credit Setup", "100% Verified Filing"]
+      },
+      {
+        id: "cert-4",
+        name: "Private Limited Company Registration",
+        description: "Incorporation of Private Limited Company with MCA approval, SPICe+ filing, MoA/AoA drafting, and PAN/TAN allotment.",
+        tag: "Corporate Setup",
+        features: ["SPICe+ MCA Filing", "MoA & AoA Drafting", "DIN & Digital Signature", "PAN & TAN Allotment"]
+      },
+      {
+        id: "cert-5",
+        name: "Section 8 Company Registration",
+        description: "Incorporation support for non-profit companies, micro-finance institutions, and social welfare organizations.",
+        tag: "Non-Profit Entity",
+        features: ["MCA Section 8 License", "Social Purpose MoA", "FCRA Eligibility", "Government Approvals"]
+      },
+      {
+        id: "cert-6",
+        name: "GeM Registration",
+        description: "Government e-Marketplace (GeM) seller portal onboarding, OEM vendor assessment, and catalog uploading.",
+        tag: "Govt Procurement",
+        features: ["Seller Portal Onboarding", "OEM Assessment Support", "Category Listing", "Bidding Readiness"]
+      },
+      {
+        id: "cert-7",
+        name: "LLP Registration",
+        description: "Limited Liability Partnership (LLP) incorporation, LLP agreement drafting, and MCA name reservation.",
+        tag: "Partnership Entity",
+        features: ["RUN-LLP Name Approval", "LLP Agreement Drafting", "Partner DPIN Allotment", "Statutory Certificate"]
+      },
+      {
+        id: "cert-8",
+        name: "One Person Company (OPC) Registration",
+        description: "Corporate entity registration for solo entrepreneurs with limited liability protection and nominee setup.",
+        tag: "Single Founder",
+        features: ["Solo Founder Protection", "Nominee Incorporation", "SPICe+ MCA Filing", "PAN & TAN Included"]
+      },
+      {
+        id: "cert-9",
+        name: "12A & 80G Registration",
+        description: "Income Tax Department 12A and 80G certification for NGOs, trusts, and non-profits to enable tax-deductible donations.",
+        tag: "Tax Exemption",
+        features: ["Income Tax Exemption", "Donor Tax Benefit", "5-Year Validity", "Full Compliance Check"]
+      },
+      {
+        id: "cert-10",
+        name: "Trademark Registration",
+        description: "Brand name, logo, and trademark TM filing, classification search, and IP attorney representation.",
+        tag: "Intellectual Property",
+        features: ["Class 1-45 Trademark Search", "TM Application Filing", "IP Attorney Review", "Objection Clearance"]
+      },
+      {
+        id: "cert-11",
+        name: "ITR Filing & Compliance",
+        description: "Annual Income Tax Return (ITR) preparation, financial statement auditing, and e-filing for corporates and firms.",
+        tag: "Tax Filing",
+        features: ["CA Financial Audit", "Tax Computation Sheet", "E-Filing Portal Ack", "Tax Savings Optimization"]
+      },
+      {
+        id: "cert-12",
+        name: "CSR Registration (CSR-1)",
+        description: "Ministry of Corporate Affairs CSR-1 filing for eligible entities to receive corporate CSR grants.",
+        tag: "Social Responsibility",
+        features: ["MCA CSR-1 Certificate", "Unique Entity Number", "Corporate Grant Eligibility", "Portal Verification"]
+      },
+      {
+        id: "cert-13",
+        name: "DARPAN Registration (NITI Aayog)",
+        description: "NITI Aayog NGO Darpan portal enrollment and unique ID generation for central government grant participation.",
+        tag: "NITI Aayog Portal",
+        features: ["NITI Aayog Unique ID", "Government Grant Eligibility", "Vetted Profile Listing", "Ministry Sync"]
+      },
+      {
+        id: "cert-14",
+        name: "Annual Corporate Statutory Filing",
+        description: "MCA annual statutory compliance certification, Form AOC-4 & MGT-7 filings, and corporate secretarial audit.",
+        tag: "Statutory Filing",
+        features: ["Form AOC-4 & MGT-7", "Board Meeting Minutes", "Secretarial Audit", "Zero Penalty Guarantee"]
       }
     ]
   },
@@ -40,8 +121,6 @@ const serviceGroups = [
         name: "Enterprise Web Portal & CRM Maintenance",
         description: "24/7 technical monitoring, database backup management, vulnerability patching, and SLA incident response for corporate web portals.",
         tag: "24/7 SLA Guarantee",
-        turnaround: "Instant Onboarding",
-        estimate: "₹15,000 / month",
         features: ["99.99% Guaranteed SLA Uptime", "Automated Hourly Database Backups", "Dedicated DevOps Lead", "Zero-Downtime Patching"]
       },
       {
@@ -49,8 +128,6 @@ const serviceGroups = [
         name: "Cybersecurity Vulnerability & Pen-Test Audit",
         description: "Rigorous penetration testing, cloud firewall inspection, and threat surface auditing for enterprise IT infrastructure.",
         tag: "Security Penetration",
-        turnaround: "48-Hour Audit",
-        estimate: "₹35,000 / Audit",
         features: ["OWASP Top 10 Assessment", "Network Vulnerability Scan", "Executive Risk Report", "Remediation Checklist"]
       }
     ]
@@ -67,8 +144,6 @@ const serviceGroups = [
         name: "Brand Identity & Corporate Collateral Suite",
         description: "Professional brand style guides, pitch decks, investor presentations, stationery, and corporate identity design assets.",
         tag: "Brand Identity",
-        turnaround: "3-5 Business Days",
-        estimate: "₹25,000 Package",
         features: ["Vector Logo & Assets", "Comprehensive Brand Guidelines", "Interactive Pitch Deck Template", "Social Media Kit"]
       },
       {
@@ -76,173 +151,71 @@ const serviceGroups = [
         name: "Targeted B2B Digital Growth Campaign",
         description: "Multi-channel B2B digital acquisition campaigns across LinkedIn, Google Ads, and targeted industry media.",
         tag: "Growth Campaign",
-        turnaround: "Bi-Weekly Cycles",
-        estimate: "₹45,00,00 Active",
         features: ["Targeted Account Prospecting", "High-Converting Ad Creatives", "Bi-Weekly Performance Dashboard", "A/B Landing Page Testing"]
-      }
-    ]
-  },
-  {
-    categoryKey: "consultancy",
-    title: "Consultancy Services",
-    iconName: "consultancy",
-    tone: "#10b981",
-    grad: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-    items: [
-      {
-        id: "con-1",
-        name: "PM MUDRA Scheme Advisory",
-        description: "Collateral-free institutional credit financing support up to ₹10 Lakhs for micro and small enterprises.",
-        tag: "Credit Facility",
-        turnaround: "3-5 Business Days",
-        estimate: "₹15,000 / Advisory",
-        features: ["Shishu, Kishore & Tarun Tiers", "Zero Collateral", "DPR & Audit Preparation", "Bank Liaison"]
-      },
-      {
-        id: "con-2",
-        name: "PMEGP Subsidy Consultancy",
-        description: "Credit-linked government subsidy on new micro-enterprises with up to 35% capital subsidy assistance.",
-        tag: "Govt Subsidy",
-        turnaround: "5-7 Business Days",
-        estimate: "₹20,000 / Advisory",
-        features: ["Up to 35% Capital Subsidy", "Manufacturing & Service", "KVIC Portal Filing", "Bank Sanction Tracking"]
-      },
-      {
-        id: "con-3",
-        name: "CGTMSE Collateral-Free Assistance",
-        description: "Credit Guarantee Fund Trust for Micro and Small Enterprises coverage up to ₹5 Crore loans.",
-        tag: "Credit Guarantee",
-        turnaround: "4-6 Business Days",
-        estimate: "₹25,000 / Advisory",
-        features: ["Up to ₹5 Cr Guarantee", "No Third-Party Security", "Project Feasibility Report", "Lender Follow-up"]
-      },
-      {
-        id: "con-4",
-        name: "Seed Funding Support",
-        description: "Early-stage capital and startup innovation grant guidance for prototype validation and proof of concept.",
-        tag: "Early Capital",
-        turnaround: "7-10 Business Days",
-        estimate: "Custom Advisory",
-        features: ["Incubator Matchmaking", "Pitch Deck Review", "Milestone Structuring", "Grant Compliance"]
-      },
-      {
-        id: "con-5",
-        name: "CGSS (Credit Guarantee for Startups)",
-        description: "Credit guarantee framework for DPIIT-recognized startups to secure venture debt and scaling loans.",
-        tag: "Startup Debt",
-        turnaround: "5-8 Business Days",
-        estimate: "Custom Advisory",
-        features: ["DPIIT Verification", "Venture Debt Structuring", "Guarantee Filing", "Institutional Liaison"]
-      },
-      {
-        id: "con-6",
-        name: "DIV (Development Innovation Ventures)",
-        description: "Global tier grant funding for breakthrough development innovations with rigorous impact evidence.",
-        tag: "Global Grant",
-        turnaround: "10-15 Business Days",
-        estimate: "Custom Proposal",
-        features: ["Stage 1-3 Structuring", "Impact Evidence Audit", "Evaluation Board Pitch", "Dossier Submission"]
-      },
-      {
-        id: "con-7",
-        name: "NLM (National Livestock Mission)",
-        description: "Financial assistance and capital subsidy for livestock farming, poultry, and animal feed enterprises.",
-        tag: "Livestock Subsidy",
-        turnaround: "5-7 Business Days",
-        estimate: "₹18,000 / Advisory",
-        features: ["50% Capital Subsidy", "Breed Development DPR", "State Portal Registration", "Direct Bank Credit"]
-      },
-      {
-        id: "con-8",
-        name: "Animal Husbandry & AHIDF",
-        description: "Infrastructure development fund for dairy, meat processing, animal feed plants, and veterinary setup.",
-        tag: "Infrastructure Fund",
-        turnaround: "7-12 Business Days",
-        estimate: "Custom Proposal",
-        features: ["3% Interest Subvention", "Up to 90% Loan Guarantee", "Detailed Project Report", "Ministry Portal Tracking"]
-      },
-      {
-        id: "con-9",
-        name: "Private Funding & Equity Syndication",
-        description: "Angel investor network and private syndicate capital access for high-growth enterprises.",
-        tag: "Private Equity",
-        turnaround: "2-3 Weeks",
-        estimate: "Custom Retainer",
-        features: ["Investor Evaluation Pitch", "Valuation Financial Model", "Term Sheet Advisory", "Due Diligence Support"]
-      },
-      {
-        id: "con-10",
-        name: "NGO Elevation & Development Program",
-        description: "Institutional grant enablement, 12A/80G/CSR-1 compliance, and scaling roadmap for non-profits.",
-        tag: "NGO Scaling",
-        turnaround: "7-10 Business Days",
-        estimate: "₹22,000 / Package",
-        features: ["12A & 80G Verification", "CSR-1 Registration", "Institutional Profiling", "Donor Presentation"]
-      },
-      {
-        id: "con-11",
-        name: "CSR Grant & Allocation Facilitation",
-        description: "Corporate Social Responsibility statutory fund allocation matchmaking for high-impact social projects.",
-        tag: "CSR Allocation",
-        turnaround: "1-2 Weeks",
-        estimate: "Custom Advisory",
-        features: ["Corporate CSR Alignment", "Proposal Submission", "SLA & Milestones Setup", "Annual Impact Reporting"]
-      },
-      {
-        id: "con-12",
-        name: "Spark Grant (Innovation Seed)",
-        description: "Seed stage innovation spark grant supporting pilot proof-of-concept and prototyping.",
-        tag: "Innovation Grant",
-        turnaround: "5-7 Business Days",
-        estimate: "₹15,000 / Advisory",
-        features: ["Prototype Validation", "Grant Documentation", "Milestone Tracking", "Fund Release Coordination"]
-      }
-    ]
-  },
-  {
-    categoryKey: "legal",
-    title: "Legal & Regulatory Compliance",
-    iconName: "legal",
-    tone: "#f2aa38",
-    grad: "linear-gradient(135deg, #f2aa38 0%, #e08061 100%)",
-    items: [
-      {
-        id: "lc-1",
-        name: "Annual Corporate Statutory Filing",
-        description: "End-to-end management of MCA annual filings, corporate governance reviews, tax compliance, and regulatory submissions.",
-        tag: "Statutory Filing",
-        turnaround: "Annual Retainer",
-        estimate: "₹18,000 / Year",
-        features: ["MCA Form AOC-4 & MGT-7", "Board Resolution Drafting", "Tax Compliance Review", "Zero Penalty Guarantee"]
-      },
-      {
-        id: "lc-2",
-        name: "Vendor & Contract Legal Inspection",
-        description: "Legal inspection, risk assessment, and clause drafting for vendor master service agreements, SLAs, and commercial contracts.",
-        tag: "Legal Risk Audit",
-        turnaround: "24-48 Hours Review",
-        estimate: "₹8,500 / Contract",
-        features: ["Commercial Risk Assessment", "Liability Cap Auditing", "IP Ownership Rights", "Redline Draft Revisions"]
       }
     ]
   }
 ];
 
-export default function MoreServicesPage() {
+export default function MoreServicesPage({
+  onEnrollScheme,
+  enrolledPlanNames = [],
+  assignedSalesPerson,
+  salesRole,
+  dedicatedTeam,
+  userEmail,
+}) {
   const [activeCategory, setActiveCategory] = React.useState("all");
   const [requestedService, setRequestedService] = React.useState(null);
   const [submittedService, setSubmittedService] = React.useState(null);
-  const [priorityTier, setPriorityTier] = React.useState("Standard");
   const [requestNotes, setRequestNotes] = React.useState("");
+
+  const salesLeadName = React.useMemo(() => {
+    if (assignedSalesPerson) return assignedSalesPerson;
+    if (dedicatedTeam?.salesRepName) return dedicatedTeam.salesRepName;
+
+    try {
+      const saved = localStorage.getItem("agni_branch_clients") || localStorage.getItem("agni_sales_clients");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const email = (userEmail || localStorage.getItem("agni_user_email") || "").trim().toLowerCase();
+        const rawMatch = parsed.find(
+          (c) => c.email && email && c.email.toLowerCase().trim() === email
+        );
+        if (rawMatch) {
+          const sr = rawMatch.assignedSalesPerson || rawMatch.owner || rawMatch.salesRepresentative || rawMatch.salesperson;
+          const foundName = typeof sr === "string" ? sr : (sr?.name || "");
+          if (foundName) return normalizeSalesPersonName(foundName);
+        }
+      }
+    } catch (e) {}
+
+    const email = userEmail || localStorage.getItem("agni_user_email") || "";
+    const details = getManagerBranchDetails(email);
+    const riyaMatch = details?.salespersons?.find((s) => s.toLowerCase().includes("riya"));
+    if (riyaMatch) return riyaMatch;
+    return details?.salespersons?.[0] || "Riya Mukherjee";
+  }, [assignedSalesPerson, dedicatedTeam, userEmail]);
+
+  const salesLeadRole = salesRole || dedicatedTeam?.salesRepRole || "Assigned Sales Representative";
 
   const filteredGroups = serviceGroups.filter(g => activeCategory === "all" || g.categoryKey === activeCategory);
   const totalServices = serviceGroups.reduce((acc, g) => acc + g.items.length, 0);
 
   function handleSubmit(e) {
     e.preventDefault();
+    if (requestedService && onEnrollScheme) {
+      onEnrollScheme({
+        name: requestedService.name,
+        tag: requestedService.tag || "Enterprise Service",
+        category: requestedService.categoryKey || activeCategory,
+        price: requestedService.price || "Standard Active",
+        cover: "Service Enrolled",
+        description: requestedService.description || requestedService.desc || "Active service requested by client.",
+      });
+    }
     setSubmittedService({
-      name: requestedService.name,
-      priority: priorityTier
+      name: requestedService.name
     });
     setRequestedService(null);
     setRequestNotes("");
@@ -255,7 +228,7 @@ export default function MoreServicesPage() {
         <div>
           <span className="cd-kicker">ENTERPRISE SOLUTIONS MARKETPLACE</span>
           <h2>Explore Additional Services</h2>
-          <p>Browse specialized corporate services across IT, compliance, marketing, and licensing tailored for Acme Industries.</p>
+          <p>Browse specialized corporate services across IT, compliance, marketing, and licensing tailored for your organization.</p>
         </div>
         <span className="cd-count-pill">{totalServices} Services Available</span>
       </div>      {/* Category Filter Tabs */}
@@ -288,27 +261,13 @@ export default function MoreServicesPage() {
         >
           Marketing & Growth
         </button>
-        <button
-          type="button"
-          className={`cd-filter-tab ${activeCategory === "consultancy" ? "active" : ""}`}
-          onClick={() => setActiveCategory("consultancy")}
-        >
-          Consultancy Services
-        </button>
-        <button
-          type="button"
-          className={`cd-filter-tab ${activeCategory === "legal" ? "active" : ""}`}
-          onClick={() => setActiveCategory("legal")}
-        >
-          Legal & Compliance
-        </button>
       </div>
 
       {/* Submitted Success Banner */}
       {submittedService && (
         <div className="cd-alert-success-banner">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Service request for <strong>{submittedService.name}</strong> ({submittedService.priority} Priority) sent to your assigned sales lead, <strong>Mia Ross</strong>! She will contact you within 2 business hours.</span>
+          <span>Service request for <strong>{submittedService.name}</strong> sent to your assigned sales lead, <strong>{salesLeadName}</strong>! They will contact you within 2 business hours.</span>
           <button type="button" onClick={() => setSubmittedService(null)}>×</button>
         </div>
       )}
@@ -331,16 +290,10 @@ export default function MoreServicesPage() {
                     <span className="cd-match-badge" style={{ background: 'rgba(78, 124, 255, 0.12)', color: '#4e7cff' }}>
                       {service.tag}
                     </span>
-                    <span className="cd-turnaround-pill">{service.turnaround}</span>
                   </div>
 
                   <h4>{service.name}</h4>
                   <p>{service.description}</p>
-
-                  <div className="cd-service-meta-bar">
-                    <span>Pricing Estimate</span>
-                    <strong>{service.estimate}</strong>
-                  </div>
 
                   <div className="cd-feature-bullets" style={{ marginBottom: 20 }}>
                     {service.features.map(f => (
@@ -351,7 +304,7 @@ export default function MoreServicesPage() {
                   <button
                     type="button"
                     className="cd-req-service-btn"
-                    onClick={() => setRequestedService(service)}
+                    onClick={() => setRequestedService({ ...service, categoryKey: group.categoryKey })}
                   >
                     <span>Request Service</span>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
@@ -373,32 +326,19 @@ export default function MoreServicesPage() {
               <span className="cd-match-badge" style={{ background: 'rgba(78, 124, 255, 0.12)', color: '#4e7cff' }}>
                 {requestedService.tag}
               </span>
-              <span className="cd-turnaround-pill">{requestedService.turnaround}</span>
             </div>
 
             <h2 className="cd-modal-title">{requestedService.name}</h2>
             <p className="cd-modal-desc">{requestedService.description}</p>
 
-            <div className="cd-scheme-meta-box" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 24 }}>
-              <div>
-                <span>Pricing Estimate</span>
-                <strong style={{ color: '#4e7cff' }}>{requestedService.estimate}</strong>
-              </div>
+            <div className="cd-scheme-meta-box" style={{ gridTemplateColumns: '1fr', marginBottom: 24 }}>
               <div>
                 <span>Assigned Sales Lead</span>
-                <strong>Mia Ross (Senior Lead)</strong>
+                <strong>{salesLeadName} ({salesLeadRole})</strong>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="cd-form">
-              <label>
-                <span>Select Priority & Turnaround Requirement</span>
-                <select value={priorityTier} onChange={(e) => setPriorityTier(e.target.value)}>
-                  <option value="Urgent (24 Hours)">Urgent (24 Hours Expedited SLA)</option>
-                  <option value="Standard (3-5 Days)">Standard (3-5 Business Days)</option>
-                  <option value="Flexible Schedule">Flexible Schedule</option>
-                </select>
-              </label>
 
               <label>
                 <span>Specific Instructions / Corporate Scope</span>
@@ -411,7 +351,7 @@ export default function MoreServicesPage() {
               </label>
 
               <button type="submit" className="cd-submit-btn cd-submit-btn-glow">
-                Send Request to Mia Ross
+                Send Request to {salesLeadName}
               </button>
             </form>
           </section>

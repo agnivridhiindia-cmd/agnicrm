@@ -165,15 +165,34 @@ export function getCanonicalSchemeName(schemeInput) {
   if (typeof schemeInput === "string") {
     rawName = schemeInput;
   } else if (typeof schemeInput === "object") {
-    rawName = schemeInput.schemeName || schemeInput.scheme || schemeInput.name || "";
+    rawName = schemeInput.schemeName || schemeInput.serviceName || schemeInput.scheme || schemeInput.name || "";
   }
-  const clean = rawName.trim();
-  if (SCHEME_PROCESS_TYPE_MAP[clean]) {
-    return clean;
+  let clean = rawName.trim();
+
+  // If the raw string is a Payment Demand / Settlement, extract actual scheme or fallback
+  if (isPaymentDemandOrSettlement(clean)) {
+    const match = clean.match(/\(([^)]+)\)/);
+    if (match && match[1]) {
+      const extracted = match[1].replace(/payment|demand|settlement|request/gi, "").trim();
+      if (extracted) {
+        clean = extracted;
+      } else {
+        clean = "PMEGP";
+      }
+    } else {
+      clean = "PMEGP";
+    }
   }
+
   const lookupKey = clean.toLowerCase();
+  if (lookupKey.includes("mudra")) {
+    return "PM MUDRA";
+  }
   if (SCHEME_ALIASES[lookupKey]) {
     return SCHEME_ALIASES[lookupKey];
+  }
+  if (SCHEME_PROCESS_TYPE_MAP[clean]) {
+    return clean;
   }
   return clean || "PMEGP";
 }
@@ -353,18 +372,36 @@ export function normalizeCompletedStages(rawSteps = [], stages = []) {
  * @returns {object} complete tracker state
  */
 export function getTrackerState(crmOrScheme, explicitCompleted) {
-  const scheme = typeof crmOrScheme === "object" ? crmOrScheme?.scheme || crmOrScheme?.schemeName : crmOrScheme;
+  const scheme = typeof crmOrScheme === "object" && crmOrScheme !== null
+    ? (crmOrScheme?.particularScheme || crmOrScheme?.schemeName || crmOrScheme?.scheme || crmOrScheme?.serviceName)
+    : crmOrScheme;
   const stages = getTrackerStages(scheme);
-  const rawCompleted = explicitCompleted || (typeof crmOrScheme === "object" ? crmOrScheme?.completedSteps || crmOrScheme?.completedStages : []);
+
+  let rawCompleted = explicitCompleted;
+  if (!rawCompleted && typeof crmOrScheme === "object" && crmOrScheme !== null) {
+    const schemeLower = (scheme || "").toLowerCase();
+    const isSec = crmOrScheme.isPrimary === false ||
+      crmOrScheme.processType === "secondary" ||
+      crmOrScheme.serviceType === "More Services" ||
+      (typeof crmOrScheme.appId === "string" && (crmOrScheme.appId.endsWith("-S") || crmOrScheme.appId.endsWith("-E"))) ||
+      (schemeLower.length > 0 && !schemeLower.includes("pmegp"));
+    const isPrimary = isSec ? false : isClientPrimaryScheme(crmOrScheme, scheme);
+    const defaultSteps = isPrimary
+      ? (crmOrScheme?.completedSteps || crmOrScheme?.completedStages || ["CRM Creation"])
+      : ["CRM Creation", "Agreement", "Reports"];
+    rawCompleted = getSchemeCompletedStages(crmOrScheme, scheme, defaultSteps);
+  } else if (!rawCompleted) {
+    rawCompleted = [];
+  }
 
   const completedStages = normalizeCompletedStages(rawCompleted, stages);
   const totalStages = stages.length;
   const progressPercent = totalStages > 0 ? Math.min(100, Math.round((completedStages.length / totalStages) * 100)) : 0;
 
-  // Determine current active stage (first incomplete stage)
+  // Determine current active stage (latest completed stage or first stage)
   const firstUncompletedIndex = stages.findIndex((s) => !completedStages.includes(s.name));
   const isComplete = firstUncompletedIndex === -1;
-  const currentStage = isComplete ? "Final" : stages[firstUncompletedIndex].name;
+  const currentStage = completedStages.length > 0 ? completedStages[completedStages.length - 1] : (stages[0]?.name || "CRM Creation");
   const currentStageIndex = isComplete ? totalStages - 1 : firstUncompletedIndex;
 
   // Locked stages are all stages strictly after the first uncompleted stage
@@ -386,6 +423,290 @@ export function getTrackerState(crmOrScheme, explicitCompleted) {
     totalStages,
     isComplete,
   };
+}
+
+/**
+ * Gets scheme-specific completed stages for a client
+ */
+export function getSchemeCompletedStages(clientOrEmail, schemeName, defaultStages = []) {
+  const emailKey = resolveClientEmail(clientOrEmail);
+  const canonicalClean = schemeName ? getCanonicalSchemeName(schemeName).trim().toLowerCase() : "";
+  const sNameClean = schemeName ? schemeName.trim().toLowerCase() : "";
+
+  // ── Database completedSteps is the single source of truth ──
+
+  const isSec = typeof clientOrEmail === "object" && clientOrEmail !== null && (
+    clientOrEmail.isPrimary === false ||
+    clientOrEmail.processType === "secondary" ||
+    clientOrEmail.serviceType === "More Services" ||
+    (typeof clientOrEmail.appId === "string" && (clientOrEmail.appId.endsWith("-S") || clientOrEmail.appId.endsWith("-E"))) ||
+    (sNameClean.length > 0 && !sNameClean.includes("pmegp"))
+  );
+  const isPrimary = isSec ? false : isClientPrimaryScheme(clientOrEmail, schemeName);
+
+  // ── 2. Fall back to client object's completedSteps (DB source of truth) ──
+  if (typeof clientOrEmail === "object" && clientOrEmail !== null) {
+    const explicit = clientOrEmail.completedSteps || clientOrEmail.completedStages;
+    if (Array.isArray(explicit) && explicit.length > 0) {
+      if (isPrimary) {
+        return explicit;
+      } else {
+        // For secondary schemes, guarantee initial start at Reports stage (["CRM Creation", "Agreement", "Reports"])
+        if (!explicit.includes("Reports")) {
+          return Array.from(new Set(["CRM Creation", "Agreement", "Reports", ...explicit]));
+        }
+        return explicit;
+      }
+    }
+  }
+
+  if (!isPrimary) {
+    return ["CRM Creation", "Agreement", "Reports"];
+  }
+
+  if (defaultStages && defaultStages.length > 0) {
+    return defaultStages;
+  }
+
+  return ["CRM Creation"];
+}
+
+/**
+ * Safely resolves client email address from string or client object
+ */
+export function resolveClientEmail(clientOrEmail) {
+  if (!clientOrEmail) return "";
+  if (typeof clientOrEmail === "string" && clientOrEmail.trim()) return clientOrEmail.trim().toLowerCase();
+  
+  if (clientOrEmail.email && clientOrEmail.email.trim()) return clientOrEmail.email.trim().toLowerCase();
+  if (clientOrEmail.clientEmail && clientOrEmail.clientEmail.trim()) return clientOrEmail.clientEmail.trim().toLowerCase();
+
+  // Fallback to company name if no email is found
+  const comp = clientOrEmail.companyName || clientOrEmail.company || clientOrEmail.name || clientOrEmail.clientName;
+  if (comp && comp.trim()) return getClientCompositeKey(comp, "");
+
+  return "";
+}
+
+export function getPrimarySchemeForClient(clientOrEmail) {
+  if (typeof clientOrEmail === "object" && clientOrEmail !== null) {
+    if (clientOrEmail.isPrimary === true) {
+      const p = clientOrEmail.primaryScheme || clientOrEmail.scheme || clientOrEmail.particularScheme || clientOrEmail.serviceName;
+      if (p) return p.trim();
+    }
+  }
+  return "";
+}
+
+export function isClientPrimaryScheme(clientOrEmail, schemeName) {
+  if (!schemeName) return true;
+  const sNameClean = schemeName.trim().toLowerCase();
+
+  if (typeof clientOrEmail === "object" && clientOrEmail !== null) {
+    if (clientOrEmail.isPrimary === false || clientOrEmail.processType === "secondary" || clientOrEmail.serviceType === "More Services") {
+      return false;
+    }
+  }
+
+  // First, explicitly reject any known secondary schemes by keyword
+  const secondaryKeywords = [
+    "cgtmse", "certificate", "certification", "licensing", "license", "dsc", "iso", "gst",
+    "trademark", "itr", "csr-1", "darpan", "it infra", "cloud", "seo", "brand", "software", "marketing", "ad management", "compliance"
+  ];
+  if (secondaryKeywords.some((k) => sNameClean.includes(k))) {
+    return false;
+  }
+
+  const primary = getPrimarySchemeForClient(clientOrEmail).toLowerCase();
+  if (primary && primary !== sNameClean && !primary.includes(sNameClean) && !sNameClean.includes(primary)) {
+    return false;
+  }
+
+  return true;
+}
+
+export function isPrimaryOrEligibleScheme(schemeName) {
+  return isClientPrimaryScheme(null, schemeName);
+}
+
+
+
+/**
+ * Saves scheme-specific completed stages for a client
+ */
+export function saveSchemeCompletedStages(clientOrEmail, schemeName, completedStages) {
+  const emailKey = resolveClientEmail(clientOrEmail);
+  if (!emailKey || !schemeName) return;
+  try {
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("agni_scheme_updated"));
+    window.dispatchEvent(new Event("pipelineUpdated"));
+  } catch (e) { }
+}
+
+export function getClientCompositeKey(companyName, email) {
+  const comp = (companyName || "").trim().toLowerCase();
+  const em = (email || "").trim().toLowerCase();
+  if (comp && em) return `${comp}_${em}`.replace(/[^a-z0-9]/g, "_");
+  if (comp) return comp.replace(/[^a-z0-9]/g, "_");
+  if (em) return em.replace(/[^a-z0-9]/g, "_");
+  return "default";
+}
+
+/**
+ * Checks if a plan object, scheme request, or string represents a Payment Demand or Payment Settlement
+ */
+export function isPaymentDemandOrSettlement(itemOrName) {
+  if (!itemOrName) return false;
+  if (typeof itemOrName === "string") {
+    const s = itemOrName.toLowerCase().trim();
+    return (
+      s.includes("payment demand") ||
+      s.includes("payment settlement") ||
+      s.includes("payment request") ||
+      s.includes("demand for") ||
+      s.includes("settlement for")
+    );
+  }
+  if (typeof itemOrName === "object") {
+    if (itemOrName.isPaymentSettlement === true) return true;
+
+    const rawScheme = typeof itemOrName.scheme === "string"
+      ? itemOrName.scheme
+      : (typeof itemOrName.scheme === "object" && itemOrName.scheme !== null ? itemOrName.scheme?.name : "");
+
+    const nameStr = String(
+      itemOrName.schemeName ||
+      itemOrName.serviceName ||
+      itemOrName.name ||
+      rawScheme ||
+      itemOrName.title ||
+      itemOrName.particularScheme ||
+      ""
+    ).toLowerCase();
+
+    const tagStr = typeof itemOrName.tag === "string" ? itemOrName.tag.toLowerCase() : "";
+    const catStr = typeof itemOrName.category === "string" ? itemOrName.category.toLowerCase() : "";
+    const reqTypeStr = typeof itemOrName.requestType === "string" ? itemOrName.requestType.toLowerCase() : "";
+
+    return (
+      nameStr.includes("payment demand") ||
+      nameStr.includes("payment settlement") ||
+      nameStr.includes("payment request") ||
+      nameStr.includes("demand for") ||
+      nameStr.includes("settlement for") ||
+      tagStr.includes("payment settlement") ||
+      tagStr.includes("payment demand") ||
+      catStr.includes("payment settlement") ||
+      catStr.includes("payment demand") ||
+      reqTypeStr.includes("payment settlement") ||
+      reqTypeStr.includes("payment demand") ||
+      reqTypeStr.includes("payment request")
+    );
+  }
+  return false;
+}
+
+/**
+ * Retrieves all enrolled scheme trackers for a client
+ */
+export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) {
+  if (!client) return [];
+  const emailKey = resolveClientEmail(client);
+  const companyName = client.company || client.companyName || client.name || "";
+  const compKey = getClientCompositeKey(companyName, emailKey);
+
+  const schemeNamesSet = new Set();
+  const addSchemeName = (name) => {
+    if (!name || isPaymentDemandOrSettlement(name)) return;
+    const canonical = getCanonicalSchemeName(name);
+    schemeNamesSet.add(canonical);
+  };
+
+  // Add scheme from this client record
+  if (client.scheme) addSchemeName(client.scheme);
+  if (client.particularScheme) addSchemeName(client.particularScheme);
+  if (client.serviceName) addSchemeName(client.serviceName);
+
+  // ── Cross-reference sibling records for same email (primary + all secondary) ──
+  // Ensures that when viewing a secondary scheme dossier, the primary scheme is also included
+  if (emailKey && Array.isArray(allClientsForSameEmail) && allClientsForSameEmail.length > 0) {
+    allClientsForSameEmail.forEach((sibling) => {
+      const sibEmail = resolveClientEmail(sibling);
+      if (sibEmail && sibEmail === emailKey) {
+        if (sibling.scheme) addSchemeName(sibling.scheme);
+        if (sibling.particularScheme) addSchemeName(sibling.particularScheme);
+        if (sibling.serviceName) addSchemeName(sibling.serviceName);
+      }
+    });
+  }
+
+  try {
+    const compSaved = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
+    if (compSaved) {
+      const parsed = JSON.parse(compSaved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsed.forEach((p) => {
+          if (!isPaymentDemandOrSettlement(p)) {
+            if (p.name) addSchemeName(p.name);
+            if (p.schemeName) addSchemeName(p.schemeName);
+            if (p.title) addSchemeName(p.title);
+          }
+        });
+      }
+    }
+
+    const savedPending = localStorage.getItem("agni_pending_scheme_requests");
+    if (savedPending) {
+      const parsedPending = JSON.parse(savedPending);
+      if (Array.isArray(parsedPending)) {
+        parsedPending.forEach((r) => {
+          if (!isPaymentDemandOrSettlement(r)) {
+            const compMatch = !companyName || (r.companyName || r.clientName || "").trim().toLowerCase() === companyName.trim().toLowerCase();
+            if (compMatch && r.clientEmail && r.clientEmail.toLowerCase().trim() === emailKey && r.status && r.status.includes("Approved")) {
+              if (r.schemeName) addSchemeName(r.schemeName);
+            }
+          }
+        });
+      }
+    }
+  } catch (e) { }
+
+  const schemeList = Array.from(schemeNamesSet).filter((sName) => !isPaymentDemandOrSettlement(sName));
+  if (schemeList.length === 0) {
+    const fallbackScheme = client.scheme && !isPaymentDemandOrSettlement(client.scheme) ? client.scheme : "PMEGP";
+    schemeList.push(fallbackScheme);
+  }
+
+  // Sort: primary (eligible) schemes first, then secondary (more services)
+  schemeList.sort((a, b) => {
+    const aIsPrimary = isClientPrimaryScheme(client, a);
+    const bIsPrimary = isClientPrimaryScheme(client, b);
+    if (aIsPrimary && !bIsPrimary) return -1;
+    if (!aIsPrimary && bIsPrimary) return 1;
+    return 0;
+  });
+
+  return schemeList.map((sName) => {
+    // Find the specific sibling record for this scheme (for correct completedSteps)
+    const schemeClient = [client, ...allClientsForSameEmail].find((c) => {
+      const cScheme = getCanonicalSchemeName(c.scheme || c.serviceName || c.particularScheme || "");
+      return cScheme.toLowerCase() === sName.toLowerCase();
+    }) || client;
+
+    const isPrimary = isClientPrimaryScheme(schemeClient, sName);
+    const defaultSteps = isPrimary
+      ? (schemeClient.completedSteps || schemeClient.completedStages || ["CRM Creation"])
+      : ["CRM Creation", "Agreement", "Reports"];
+
+    const completed = getSchemeCompletedStages(schemeClient, sName, defaultSteps);
+    const tracker = getTrackerState({ scheme: sName }, completed);
+    return {
+      schemeName: sName,
+      isPrimary,
+      tracker,
+    };
+  });
 }
 
 export const ALL_SCHEMES_LIST = Object.keys(SCHEME_PROCESS_TYPE_MAP);

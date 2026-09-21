@@ -1,121 +1,79 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { apiFetch } from "../services/apiClient";
+import { generateInvoiceHTML } from "./Sales/SalesInvoices";
+import { useApiInvoices } from "../hooks/useApiInvoices";
 
-const invoiceMetrics = [
-  { label: "Paid Year-To-Date", value: "₹3,07,000", color: "#44bfb0", bg: "rgba(68, 191, 176, 0.12)" },
-  { label: "Pending Balance", value: "₹42,000", color: "#f2aa38", bg: "rgba(242, 170, 56, 0.12)" },
-  { label: "Total Invoices Issued", value: "6 Invoices", color: "#4e7cff", bg: "rgba(78, 124, 255, 0.12)" },
-  { label: "Next Billing Cycle", value: "14 Jun 2027", color: "#9a74e9", bg: "rgba(154, 116, 233, 0.12)" }
-];
+export default function InvoicesPage({ userEmail }) {
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [downloadNotice, setDownloadNotice] = useState(null);
 
-const invoicesData = [
-  {
-    id: "INV-2026-091",
-    service: "Corporate Health Shield (Annual Premium)",
-    amount: "₹42,000",
-    tax: "₹7,560 (18% GST)",
-    totalAmount: "₹49,560",
-    issueDate: "01 Aug 2026",
-    dueDate: "15 Aug 2026",
-    status: "Pending",
-    accountManager: "Kansish",
-    gstNo: "27AAACA0000A1Z5"
-  },
-  {
-    id: "INV-2026-064",
-    service: "Enterprise IT Infra Shield Setup",
-    amount: "₹85,000",
-    tax: "₹15,300 (18% GST)",
-    totalAmount: "₹1,00,300",
-    issueDate: "01 Mar 2026",
-    dueDate: "15 Mar 2026",
-    status: "Paid",
-    accountManager: "Noah Kim",
-    gstNo: "27AAACA0000A1Z5"
-  },
-  {
-    id: "INV-2026-042",
-    service: "Brand Growth Suite Activation",
-    amount: "₹60,000",
-    tax: "₹10,800 (18% GST)",
-    totalAmount: "₹70,800",
-    issueDate: "20 May 2026",
-    dueDate: "05 Jun 2026",
-    status: "Paid",
-    accountManager: "Mia Ross",
-    gstNo: "27AAACA0000A1Z5"
-  },
-  {
-    id: "INV-2026-018",
-    service: "Mudra Export Certification Fee",
-    amount: "₹1,20,000",
-    tax: "₹21,600 (18% GST)",
-    totalAmount: "₹1,41,600",
-    issueDate: "15 Jan 2026",
-    dueDate: "30 Jan 2026",
-    status: "Paid",
-    accountManager: "Kansish",
-    gstNo: "27AAACA0000A1Z5"
-  },
-  {
-    id: "INV-2025-884",
-    service: "Annual Compliance Audit & Review",
-    amount: "₹42,000",
-    tax: "₹7,560 (18% GST)",
-    totalAmount: "₹49,560",
-    issueDate: "10 Dec 2025",
-    dueDate: "25 Dec 2025",
-    status: "Paid",
-    accountManager: "Kansish",
-    gstNo: "27AAACA0000A1Z5"
-  }
-];
+  const { invoices: apiInvoices, refreshInvoices } = useApiInvoices();
 
-export default function InvoicesPage() {
-  const [selectedInvoice, setSelectedInvoice] = React.useState(null);
-  const [paidInvoices, setPaidInvoices] = React.useState([]);
-  const [downloadNotice, setDownloadNotice] = React.useState(null);
+  const invoices = useMemo(() => {
+    return apiInvoices.map((inv) => {
+      const docType = String(inv.type || inv.documentType || inv.invoiceType || "");
+      const isProforma = docType.toLowerCase().includes("proforma") || docType.toLowerCase().includes("performa") || docType.toLowerCase().includes("pro forma");
+      if (!isProforma || (inv.status || "").toLowerCase() === "paid") {
+        return { ...inv, status: "Paid" };
+      }
+      if (!inv.status) {
+        return { ...inv, status: "Pending" };
+      }
+      return inv;
+    });
+  }, [apiInvoices]);
 
-  function triggerDownload(inv, isPaid) {
-    const statusText = isPaid ? "PAID & CLEARED" : "PENDING PAYMENT";
-    const fileContent = `
-====================================================================
-                        AGNI CRM - OFFICIAL INVOICE
-====================================================================
-Invoice Number  : ${inv.id}
-Client Name     : Acme Industries Pvt. Ltd. (CLI-2026-8942)
-Service Line    : ${inv.service}
-Issue Date      : ${inv.issueDate}
-Due Date        : ${inv.dueDate}
-Account Manager : ${inv.accountManager}
-GSTIN / Reg No  : ${inv.gstNo}
---------------------------------------------------------------------
-Base Fee        : ${inv.amount}
-Applicable GST  : ${inv.tax}
-TOTAL AMOUNT    : ${inv.totalAmount}
-PAYMENT STATUS  : ${statusText}
---------------------------------------------------------------------
-Thank you for choosing AgniCRM Enterprise Services.
-For billing support contact: billing@agnicrm.com
-====================================================================
-`.trim();
+  function triggerDownload(inv) {
+    const htmlContent = generateInvoiceHTML(inv);
 
-    const blob = new Blob([fileContent], { type: "text/plain;charset=utf-8" });
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 400);
+    }
+
+    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${inv.id}_AgniCRM_Invoice.txt`;
+    link.download = `${inv.id}_Agnivridhi_${(inv.type || "Invoice").replace(/\s+/g, "_")}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    setDownloadNotice(`Downloaded official invoice receipt for ${inv.id}!`);
+    setDownloadNotice(`Downloaded official invoice file for ${inv.id}!`);
   }
 
-  function handlePayNow(inv) {
-    setPaidInvoices(prev => [...prev, inv.id]);
+  async function handlePayNow(inv) {
+    try {
+      const res = await apiFetch(`/invoices/${inv.id}/payments`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount: Number(inv.amount || 0),
+          paymentMode: "ONLINE",
+          remarks: "Client portal payment",
+        })
+      });
+
+      if (res.ok) {
+        refreshInvoices();
+        setDownloadNotice(`Payment for ${inv.id} completed successfully! Status updated to Paid.`);
+      } else {
+        const err = await res.json();
+        console.error(err);
+        setDownloadNotice(`Payment simulation active. API returned: ${err.message || 'Error'}`);
+      }
+    } catch (e) {
+      console.warn("Could not update invoice payment status:", e);
+      setDownloadNotice(`Payment simulated.`);
+    }
+
     setSelectedInvoice(null);
-    setDownloadNotice(`Payment for ${inv.id} completed successfully! Invoice updated to Paid.`);
   }
 
   return (
@@ -123,11 +81,11 @@ For billing support contact: billing@agnicrm.com
       {/* Header Intro */}
       <div className="cd-subpage-intro">
         <div>
-          <span className="cd-kicker">FINANCIALS & BILLING</span>
-          <h2>Invoices & Payment Receipts</h2>
-          <p>Download billing receipts, inspect payment breakdowns, and pay outstanding invoices online.</p>
+          <span className="cd-kicker">BILLING & INVOICES</span>
+          <h2>Client Invoices</h2>
+          <p>Download official Tax & Proforma invoices issued for your account and pay outstanding balances online.</p>
         </div>
-        <span className="cd-count-pill">{invoicesData.length} Invoices On Record</span>
+        <span className="cd-count-pill">{invoices.length} Invoice{invoices.length !== 1 ? "s" : ""} On Record</span>
       </div>
 
       {/* Download Alert Notice */}
@@ -139,88 +97,98 @@ For billing support contact: billing@agnicrm.com
         </div>
       )}
 
-      {/* Metrics Banner */}
-      <div className="cd-metrics-grid" style={{ marginBottom: 28 }}>
-        {invoiceMetrics.map(item => (
-          <article key={item.label} className="cd-metric-card">
-            <div className="cd-metric-icon-box" style={{ background: item.bg, color: item.color }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>
-            </div>
-            <div className="cd-metric-info">
-              <span className="cd-metric-value">{item.value}</span>
-              <span className="cd-metric-label">{item.label}</span>
-            </div>
-          </article>
-        ))}
-      </div>
-
       {/* Invoices Table Card */}
       <div className="cd-section-card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="cd-section-head" style={{ padding: '24px 28px 16px', margin: 0 }}>
           <div>
             <span className="cd-kicker">BILLING RECORD</span>
-            <h2 style={{ fontSize: 20 }}>All Invoices</h2>
+            <h2 style={{ fontSize: 20 }}>Client Invoices</h2>
           </div>
         </div>
 
         <div className="cd-table-wrap">
-          <table className="cd-invoices-table">
-            <thead>
-              <tr>
-                <th>Invoice ID</th>
-                <th>Service / Policy Name</th>
-                <th>Issue Date</th>
-                <th>Due Date</th>
-                <th>Total Billed</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoicesData.map(inv => {
-                const isPaid = inv.status === "Paid" || paidInvoices.includes(inv.id);
-                return (
-                  <tr key={inv.id}>
-                    <td>
-                      <strong className="cd-inv-id">{inv.id}</strong>
-                    </td>
-                    <td>{inv.service}</td>
-                    <td>{inv.issueDate}</td>
-                    <td>{inv.dueDate}</td>
-                    <td>
-                      <strong className="cd-inv-amount">{inv.totalAmount}</strong>
-                    </td>
-                    <td>
-                      <span className={`cd-doc-status-badge ${isPaid ? "verified" : "pending"}`}>
-                        {isPaid ? "Paid" : "Pending"}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          type="button"
-                          className="cd-table-action-btn"
-                          style={{ background: 'rgba(68, 191, 176, 0.1)', color: '#44bfb0', borderColor: 'rgba(68, 191, 176, 0.3)' }}
-                          onClick={() => triggerDownload(inv, isPaid)}
-                          title="Download Invoice File"
+          {invoices.length === 0 ? (
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "#666" }}>
+              <p style={{ fontSize: 16, fontWeight: 600, margin: "0 0 6px 0" }}>No Invoices Issued Yet</p>
+              <p style={{ fontSize: 13, margin: 0 }}>Invoices generated by your sales representative will appear here automatically.</p>
+            </div>
+          ) : (
+            <table className="cd-invoices-table">
+              <thead>
+                <tr>
+                  <th>Invoice ID</th>
+                  <th>Document Type</th>
+                  <th>Client Name</th>
+                  <th>Service Description</th>
+                  <th>Issue Date</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((inv) => {
+                  const docType = String(inv.type || inv.documentType || inv.invoiceType || "");
+                  const isProforma = docType.toLowerCase().includes("proforma") || docType.toLowerCase().includes("performa") || docType.toLowerCase().includes("pro forma");
+                  const isPaid = !isProforma || (inv.status || "").toLowerCase() === "paid";
+                  const showPayNow = !isPaid && isProforma;
+                  const rate = Number(inv.rate || inv.pitchedAmount || inv.amount || 0);
+                  const gst = Number(inv.gstPercent) !== undefined ? Number(inv.gstPercent) : 18;
+                  const total = inv.totalAmount ? Number(inv.totalAmount) : (rate * (1 + gst / 100));
+                  const formattedTotal = `₹${Math.round(total).toLocaleString("en-IN")}`;
+
+                  return (
+                    <tr key={inv.id}>
+                      <td>
+                        <strong className="cd-inv-id">{inv.id}</strong>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: isProforma ? "#f59e0b" : "#1877f2" }}>
+                          {inv.type || inv.documentType || "Tax Invoice"}
+                        </span>
+                      </td>
+                      <td>{inv.clientName || "Client"}</td>
+                      <td>{inv.description || "Business Consultancy Services"}</td>
+                      <td>{inv.issueDate || "Today"}</td>
+                      <td>
+                        <span
+                          className={`cd-doc-status-badge ${isPaid ? "verified" : "pending"}`}
+                          style={{
+                            background: isPaid ? "rgba(68, 191, 176, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                            color: isPaid ? "#2b9e90" : "#d97706",
+                            borderColor: isPaid ? "rgba(68, 191, 176, 0.3)" : "rgba(245, 158, 11, 0.3)"
+                          }}
                         >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 4 }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                          Download
-                        </button>
-                        <button
-                          type="button"
-                          className="cd-table-action-btn"
-                          onClick={() => setSelectedInvoice({ ...inv, isPaid })}
-                        >
-                          {isPaid ? "Inspect" : "Pay Now"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {isPaid ? "Paid" : "Not Paid"}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            className="cd-table-action-btn"
+                            style={{ background: 'rgba(68, 191, 176, 0.1)', color: '#44bfb0', borderColor: 'rgba(68, 191, 176, 0.3)' }}
+                            onClick={() => triggerDownload(inv)}
+                            title="Download Invoice File"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 4 }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Download PDF
+                          </button>
+                          <button
+                            type="button"
+                            className="cd-table-action-btn"
+                            style={showPayNow ? { background: '#1877f2', color: '#fff', borderColor: '#1877f2', fontWeight: 600 } : {}}
+                            onClick={() => setSelectedInvoice({ ...inv, isPaid, formattedTotal, isProforma })}
+                          >
+                            {showPayNow ? "Pay Now" : "Inspect"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -229,28 +197,43 @@ For billing support contact: billing@agnicrm.com
         <div className="cd-modal-backdrop" onMouseDown={() => setSelectedInvoice(null)}>
           <section className="cd-modal cd-modal-sm" onMouseDown={(e) => e.stopPropagation()}>
             <button type="button" className="cd-modal-close" onClick={() => setSelectedInvoice(null)}>×</button>
-            <span className={`cd-doc-status-badge ${selectedInvoice.isPaid ? "verified" : "pending"}`} style={{ marginBottom: 12 }}>
-              {selectedInvoice.isPaid ? "Paid & Cleared" : "Payment Pending"}
+            <span
+              className={`cd-doc-status-badge ${selectedInvoice.isPaid ? "verified" : "pending"}`}
+              style={{
+                marginBottom: 12,
+                background: selectedInvoice.isPaid ? "rgba(68, 191, 176, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                color: selectedInvoice.isPaid ? "#2b9e90" : "#d97706"
+              }}
+            >
+              {selectedInvoice.isPaid ? "Paid & Cleared" : "Not Paid (Pending)"}
             </span>
-            <h2>{selectedInvoice.id}</h2>
-            <p className="cd-modal-desc">{selectedInvoice.service}</p>
+            <h2>{selectedInvoice.id} ({selectedInvoice.type || "Invoice"})</h2>
+            <p className="cd-modal-desc">{selectedInvoice.description || "Business Consultancy Services"}</p>
 
             <div className="cd-scheme-meta-box" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 20 }}>
               <div>
-                <span>Base Amount</span>
-                <strong>{selectedInvoice.amount}</strong>
+                <span>Billed To</span>
+                <strong>{selectedInvoice.clientName || "Client"}</strong>
               </div>
               <div>
-                <span>GST Tax (18%)</span>
-                <strong>{selectedInvoice.tax}</strong>
+                <span>GSTIN</span>
+                <strong>{selectedInvoice.gstin || "N/A"}</strong>
+              </div>
+              <div>
+                <span>Base Rate</span>
+                <strong>₹{Number(selectedInvoice.rate || 0).toLocaleString("en-IN")}</strong>
+              </div>
+              <div>
+                <span>GST ({selectedInvoice.gstPercent || 18}%)</span>
+                <strong>₹{Number(selectedInvoice.totalGst || 0).toLocaleString("en-IN")}</strong>
               </div>
               <div>
                 <span>Total Amount Due</span>
-                <strong style={{ color: '#4e7cff' }}>{selectedInvoice.totalAmount}</strong>
+                <strong style={{ color: '#4e7cff' }}>{selectedInvoice.formattedTotal}</strong>
               </div>
               <div>
-                <span>Due Date</span>
-                <strong>{selectedInvoice.dueDate}</strong>
+                <span>Place of Supply</span>
+                <strong>{selectedInvoice.placeOfSupply || "Uttar Pradesh"}</strong>
               </div>
             </div>
 
@@ -258,19 +241,19 @@ For billing support contact: billing@agnicrm.com
               <button
                 type="button"
                 className="cd-submit-btn"
-                style={{ background: 'linear-gradient(135deg, #44bfb0 0%, #2b9e90 100%)' }}
-                onClick={() => triggerDownload(selectedInvoice, selectedInvoice.isPaid)}
+                style={{ background: 'linear-gradient(135deg, #1877f2 0%, #0056b3 100%)' }}
+                onClick={() => triggerDownload(selectedInvoice)}
               >
-                Download Official Invoice File ({selectedInvoice.id})
+                Print / Download Official PDF Invoice ({selectedInvoice.id})
               </button>
 
-              {!selectedInvoice.isPaid && (
+              {!selectedInvoice.isPaid && selectedInvoice.isProforma && (
                 <button
                   type="button"
                   className="cd-submit-btn"
                   onClick={() => handlePayNow(selectedInvoice)}
                 >
-                  Pay {selectedInvoice.totalAmount} Online
+                  Pay {selectedInvoice.formattedTotal} Online
                 </button>
               )}
             </div>

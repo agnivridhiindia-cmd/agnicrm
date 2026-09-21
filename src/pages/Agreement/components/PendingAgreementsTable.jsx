@@ -1,5 +1,6 @@
 import React from "react";
 import Icon from "../../../components/Icon";
+import { getCanonicalSchemeName } from "../../../utils/schemeTracker";
 
 export default function PendingAgreementsTable({
   pendingClients = [],
@@ -71,7 +72,7 @@ export default function PendingAgreementsTable({
                         border: `1px solid ${isPrivate ? "#fbcfe8" : "#c7d2fe"}`,
                       }}
                     >
-                      {client.scheme || client.serviceName || "PMEGP"}
+                      {getCanonicalSchemeName(client.scheme || client.serviceName || "PMEGP")}
                     </span>
                   </td>
                   <td>

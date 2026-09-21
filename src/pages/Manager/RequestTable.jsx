@@ -1,71 +1,81 @@
 import React from "react";
 import Icon from "../../components/Icon";
+import { normalizeSalesPersonName } from "../../utils/branchHelper";
 
 export default function RequestTable({ requests = [], onView }) {
   return (
-    <div className="analytics-card manager-table-card">
-      <div className="manager-table-scroll">
-        <table className="manager-team-table">
+    <div className="mgr-requests-card">
+      <div className="mgr-requests-scroll">
+        <table className="mgr-requests-table">
           <thead>
             <tr>
-              <th>Request ID</th>
-              <th>Client Name</th>
-              <th>Salesperson</th>
-              <th>Request Type</th>
-              <th>Created Date</th>
-              <th>Status</th>
-              <th style={{ textAlign: "right" }}>Action</th>
+              <th>REQUEST ID</th>
+              <th>CLIENT NAME</th>
+              <th>SALESPERSON</th>
+              <th>REQUEST TYPE</th>
+              <th>CREATED DATE</th>
+              <th>STATUS</th>
+              <th style={{ textAlign: "right" }}>ACTION</th>
             </tr>
           </thead>
           <tbody>
             {requests.map((request) => {
-              const statusClass = (request.status || "Pending").toLowerCase();
-              const initials = request.clientName
-                ? request.clientName
+              const statusClass = (request.status || "Pending").toLowerCase().replace(/[^a-z]/g, "");
+              const clientTitle = request.clientName || request.company || request.companyName || "Client Account";
+              const clientSub = request.subtitle || request.company || request.contactPerson || request.email || request.scheme || "Client Entity";
+              const salesPersonName = normalizeSalesPersonName(request.salesPerson || request.owner || "Sales Executive");
+              const reqType = request.requestType || "Client Approval";
+
+              const initials = clientTitle
+                ? clientTitle
                     .split(" ")
+                    .filter(Boolean)
                     .map((n) => n[0])
                     .join("")
                     .slice(0, 2)
                     .toUpperCase()
                 : "CL";
 
+              const reqTypeLower = reqType.toLowerCase();
+              const isDelete = reqTypeLower.includes("delete");
+
               return (
                 <tr key={request.id}>
                   <td>
-                    <span className="manager-id-pill">{request.id}</span>
+                    <span className="mgr-req-id-pill">{request.id}</span>
                   </td>
                   <td>
-                    <div className="manager-member-avatar-cell">
-                      <div className="manager-member-avatar">{initials}</div>
-                      <div className="manager-member-details">
-                        <strong className="manager-member-name">{request.clientName}</strong>
-                        <span className="manager-member-branch">{request.company || "Client Account"}</span>
+                    <div className="mgr-client-cell">
+                      <div className="mgr-client-avatar">{initials}</div>
+                      <div className="mgr-client-meta">
+                        <strong className="mgr-client-title">{clientTitle}</strong>
+                        <span className="mgr-client-subtitle">{clientSub}</span>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <span className="manager-rep-pill">
+                    <span className="mgr-salesperson-pill">
                       <Icon name="user" size={12} />
-                      {request.salesPerson}
+                      <span>{salesPersonName}</span>
                     </span>
                   </td>
                   <td>
-                    <span className="manager-service-pill">
-                      {request.requestType}
+                    <span className={`mgr-type-pill ${isDelete ? "delete" : ""}`}>
+                      {reqType}
                     </span>
                   </td>
                   <td>
-                    <span style={{ fontSize: 12.5, color: "#7a748e" }}>{request.createdAt}</span>
+                    <span className="mgr-date-text">{request.createdAt || "Today"}</span>
                   </td>
                   <td>
-                    <span className={`manager-status-badge ${statusClass}`}>
-                      <span className="manager-status-dot" />
-                      {request.status}
+                    <span className={`mgr-status-pill ${statusClass}`}>
+                      <span className="mgr-status-dot" />
+                      <span>{request.status}</span>
                     </span>
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <button
-                      className="manager-view-btn"
+                      className="mgr-action-review-btn"
                       type="button"
                       onClick={() => onView(request)}
                     >
@@ -78,8 +88,8 @@ export default function RequestTable({ requests = [], onView }) {
             })}
             {requests.length === 0 && (
               <tr>
-                <td colSpan={7} className="manager-empty-state">
-                  No requests in this view.
+                <td colSpan={7} className="mgr-table-empty">
+                  No requests currently available for review in this view.
                 </td>
               </tr>
             )}

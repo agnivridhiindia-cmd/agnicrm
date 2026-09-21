@@ -15,6 +15,11 @@ import ManagerRevenuePage from "./ManagerRevenuePage";
 import ManagerReportsPage from "./ManagerReportsPage";
 import "./manager.css";
 
+import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, mergeSecondaryClients } from "../../utils/branchHelper";
+import { normalizeSchemeName, isSameClientScheme } from "../Sales/hooks/useSalesClients";
+import { isMockClient } from "../../utils/revenueCalculator";
+import { apiFetch } from "../../services/apiClient";
+
 // Mock & Initial Data
 import {
   navItems,
@@ -59,35 +64,210 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsAutoScrollPaused, setNotificationsAutoScrollPaused] = useState(false);
   const [query, setQuery] = useState("");
-  const [clients, setClients] = useState(managerClients);
+  const branchInfo = useMemo(() => getManagerBranchDetails(userEmail), [userEmail]);
+  const managerName = branchInfo.managerName;
+  const managedBranch = branchInfo.branchName;
+  const managedRegion = branchInfo.region;
+
+  const [managerNotices, setManagerNotices] = useState(() => {
+    try {
+      const saved = localStorage.getItem("agni_manager_notifications");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+
+  useEffect(() => {
+    function syncManagerNotices() {
+      try {
+        const saved = localStorage.getItem("agni_manager_notifications");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setManagerNotices(parsed);
+        }
+      } catch (e) {}
+    }
+    window.addEventListener("storage", syncManagerNotices);
+    window.addEventListener("agni_pending_updated", syncManagerNotices);
+    const interval = setInterval(syncManagerNotices, 2000);
+    return () => {
+      window.removeEventListener("storage", syncManagerNotices);
+      window.removeEventListener("agni_pending_updated", syncManagerNotices);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Helper to fetch clients from PostgreSQL Database
+  const fetchManagerClientsFromDB = async () => {
+    try {
+      const response = await apiFetch("/clients");
+
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success && Array.isArray(resData.data)) {
+          const mappedDbClients = resData.data.map((c) => {
+            const isSec = c.isPrimary === false || c.processType === "secondary" || c.serviceType === "More Services" || (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
+            const rawTot = Number(c.totalPayment || c.invoices?.[0]?.rawTotal || c.fundingRequirement || 0);
+            const finalTot = (!isSec && rawTot === 0) ? 118000 : rawTot;
+            const rawRec = Math.max(Number(c.paymentReceived || 0), Number(c.invoices?.[0]?.paymentReceived || 0));
+            const finalRec = (!isSec && rawRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? finalTot : rawRec;
+            const finalPend = Math.max(0, finalTot - finalRec);
+
+            return sanitizeClientRecord({
+              ...c,
+              id: c.id,
+              appId: c.appId,
+              name: c.name,
+              company: c.companyName,
+              contactPerson: c.contactPerson,
+              email: c.email,
+              phone: c.phone,
+              branch: c.branch?.name || managedBranch,
+              scheme: c.serviceName,
+              service: c.serviceName,
+              serviceType: c.serviceType,
+              assignedSalesPerson: c.salesPerson?.fullName || c.owner || "Mia Rose",
+              salesRep: c.salesPerson?.fullName || c.owner || "Mia Rose",
+              owner: c.salesPerson?.fullName || c.owner || "Mia Rose",
+              applicationStatus: c.applicationStatus || "CRM Creation",
+              stage: c.applicationStatus || "Active",
+              completedSteps: c.completedSteps || ["CRM Creation"],
+              progress: c.progressPercent || 20,
+              createdAt: c.createdAt,
+              lastUpdated: c.updatedAt
+                ? new Date(c.updatedAt).toISOString().replace("T", " ").substring(0, 16)
+                : new Date().toISOString().replace("T", " ").substring(0, 16),
+              totalPayment: String(finalTot),
+              revenue: String(finalTot),
+              amount: String(Math.round(finalTot / 1.18)),
+              paymentReceived: String(finalRec),
+              paymentPending: String(finalPend),
+              fundingRequirement: c.fundingRequirement,
+              annualTurnover: c.annualTurnover,
+              businessType: c.businessType,
+              sector: c.sector,
+              gstNumber: c.gstNumber,
+              panNumber: c.panNumber,
+              invoices: c.invoices || [],
+              paymentsHistory: (c.invoices || []).flatMap((inv) =>
+                (inv.payments || []).map((p) => ({
+                  id: p.id,
+                  amount: p.amount,
+                  paidAmount: p.amount,
+                  date: p.paymentDate || p.createdAt,
+                  paymentDate: p.paymentDate || p.createdAt,
+                  status: p.status === "FAILED" ? "failed" : p.status === "PENDING" ? "pending" : "success",
+                  salesPerson: c.salesPerson?.fullName || c.owner || "Mia Rose",
+                  salesRep: c.salesPerson?.fullName || c.owner || "Mia Rose",
+                }))
+              ),
+            });
+          });
+          const fullDbClients = mergeSecondaryClients(mappedDbClients);
+          setClientsState(fullDbClients);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch manager clients from DB:", err);
+    }
+  };
+
+  const [clients, setClientsState] = useState([]);
+
+  useEffect(() => {
+    fetchManagerClientsFromDB();
+    
+    // Listen for cross-component re-fetches
+    const handleUpdate = () => fetchManagerClientsFromDB();
+    window.addEventListener("agni_clients_updated", handleUpdate);
+    
+    return () => {
+      window.removeEventListener("agni_clients_updated", handleUpdate);
+    };
+  }, []);
+
+  const setClients = (updater) => {
+    setClientsState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      // We no longer sync array to localStorage
+      window.dispatchEvent(new Event("agni_clients_updated"));
+      return next;
+    });
+  };
 
   const notificationWrapRef = useRef(null);
   const notificationsListRef = useRef(null);
   const notificationsPauseTimer = useRef(null);
 
-  const managerName = useMemo(() => {
-    if (!userEmail) return "Manager";
-    const raw = userEmail.split("@")[0];
-    const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
-    return parts
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(" ");
-  }, [userEmail]);
+  // Dynamically resolve ALL sales persons belonging to this manager's branch
+  const branchTeam = useMemo(() => {
+    const branchLower = (managedBranch || "").toLowerCase().trim();
+    const regionLower = (managedRegion || "").toLowerCase().trim();
+    const codeLower = (branchInfo.branchCode || "").toLowerCase().trim();
 
-  const managedBranch = "East";
-  const managedRegion = "East Zone";
-  const branchTeam = useMemo(
-    () => salesTeam.filter((member) => member.branch === managedBranch),
-    [managedBranch]
-  );
+    const designatedNames = (branchInfo.salespersons || []).map((s) => s.toLowerCase().trim());
+    const designatedEmails = (branchInfo.salesEmails || []).map((s) => s.toLowerCase().trim());
+
+    return salesTeam.filter((member) => {
+      if (!member) return false;
+      const mName = (member.name || "").toLowerCase().trim();
+      const mEmail = (member.email || "").toLowerCase().trim();
+      const mBranch = (member.branch || member.region || "").toLowerCase().trim();
+
+      // 1. Designated salesperson match from branchInfo
+      if (designatedNames.includes(mName) || designatedEmails.includes(mEmail)) {
+        return true;
+      }
+
+      // 2. Exact match on branch name, region, or branch code
+      if (mBranch === branchLower || mBranch === regionLower || mBranch === codeLower) {
+        return true;
+      }
+
+      // 3. Keyword matching (mumbai, west, delhi, north, bengaluru, south, kolkata, east)
+      const keywords = ["mumbai", "west", "delhi", "north", "bengaluru", "south", "kolkata", "east"];
+      for (const kw of keywords) {
+        if ((branchLower.includes(kw) || regionLower.includes(kw)) && mBranch.includes(kw)) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+  }, [managedBranch, managedRegion, branchInfo]);
+
   const branchTeamNames = useMemo(
-    () => branchTeam.map((member) => member.name),
-    [branchTeam]
+    () => Array.from(new Set([...branchTeam.map((member) => member.name), ...(branchInfo.salespersons || [])])),
+    [branchTeam, branchInfo]
   );
-  const branchClients = useMemo(
-    () => clients.filter((client) => branchTeamNames.includes(client.salesRep)),
-    [clients, branchTeamNames]
-  );
+
+  const branchClients = useMemo(() => {
+    const salesNamesLower = (branchInfo.salespersons || []).map((s) => s.toLowerCase().trim());
+    const salesEmailsLower = (branchInfo.salesEmails || []).map((s) => s.toLowerCase().trim());
+    const managedBranchLower = (managedBranch || "").toLowerCase().trim();
+    const managedRegionLower = (managedRegion || "").toLowerCase().trim();
+
+    return clients.filter((client) => {
+      if (!client) return false;
+      const rep = (client.salesRep || client.assignedSalesPerson || client.salesPerson || client.owner || "").toLowerCase().trim();
+      const repEmail = (client.salesPersonEmail || client.ownerEmail || "").toLowerCase().trim();
+      const clientBranch = (client.branch || client.region || "").toLowerCase().trim();
+
+      const isRepMatch =
+        (rep && (salesNamesLower.includes(rep) || branchTeamNames.some((n) => n.toLowerCase().trim() === rep))) ||
+        (repEmail && salesEmailsLower.includes(repEmail));
+
+      const isBranchMatch =
+        clientBranch &&
+        (managedBranchLower.includes(clientBranch) ||
+          managedRegionLower.includes(clientBranch) ||
+          (clientBranch.includes("west") && managedBranchLower.includes("west")) ||
+          (clientBranch.includes("north") && managedBranchLower.includes("north")) ||
+          (clientBranch.includes("south") && managedBranchLower.includes("south")) ||
+          (clientBranch.includes("east") && managedBranchLower.includes("east")));
+
+      return isRepMatch || isBranchMatch;
+    });
+  }, [clients, branchTeamNames, branchInfo, managedBranch, managedRegion]);
 
   const salesPeople = useMemo(
     () => branchTeam.map((member) => ({ id: member.id, name: member.name })),
@@ -196,13 +376,22 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                 <section className="notifications-popover" aria-label="Notifications">
                   <header>
                     <h2>Notifications</h2>
-                    <span>4 new</span>
+                    <span>{managerNotices.length > 0 ? managerNotices.length : 3} new</span>
                   </header>
                   <div
                     className="notifications-scroll"
                     ref={notificationsListRef}
                     onScroll={handleNotificationsListScroll}
                   >
+                    {managerNotices.map((n, idx) => (
+                      <article key={n.id || idx}>
+                        <span className={`notice-dot ${n.dotColor || "coral"}`} />
+                        <div>
+                          <strong>{n.title}</strong>
+                          <p>{n.message}</p>
+                        </div>
+                      </article>
+                    ))}
                     <article>
                       <span className="notice-dot violet" />
                       <div>
@@ -214,14 +403,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                       <span className="notice-dot green" />
                       <div>
                         <strong>New deal assigned</strong>
-                        <p>Rohan has been added to the Pharma account.</p>
-                      </div>
-                    </article>
-                    <article>
-                      <span className="notice-dot coral" />
-                      <div>
-                        <strong>Quarterly forecast</strong>
-                        <p>Your updated revenue forecast is ready for review.</p>
+                        <p>Lucas Scott registered new client pending approval.</p>
                       </div>
                     </article>
                   </div>
@@ -230,13 +412,13 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
             </div>
             <UserProfileMenu
               user={{
-                name: managerName || "Neha Gupta",
-                email: "neha.gupta@agnicrm.com",
+                name: managerName || "Enterprise Manager",
+                email: userEmail || branchInfo.managerEmail || "manager@agnicrm.com",
                 phone: "+91 98202 33445",
-                branch: "West Zone (Mumbai)",
+                branch: managedBranch,
                 designation: "Enterprise Sales Manager",
                 empId: "EMP-MGR-2004",
-                reportingManager: "Vikramaditya Sharma (Branch Manager)",
+                reportingManager: `${branchInfo.branchManagerName} (Branch Manager)`,
               }}
               role="Manager"
               roleBadge="Manager"
@@ -252,23 +434,25 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
         <Routes>
           <Route
             index
-            element={<ManagerOverviewPage dark={dark} onNavigate={handleNavChange} />}
+            element={<ManagerOverviewPage dark={dark} onNavigate={handleNavChange} branchTeam={branchTeam} clients={branchClients} />}
           />
           <Route
             path="dashboard"
-            element={<ManagerOverviewPage dark={dark} onNavigate={handleNavChange} />}
+            element={<ManagerOverviewPage dark={dark} onNavigate={handleNavChange} branchTeam={branchTeam} clients={branchClients} />}
           />
           <Route
             path="overview"
-            element={<ManagerOverviewPage dark={dark} onNavigate={handleNavChange} />}
+            element={<ManagerOverviewPage dark={dark} onNavigate={handleNavChange} branchTeam={branchTeam} clients={branchClients} />}
           />
           <Route
             path="team"
             element={
               <ManagerTeamPage
                 branchTeam={branchTeam}
+                clients={branchClients}
                 managedRegion={managedRegion}
                 managerName={managerName}
+                branchManagerName={branchInfo.branchManagerName}
               />
             }
           />
@@ -277,8 +461,10 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
             element={
               <ManagerTeamPage
                 branchTeam={branchTeam}
+                clients={branchClients}
                 managedRegion={managedRegion}
                 managerName={managerName}
+                branchManagerName={branchInfo.branchManagerName}
               />
             }
           />
@@ -329,6 +515,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                 branchTeam={branchTeam}
                 managedRegion={managedRegion}
                 managedBranch={managedBranch}
+                clients={branchClients}
               />
             }
           />
@@ -339,20 +526,21 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                 branchTeam={branchTeam}
                 managedRegion={managedRegion}
                 managedBranch={managedBranch}
+                clients={branchClients}
               />
             }
           />
           <Route
             path="reports"
-            element={<ManagerReportsPage branchTeam={branchTeam} />}
+            element={<ManagerReportsPage branchTeam={branchTeam} clients={branchClients} />}
           />
           <Route
             path="report"
-            element={<ManagerReportsPage branchTeam={branchTeam} />}
+            element={<ManagerReportsPage branchTeam={branchTeam} clients={branchClients} />}
           />
           <Route
             path="analytics"
-            element={<ManagerReportsPage branchTeam={branchTeam} />}
+            element={<ManagerReportsPage branchTeam={branchTeam} clients={branchClients} />}
           />
           <Route
             path="*"

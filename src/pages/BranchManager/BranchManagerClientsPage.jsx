@@ -369,12 +369,16 @@ export default function BranchManagerClientsPage({
                 </div>
                 <div className="bm-modal-card">
                   <span className="bm-modal-card-label">Onboarding Date</span>
-                  <span className="bm-modal-card-val">{selectedClient.startDate || "2024"}</span>
+                  <span className="bm-modal-card-val">
+                    {selectedClient.startDate || (selectedClient.createdAt ? String(selectedClient.createdAt).split("T")[0] : "—")}
+                  </span>
                 </div>
                 <div className="bm-modal-card">
                   <span className="bm-modal-card-label">Contract Revenue Value</span>
                   <span className="bm-modal-card-val bm-revenue-text">
-                    {selectedClient.revenue || "—"}
+                    {selectedClient.revenue && selectedClient.revenue !== "0"
+                      ? (selectedClient.revenue.includes("₹") ? selectedClient.revenue : `₹${Number(selectedClient.revenue).toLocaleString("en-IN")}`)
+                      : (selectedClient.totalPayment ? `₹${Number(selectedClient.totalPayment).toLocaleString("en-IN")}` : "—")}
                   </span>
                 </div>
               </div>

@@ -16,30 +16,14 @@ export default function AgreementFormModal({
   // Selected client ID
   const [selectedClientId, setSelectedClientId] = useState("");
 
-  // Form Fields
-  const [effectiveDate, setEffectiveDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [tenureMonths, setTenureMonths] = useState(isScheme ? "12" : "18");
-  const [authorizedSignatory, setAuthorizedSignatory] = useState("Mia Ross");
-  const [signatoryTitle, setSignatoryTitle] = useState(
-    isScheme ? "Senior Scheme Consultant" : "Principal Private Equity Advisor"
-  );
-  const [termsScope, setTermsScope] = useState("");
-  const [specialConditions, setSpecialConditions] = useState("");
-
-  // Scheme specific
-  const [schemeCategory, setSchemeCategory] = useState("Credit-Linked Capital Subsidy & Representation");
-  const [projectCostEstimated, setProjectCostEstimated] = useState("₹25,00,000");
-  const [bankNodalAgency, setBankNodalAgency] = useState("State Bank of India");
-  const [subsidyPercentage, setSubsidyPercentage] = useState("35%");
-
-  // Private Funding specific
-  const [targetFundingAmount, setTargetFundingAmount] = useState("₹1,00,00,000");
-  const [fundingInstrument, setFundingInstrument] = useState("Compulsorily Convertible Debentures (CCD)");
-  const [equityPercentage, setEquityPercentage] = useState("7.5%");
-  const [syndicateLead, setSyndicateLead] = useState("Apex Venture Syndicate");
-  const [successFeePercent, setSuccessFeePercent] = useState("3.5%");
+  // 7 Form Fields matching PDF bracketed placeholders
+  const [agreementDate, setAgreementDate] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [pitchedMoney, setPitchedMoney] = useState("");
+  const [paymentReceived, setPaymentReceived] = useState("");
+  const [paymentLeft, setPaymentLeft] = useState("");
+  const [disbursementRate, setDisbursementRate] = useState("5%");
 
   // Errors
   const [errors, setErrors] = useState({});
@@ -56,25 +40,34 @@ export default function AgreementFormModal({
     return clients.find((c) => c.id.toString() === selectedClientId.toString()) || null;
   }, [clients, selectedClientId]);
 
-  // Update default scope based on selected client and type
+  // Auto-populate 7 fields whenever active client changes
   useEffect(() => {
     if (!activeClient) return;
-    if (isScheme) {
-      setTermsScope(
-        `Legal engagement and statutory representation agreement for ${activeClient.scheme || "Government Scheme"} grant filing on behalf of ${activeClient.company || activeClient.name}.`
-      );
-      setSpecialConditions(
-        "Project outlay subject to nodal bank appraisal and Ministry of MSME sanction clearance."
-      );
-    } else {
-      setTermsScope(
-        `Private investment syndication and capital advisory mandate for ${activeClient.company || activeClient.name}.`
-      );
-      setSpecialConditions(
-        "Exclusive 180-day investment advisory term sheet for institutional and accredited angel syndication."
-      );
-    }
-  }, [activeClient, isScheme]);
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, "0");
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+    setAgreementDate(`${dd}/${mm}/${yyyy}`);
+    setCompanyName(activeClient.company || activeClient.name || "");
+    setCompanyAddress(activeClient.address || "Corporate Business District, Registered Office");
+    setPitchedMoney(
+      activeClient.totalPayment
+        ? `₹${activeClient.totalPayment.toLocaleString("en-IN")}`
+        : "₹50,000"
+    );
+    setPaymentReceived(
+      activeClient.paymentReceived
+        ? `₹${activeClient.paymentReceived.toLocaleString("en-IN")}`
+        : "₹20,000"
+    );
+    setPaymentLeft(
+      activeClient.totalPayment && activeClient.paymentReceived
+        ? `₹${(activeClient.totalPayment - activeClient.paymentReceived).toLocaleString("en-IN")}`
+        : "₹30,000"
+    );
+    setDisbursementRate("5%");
+    setErrors({});
+  }, [activeClient]);
 
   if (!isOpen) return null;
 
@@ -82,15 +75,14 @@ export default function AgreementFormModal({
     e.preventDefault();
     const newErrors = {};
 
-    if (!activeClient) {
-      newErrors.client = "Please select an existing CRM client.";
-    }
-    if (!effectiveDate) {
-      newErrors.effectiveDate = "Effective date is required.";
-    }
-    if (!authorizedSignatory.trim()) {
-      newErrors.authorizedSignatory = "Authorized signatory name is required.";
-    }
+    if (!activeClient) newErrors.client = "Please select an existing CRM client.";
+    if (!agreementDate.trim()) newErrors.agreementDate = "Agreement Execution Date is required.";
+    if (!companyName.trim()) newErrors.companyName = "Company Name is required.";
+    if (!companyAddress.trim()) newErrors.companyAddress = "Company Address is required.";
+    if (!pitchedMoney.trim()) newErrors.pitchedMoney = "Total Pitched Fee is required.";
+    if (!paymentReceived.trim()) newErrors.paymentReceived = "Payment Received is required.";
+    if (!paymentLeft.trim()) newErrors.paymentLeft = "Payment Left is required.";
+    if (!disbursementRate.trim()) newErrors.disbursementRate = "Disbursement Success Fee % is required.";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -108,38 +100,32 @@ export default function AgreementFormModal({
       clientId: activeClient.id,
       appId: activeClient.appId || `APP-${activeClient.id}`,
       clientName: activeClient.name,
-      companyName: activeClient.company || activeClient.name,
+      companyName: companyName.trim(),
+      companyAddress: companyAddress.trim(),
       email: activeClient.email,
       phone: activeClient.phone,
-      address: activeClient.address || "Corporate Office, Business District",
+      address: companyAddress.trim(),
       branch: activeClient.branch || "West Zone (Mumbai)",
-      agreementType: agreementType,
+      templateType: agreementType,
       scheme: isScheme ? activeClient.scheme || "PMEGP" : "Private Funding",
       status: AGREEMENT_STATUSES.READY,
       createdAt: nowStr,
-      sentAt: null,
-      sentTo: null,
-      effectiveDate: effectiveDate,
-      tenureMonths: parseInt(tenureMonths, 10) || 12,
-      commercialValue: activeClient.totalPayment || activeClient.amount || 50000,
-      authorizedSignatory: authorizedSignatory.trim(),
-      signatoryTitle: signatoryTitle.trim(),
-      termsScope: termsScope.trim(),
-      specialConditions: specialConditions.trim(),
-      details: isScheme
-        ? {
-            schemeCategory,
-            projectCostEstimated,
-            bankNodalAgency,
-            subsidyPercentage,
-          }
-        : {
-            targetFundingAmount,
-            fundingInstrument,
-            equityPercentage,
-            syndicateLead,
-            successFeePercent,
-          },
+      agreementDate: agreementDate.trim(),
+      pitchedMoney: pitchedMoney.trim(),
+      paymentReceived: paymentReceived.trim(),
+      paymentLeft: paymentLeft.trim(),
+      disbursementRate: disbursementRate.trim(),
+      agreement: {
+        templateName: isScheme ? "Common Scheme Agreement" : "Private Funding Agreement",
+        status: AGREEMENT_STATUSES.READY,
+        date: agreementDate.trim(),
+        pricing: {
+          pitched: pitchedMoney.trim(),
+          received: paymentReceived.trim(),
+          left: paymentLeft.trim(),
+          successRate: disbursementRate.trim(),
+        },
+      },
     };
 
     onSubmitAgreement(agreementRecord, activeClient);
@@ -222,228 +208,214 @@ export default function AgreementFormModal({
           </div>
         )}
 
-        {/* Step 2: Agreement Parameters */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <div>
-            <label className="field-label" style={{ display: "block", marginBottom: 6 }}>
-              Effective Agreement Date <span style={{ color: "#e11d48" }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={effectiveDate}
-              onChange={(e) => setEffectiveDate(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: errors.effectiveDate ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
-                fontSize: 13,
-                boxSizing: "border-box",
-              }}
-            />
-          </div>
-
-          <div>
-            <label className="field-label" style={{ display: "block", marginBottom: 6 }}>
-              Agreement Tenure (Months)
-            </label>
-            <select
-              value={tenureMonths}
-              onChange={(e) => setTenureMonths(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "9px 12px",
-                borderRadius: 8,
-                border: "1px solid #dcdfe6",
-                fontSize: 13,
-                background: "#fff",
-                boxSizing: "border-box",
-              }}
-            >
-              <option value="6">6 Months</option>
-              <option value="12">12 Months (1 Year)</option>
-              <option value="18">18 Months (1.5 Years)</option>
-              <option value="24">24 Months (2 Years)</option>
-              <option value="36">36 Months (3 Years)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Type-Specific Fields */}
-        {isScheme ? (
-          <div style={{ background: "#f8faff", padding: 14, borderRadius: 12, border: "1px solid #e0e7ff", display: "grid", gap: 12 }}>
+        {/* Step 2: 7 Dynamic PDF Placeholder Parameters */}
+        <div style={{ background: "#f8faff", padding: 14, borderRadius: 12, border: "1px solid #e0e7ff", display: "grid", gap: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.8, color: "#4f46e5" }}>
-              Scheme Agreement Parameters:
+              7 Dynamic Agreement Fields (PDF Placeholders):
             </span>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Scheme Category</label>
-                <input
-                  type="text"
-                  value={schemeCategory}
-                  onChange={(e) => setSchemeCategory(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Est. Project Outlay</label>
-                <input
-                  type="text"
-                  value={projectCostEstimated}
-                  onChange={(e) => setProjectCostEstimated(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Nodal Banking Agency</label>
-                <input
-                  type="text"
-                  value={bankNodalAgency}
-                  onChange={(e) => setBankNodalAgency(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Subsidy Allocation %</label>
-                <input
-                  type="text"
-                  value={subsidyPercentage}
-                  onChange={(e) => setSubsidyPercentage(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ background: "#fffafc", padding: 14, borderRadius: 12, border: "1px solid #fce7f3", display: "grid", gap: 12 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.8, color: "#db2777" }}>
-              Private Funding Agreement Parameters:
+            <span className="admin-badge" style={{ fontSize: 11, background: "rgba(78, 124, 255, 0.15)", color: "#4f46e5" }}>
+              Auto-Populated from CRM
             </span>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Target Funding Amount</label>
-                <input
-                  type="text"
-                  value={targetFundingAmount}
-                  onChange={(e) => setTargetFundingAmount(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Funding Instrument</label>
-                <input
-                  type="text"
-                  value={fundingInstrument}
-                  onChange={(e) => setFundingInstrument(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Equity Stake / Term</label>
-                <input
-                  type="text"
-                  value={equityPercentage}
-                  onChange={(e) => setEquityPercentage(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label className="field-label" style={{ display: "block", marginBottom: 4 }}>Syndicate Lead Entity</label>
-                <input
-                  type="text"
-                  value={syndicateLead}
-                  onChange={(e) => setSyndicateLead(e.target.value)}
-                  style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5, boxSizing: "border-box" }}
-                />
-              </div>
-            </div>
           </div>
-        )}
 
-        {/* Signatory Details */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          {/* 1. Agreement Execution Date */}
           <div>
-            <label className="field-label" style={{ display: "block", marginBottom: 4 }}>
-              Authorized Signatory Name <span style={{ color: "#e11d48" }}>*</span>
+            <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span>Agreement Execution Date <span style={{ color: "#e11d48" }}>*</span></span>
+              <code style={{ fontSize: 10, color: "#4f46e5", background: "rgba(79, 70, 229, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                PDF: (FULL DATE)
+              </code>
             </label>
             <input
               type="text"
-              value={authorizedSignatory}
-              onChange={(e) => setAuthorizedSignatory(e.target.value)}
+              placeholder="e.g. 17/08/2026"
+              value={agreementDate}
+              onChange={(e) => {
+                setAgreementDate(e.target.value);
+                setErrors((prev) => ({ ...prev, agreementDate: null }));
+              }}
               style={{
                 width: "100%",
                 padding: "8px 12px",
                 borderRadius: 8,
-                border: errors.authorizedSignatory ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
+                border: errors.agreementDate ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
                 fontSize: 13,
                 boxSizing: "border-box",
               }}
             />
-            {errors.authorizedSignatory && (
-              <span style={{ color: "#e11d48", fontSize: 12, marginTop: 4, display: "block" }}>
-                {errors.authorizedSignatory}
-              </span>
-            )}
+            {errors.agreementDate && <span style={{ color: "#e11d48", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.agreementDate}</span>}
           </div>
+
+          {/* 2. Company Name */}
           <div>
-            <label className="field-label" style={{ display: "block", marginBottom: 4 }}>
-              Signatory Designation
+            <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span>Registered Company / Enterprise Name <span style={{ color: "#e11d48" }}>*</span></span>
+              <code style={{ fontSize: 10, color: "#4f46e5", background: "rgba(79, 70, 229, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                PDF: (COMPANY NAME)
+              </code>
             </label>
             <input
               type="text"
-              value={signatoryTitle}
-              onChange={(e) => setSignatoryTitle(e.target.value)}
+              placeholder="e.g. Reliance Retail Ltd"
+              value={companyName}
+              onChange={(e) => {
+                setCompanyName(e.target.value);
+                setErrors((prev) => ({ ...prev, companyName: null }));
+              }}
               style={{
                 width: "100%",
                 padding: "8px 12px",
                 borderRadius: 8,
-                border: "1px solid #dcdfe6",
+                border: errors.companyName ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
                 fontSize: 13,
                 boxSizing: "border-box",
               }}
             />
+            {errors.companyName && <span style={{ color: "#e11d48", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.companyName}</span>}
           </div>
-        </div>
 
-        {/* Terms and Scope */}
-        <div>
-          <label className="field-label" style={{ display: "block", marginBottom: 4 }}>
-            Agreement Terms &amp; Representation Scope
-          </label>
-          <textarea
-            rows={2}
-            value={termsScope}
-            onChange={(e) => setTermsScope(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 10,
-              borderRadius: 8,
-              border: "1px solid #dcdfe6",
-              fontSize: 13,
-              fontFamily: "inherit",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
+          {/* 3. Company Address */}
+          <div>
+            <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span>Principal Place of Business / Registered Address <span style={{ color: "#e11d48" }}>*</span></span>
+              <code style={{ fontSize: 10, color: "#4f46e5", background: "rgba(79, 70, 229, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                PDF: (COMPANY ADDRESS)
+              </code>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Lg-02, H-165, Sector 63, Noida, Uttar Pradesh 201301"
+              value={companyAddress}
+              onChange={(e) => {
+                setCompanyAddress(e.target.value);
+                setErrors((prev) => ({ ...prev, companyAddress: null }));
+              }}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: errors.companyAddress ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
+                fontSize: 13,
+                boxSizing: "border-box",
+              }}
+            />
+            {errors.companyAddress && <span style={{ color: "#e11d48", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.companyAddress}</span>}
+          </div>
 
-        <div>
-          <label className="field-label" style={{ display: "block", marginBottom: 4 }}>
-            Special Conditions / Covenants
-          </label>
-          <textarea
-            rows={2}
-            value={specialConditions}
-            onChange={(e) => setSpecialConditions(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 10,
-              borderRadius: 8,
-              border: "1px solid #dcdfe6",
-              fontSize: 13,
-              fontFamily: "inherit",
-              boxSizing: "border-box",
-            }}
-          />
+          {/* 4 & 5. Pitched Fee & Token Received */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span>Total Pitched Commercial <span style={{ color: "#e11d48" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#4f46e5", background: "rgba(79, 70, 229, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (PRICE PITCHED)
+                </code>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. ₹50,000"
+                value={pitchedMoney}
+                onChange={(e) => {
+                  setPitchedMoney(e.target.value);
+                  setErrors((prev) => ({ ...prev, pitchedMoney: null }));
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: errors.pitchedMoney ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
+                  fontSize: 13,
+                  boxSizing: "border-box",
+                }}
+              />
+              {errors.pitchedMoney && <span style={{ color: "#e11d48", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.pitchedMoney}</span>}
+            </div>
+
+            <div>
+              <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span>Stage 1: Token Received <span style={{ color: "#e11d48" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#4f46e5", background: "rgba(79, 70, 229, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (TOKEN MONEY)
+                </code>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. ₹20,000"
+                value={paymentReceived}
+                onChange={(e) => {
+                  setPaymentReceived(e.target.value);
+                  setErrors((prev) => ({ ...prev, paymentReceived: null }));
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: errors.paymentReceived ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
+                  fontSize: 13,
+                  boxSizing: "border-box",
+                }}
+              />
+              {errors.paymentReceived && <span style={{ color: "#e11d48", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.paymentReceived}</span>}
+            </div>
+          </div>
+
+          {/* 6 & 7. Payment Left & Success Rate */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span>Stage 2: Payment Left <span style={{ color: "#e11d48" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#4f46e5", background: "rgba(79, 70, 229, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (PAYMENT LEFT)
+                </code>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. ₹30,000"
+                value={paymentLeft}
+                onChange={(e) => {
+                  setPaymentLeft(e.target.value);
+                  setErrors((prev) => ({ ...prev, paymentLeft: null }));
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: errors.paymentLeft ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
+                  fontSize: 13,
+                  boxSizing: "border-box",
+                }}
+              />
+              {errors.paymentLeft && <span style={{ color: "#e11d48", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.paymentLeft}</span>}
+            </div>
+
+            <div>
+              <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span>Stage 3: Success Fee % <span style={{ color: "#e11d48" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#4f46e5", background: "rgba(79, 70, 229, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (DISPERSMENT RATE)
+                </code>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 5%"
+                value={disbursementRate}
+                onChange={(e) => {
+                  setDisbursementRate(e.target.value);
+                  setErrors((prev) => ({ ...prev, disbursementRate: null }));
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: errors.disbursementRate ? "1.5px solid #e11d48" : "1px solid #dcdfe6",
+                  fontSize: 13,
+                  boxSizing: "border-box",
+                }}
+              />
+              {errors.disbursementRate && <span style={{ color: "#e11d48", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.disbursementRate}</span>}
+            </div>
+          </div>
         </div>
 
         {/* Modal Buttons */}

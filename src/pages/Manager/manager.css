@@ -804,3 +804,242 @@
   background: rgba(26, 32, 52, 0.6);
   border-color: rgba(140, 95, 248, 0.18);
 }
+
+/* --------------------------------------------------------------------------
+   9. Manager Request Table (Screenshot Matching Style)
+   -------------------------------------------------------------------------- */
+.mgr-requests-card {
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ebf3fe 0%, #e1edfd 100%);
+  border: 1px solid #d0e2ff;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.07);
+  overflow: hidden;
+}
+
+.mgr-requests-scroll {
+  overflow-x: auto;
+}
+
+.mgr-requests-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: inherit;
+}
+
+.mgr-requests-table th {
+  padding: 14px 18px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #64748b;
+  border-bottom: 1px solid rgba(191, 219, 254, 0.6);
+  white-space: nowrap;
+}
+
+.mgr-requests-table td {
+  padding: 16px 18px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(219, 234, 254, 0.65);
+  transition: background 0.15s ease;
+}
+
+.mgr-requests-table tr:last-child td {
+  border-bottom: none;
+}
+
+.mgr-requests-table tr:hover td {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.mgr-req-id-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: #e4e6ff;
+  color: #5551f3;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+.mgr-client-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mgr-client-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #d8b4fe;
+  color: #7e22ce;
+  font-weight: 800;
+  font-size: 13px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.mgr-client-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mgr-client-title {
+  display: block;
+  font-weight: 800;
+  font-size: 13.5px;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.mgr-client-subtitle {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.mgr-salesperson-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f3e8ff;
+  color: #7e22ce;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #ede9fe;
+}
+
+.mgr-type-pill {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.mgr-date-text {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.mgr-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mgr-status-pill.pending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.mgr-status-pill.pending .mgr-status-dot {
+  background: #f59e0b;
+}
+
+.mgr-status-pill.approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.mgr-status-pill.approved .mgr-status-dot {
+  background: #22c55e;
+}
+
+.mgr-status-pill.rejected,
+.mgr-status-pill.declined {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.mgr-status-pill.rejected .mgr-status-dot,
+.mgr-status-pill.declined .mgr-status-dot {
+  background: #ef4444;
+}
+
+.mgr-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.mgr-action-review-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e0e7ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mgr-action-review-btn:hover {
+  background: #4338ca;
+  color: #ffffff;
+  border-color: #4338ca;
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.25);
+}
+
+.mgr-table-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+/* Dark mode overrides for screenshot matching table */
+.dashboard-dark .mgr-requests-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.dashboard-dark .mgr-requests-table th {
+  color: #94a3b8;
+  border-bottom-color: rgba(148, 163, 184, 0.15);
+}
+
+.dashboard-dark .mgr-requests-table td {
+  border-bottom-color: rgba(148, 163, 184, 0.1);
+}
+
+.dashboard-dark .mgr-requests-table tr:hover td {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dashboard-dark .mgr-client-title {
+  color: #f8fafc;
+}
+
+.dashboard-dark .mgr-client-subtitle {
+  color: #94a3b8;
+}
+
+.dashboard-dark .mgr-date-text {
+  color: #94a3b8;
+}
+

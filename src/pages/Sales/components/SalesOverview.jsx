@@ -4,27 +4,56 @@ import Icon from "../../../components/Icon";
 import { DashboardChart } from "../../../components/charts";
 import { requestActivities } from "../mockSalesData";
 
-export default function SalesOverview({ kpiCards, onNavigate, dark }) {
+export default function SalesOverview({ kpiCards, monthlyQuotaChartData, selectedYear = "2026", setSelectedYear, onNavigate, onSelectKpiFilter, dark }) {
   return (
     <section className="dashboard-layout sales-dashboard">
       <div className="dashboard-main">
         <div className="scheme-grid sales-layout-grid">
           {kpiCards.map((card) => (
-            <KpiCard key={card.label} card={card} dark={dark} />
+            <KpiCard
+              key={card.label}
+              card={card}
+              dark={dark}
+              onClick={() => {
+                if (card.filterKey && onSelectKpiFilter) {
+                  onSelectKpiFilter(card.filterKey);
+                } else if (onNavigate) {
+                  onNavigate("Clients");
+                }
+              }}
+            />
           ))}
         </div>
 
         <div className="analytics-card" style={{ padding: 24 }}>
-          <div className="panel-header" style={{ marginBottom: 18 }}>
+          <div className="panel-header" style={{ marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
               <p className="eyebrow" style={{ margin: "0 0 6px" }}>Monthly quota</p>
-              <h2 style={{ margin: 0 }}>Monthly quota</h2>
+              <h2 style={{ margin: 0 }}>Monthly quota ({selectedYear})</h2>
               <p className="dashboard-copy" style={{ margin: "6px 0 0", maxWidth: "100%" }}>
-                Quota decided each month vs target acquired.
+                Quota target (₹80,000) vs actual sales acquired (excl. 18% GST).
               </p>
             </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#7a748e" }}>Year:</span>
+              <select
+                className="sales-filter-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear && setSelectedYear(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600 }}
+              >
+                <option value="2026">2026 (Current)</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+            </div>
           </div>
-          <DashboardChart />
+          <DashboardChart
+            months={monthlyQuotaChartData?.months}
+            quotaData={monthlyQuotaChartData?.quotaData}
+            acquiredData={monthlyQuotaChartData?.acquiredData}
+          />
         </div>
       </div>
 

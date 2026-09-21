@@ -1,5 +1,5 @@
 import React from "react";
-import { ACTIVITY_STAGES, stageBadgeColors, formatCurrency, getTrackerState } from "./mockAdminData";
+import { ACTIVITY_STAGES, stageBadgeColors, formatCurrency, getTrackerState, getCanonicalSchemeName } from "./mockAdminData";
 import "./AdminDashboard.css";
 
 export default function AdminClientsPage({
@@ -60,7 +60,7 @@ export default function AdminClientsPage({
               <th>Client &amp; Company</th>
               <th>Scheme / Value</th>
               <th>Sales Officer</th>
-              <th>Activity Status (5 Points)</th>
+              <th>Activity Status</th>
               <th>Progress (%)</th>
               <th>Last Verified</th>
               <th style={{ textAlign: "right" }}>Admin Actions</th>
@@ -78,7 +78,7 @@ export default function AdminClientsPage({
                     <div style={{ fontSize: 12, color: "#64748b" }}>{client.company}</div>
                   </td>
                   <td>
-                    <div>{client.scheme}</div>
+                    <div>{getCanonicalSchemeName(client.particularScheme || client.schemeName || client.scheme || client.serviceName)}</div>
                     <strong style={{ color: "#4e7cff", fontSize: 12.5 }}>{formatCurrency(client.totalPayment)}</strong>
                   </td>
                   <td>{client.assignedSalesPerson}</td>
@@ -87,13 +87,13 @@ export default function AdminClientsPage({
                       <span
                         className="admin-badge"
                         style={{
-                          background: `${stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#10b981"}18`,
-                          color: stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#10b981",
-                          border: `1px solid ${stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#10b981"}33`,
+                          background: `${stageBadgeColors[tracker.currentStage] || "#10b981"}18`,
+                          color: stageBadgeColors[tracker.currentStage] || "#10b981",
+                          border: `1px solid ${stageBadgeColors[tracker.currentStage] || "#10b981"}33`,
                           width: "fit-content",
                         }}
                       >
-                        ● {client.applicationStatus || tracker.currentStage}
+                        ● {tracker.currentStage}
                       </span>
                       {/* Dynamic scheme mini dots indicator */}
                       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>

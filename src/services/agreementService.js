@@ -13,6 +13,9 @@
  *   - POST /api/agreements/:id/send
  */
 
+import { getCanonicalSchemeName, isPaymentDemandOrSettlement } from "../utils/schemeTracker";
+import { apiFetch } from "./apiClient";
+
 export const AGREEMENT_STATUSES = {
   PENDING: "Pending",
   GENERATING: "Generating",
@@ -49,7 +52,8 @@ export const agreementStatusBadgeColors = {
  */
 export function getTemplateTypeForService(serviceName) {
   if (!serviceName) return TEMPLATE_TYPES.SCHEME;
-  return serviceName.toLowerCase().includes("private funding")
+  const canonical = getCanonicalSchemeName(serviceName);
+  return canonical.toLowerCase().includes("private funding")
     ? TEMPLATE_TYPES.PRIVATE_FUNDING
     : TEMPLATE_TYPES.SCHEME;
 }
@@ -61,11 +65,13 @@ export function getTemplateTypeForService(serviceName) {
 export function normalizeAgreementData(agr) {
   if (!agr) return null;
 
+  const rawScheme = agr.scheme?.name || agr.scheme || agr.serviceType || "PMEGP";
+  const schemeName = getCanonicalSchemeName(rawScheme);
+
   const isPrivate =
     agr.scheme?.type === TEMPLATE_TYPES.PRIVATE_FUNDING ||
     agr.templateType === TEMPLATE_TYPES.PRIVATE_FUNDING ||
-    (agr.scheme?.name && agr.scheme.name.toLowerCase().includes("private funding")) ||
-    (agr.serviceType && agr.serviceType.toLowerCase().includes("private funding"));
+    schemeName.toLowerCase().includes("private funding");
 
   const templateType = isPrivate ? TEMPLATE_TYPES.PRIVATE_FUNDING : TEMPLATE_TYPES.SCHEME;
   const templateName =
@@ -82,7 +88,6 @@ export function normalizeAgreementData(agr) {
   const email = agr.client?.email || agr.email || "";
   const phone = agr.client?.phone || agr.phone || "";
   const address = agr.client?.address || agr.companyAddress || agr.address || "";
-  const schemeName = agr.scheme?.name || agr.scheme || agr.serviceType || "PMEGP";
 
   const pricingPitched = agr.agreement?.pricing?.pitched ?? agr.pitchedMoney ?? "";
   const pricingReceived = agr.agreement?.pricing?.received ?? agr.paymentReceived ?? "";
@@ -228,26 +233,58 @@ function saveToStorage(list) {
   }
 }
 
+export function getAuthHeaders() {
+  const token = localStorage.getItem("agni_token");
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 /**
  * Main Agreement Service API Abstraction
  */
 export const agreementService = {
   /**
-   * Fetch all agreements
-   * Future: GET /api/agreements
+   * Fetch all agreements from PostgreSQL backend API
+   * GET /api/v1/agreements
    */
   async getAgreements() {
-    // Simulates API round-trip
-    await new Promise((r) => setTimeout(r, 60));
-    return loadFromStorage();
+    try {
+      const res = await apiFetch("/agreements", {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          return json.data.map(normalizeAgreementData);
+        }
+      }
+    } catch (e) {
+      console.warn("Backend agreement API query failed", e);
+    }
+    return [];
   },
 
   /**
    * Fetch a single agreement by ID
-   * Future: GET /api/agreements/:id
+   * GET /api/v1/agreements/:id
    */
   async getAgreement(id) {
-    await new Promise((r) => setTimeout(r, 60));
+    try {
+      const res = await apiFetch(`/agreements/${encodeURIComponent(id)}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          return normalizeAgreementData(json.data);
+        }
+      }
+    } catch (e) {
+      console.warn(`Backend API getAgreement("${id}") unavailable:`, e);
+    }
+
     const all = loadFromStorage();
     const found = all.find((a) => a.id === id || a.applicationId === id || a.clientId === id);
     if (!found) {
@@ -258,13 +295,7 @@ export const agreementService = {
 
   /**
    * Request agreement generation from the backend
-   * Future: POST /api/agreements/:id/generate
-   * 
-   * The backend will:
-   * 1. Load the original DOCX template
-   * 2. Populate placeholders with client/pricing data
-   * 3. Generate the final DOCX and convert to PDF if required
-   * 4. Return the generated document metadata
+   * POST /api/v1/agreements/generate
    */
   async generateAgreement({
     client,
@@ -278,9 +309,42 @@ export const agreementService = {
     templateType,
     existingCount = 0,
   }) {
-    // Simulate generation latency (future backend response time)
-    await new Promise((r) => setTimeout(r, 600));
+    const payload = {
+      clientId: client?.id || client?.appId,
+      clientEmail: client?.email,
+      companyName: companyName || client?.company || client?.name,
+      companyAddress: companyAddress || client?.address,
+      agreementDate,
+      pitchedMoney,
+      paymentReceived,
+      paymentLeft,
+      disbursementRate,
+      scheme: client?.scheme || client?.serviceName,
+      templateType,
+    };
 
+    try {
+      const res = await apiFetch("/agreements/generate", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const newAgr = normalizeAgreementData(json.data);
+          const all = loadFromStorage();
+          const filtered = all.filter((a) => a.id !== newAgr.id && a.clientId !== newAgr.clientId);
+          saveToStorage([newAgr, ...filtered]);
+          return newAgr;
+        }
+      }
+    } catch (e) {
+      console.warn("Backend generate agreement API unavailable, processing locally:", e);
+    }
+
+    // Local fallback generation
+    await new Promise((r) => setTimeout(r, 400));
     const isPrivate = templateType === TEMPLATE_TYPES.PRIVATE_FUNDING;
     const templateName = isPrivate ? TEMPLATE_NAMES.PRIVATE_FUNDING : TEMPLATE_NAMES.SCHEME;
     const templateFile = isPrivate ? TEMPLATE_FILES.PRIVATE_FUNDING : TEMPLATE_FILES.SCHEME;
@@ -318,14 +382,13 @@ export const agreementService = {
       },
       documents: {
         docxUrl: templateFile,
-        pdfUrl: null, // Ready for real backend PDF URL
+        pdfUrl: null,
       },
       createdAt: nowStr,
       sentAt: null,
       sentTo: null,
     });
 
-    // Save to mock storage
     const all = loadFromStorage();
     const filtered = all.filter((a) => a.id !== newAgreement.id && a.clientId !== newAgreement.clientId);
     const updated = [newAgreement, ...filtered];
@@ -336,7 +399,6 @@ export const agreementService = {
 
   /**
    * Fetch agreement preview metadata
-   * Future: GET /api/agreements/:id/preview
    */
   async getAgreementPreview(agreementId) {
     const agr = await this.getAgreement(agreementId);
@@ -352,59 +414,75 @@ export const agreementService = {
 
   /**
    * Download DOCX file
-   * Future: GET /api/agreements/:id/download/docx
    */
   async downloadAgreementDocx(agreementId, customFilename) {
     const agr = await this.getAgreement(agreementId);
-    const filename =
-      customFilename ||
-      `${(agr.client?.companyName || "Agreement").replace(/[^a-zA-Z0-9_-]/g, "_")}_${agr.id}.docx`;
+    try {
+      const { downloadDocxFile } = await import("../pages/Agreement/docxService");
+      return downloadDocxFile(agr, customFilename);
+    } catch (e) {
+      console.warn("Falling back to static download", e);
+      const filename =
+        customFilename ||
+        `${(agr.client?.companyName || "Agreement").replace(/[^a-zA-Z0-9_-]/g, "_")}_${agr.id}.docx`;
 
-    const docxUrl = agr.documents?.docxUrl || TEMPLATE_FILES.SCHEME;
+      const docxUrl = agr.documents?.docxUrl || TEMPLATE_FILES.SCHEME;
 
-    const link = document.createElement("a");
-    link.href = docxUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    return { success: true, filename };
-  },
-
-  /**
-   * Download PDF file
-   * Future: GET /api/agreements/:id/download/pdf
-   */
-  async downloadAgreementPdf(agreementId, customFilename) {
-    const agr = await this.getAgreement(agreementId);
-    const filename =
-      customFilename ||
-      `${(agr.client?.companyName || "Agreement").replace(/[^a-zA-Z0-9_-]/g, "_")}_${agr.id}.pdf`;
-
-    if (agr.documents?.pdfUrl) {
       const link = document.createElement("a");
-      link.href = agr.documents.pdfUrl;
+      link.href = docxUrl;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
       return { success: true, filename };
-    } else {
-      // In mock mode without a backend PDF generator, provide clear feedback
+    }
+  },
+
+  /**
+   * Download PDF file
+   */
+  async downloadAgreementPdf(agreementId, customFilename) {
+    const agr = await this.getAgreement(agreementId);
+    try {
+      const { downloadPdfFile } = await import("../pages/Agreement/docxService");
+      return downloadPdfFile(agr, customFilename);
+    } catch (e) {
+      console.warn("Error triggering PDF download:", e);
       return {
         success: false,
-        message: "PDF generation will be processed by the backend once connected.",
+        message: e.message,
       };
     }
   },
 
   /**
    * Dispatch agreement to client
-   * Future: POST /api/agreements/:id/send
+   * POST /api/v1/agreements/:id/send
    */
   async sendAgreement(agreementId, recipientEmail) {
-    await new Promise((r) => setTimeout(r, 400));
+    try {
+      const res = await apiFetch(`/agreements/${encodeURIComponent(agreementId)}/send`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ recipientEmail }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const updatedAgr = normalizeAgreementData(json.data);
+          const all = loadFromStorage();
+          const updatedList = all.map((item) => (item.id === updatedAgr.id ? updatedAgr : item));
+          saveToStorage(updatedList);
+          return updatedAgr;
+        }
+      }
+    } catch (e) {
+      console.warn("Backend send agreement API unavailable, processing locally:", e);
+    }
+
+    // Local fallback send
+    await new Promise((r) => setTimeout(r, 200));
     const all = loadFromStorage();
     const target = all.find((a) => a.id === agreementId);
 
@@ -430,6 +508,39 @@ export const agreementService = {
     saveToStorage(updatedList);
 
     return updatedAgr;
+  },
+
+  /**
+   * Auto-create and dispatch agreement directly to client email during CRM creation
+   */
+  async createAndSendAgreementForClient(clientRecord) {
+    if (!clientRecord) return null;
+    const recipientEmail = clientRecord.email || clientRecord.clientEmail || "client@company.com";
+    try {
+      const generated = await this.generateAgreement({
+        client: {
+          id: clientRecord.id || clientRecord.appId || `CL-${Date.now()}`,
+          appId: clientRecord.appId || `AGNI-${Date.now()}`,
+          name: clientRecord.name || clientRecord.contactPerson || clientRecord.company || "Client",
+          company: clientRecord.company || clientRecord.name || "Client Enterprise",
+          email: recipientEmail,
+          phone: clientRecord.phone || "",
+          address: clientRecord.address || "Main Office",
+        },
+        companyName: clientRecord.company || clientRecord.name || "Client Enterprise",
+        companyAddress: clientRecord.address || "Main Office",
+        pitchedMoney: clientRecord.totalPayment || clientRecord.amount || "0",
+        paymentReceived: clientRecord.paymentReceived || "0",
+        paymentLeft: clientRecord.paymentPending || "0",
+        disbursementRate: "10%",
+        scheme: clientRecord.scheme || clientRecord.serviceType || "PMEGP",
+      });
+
+      return await this.sendAgreement(generated.id, recipientEmail);
+    } catch (err) {
+      console.warn("Could not auto-dispatch agreement on CRM creation:", err);
+      return null;
+    }
   },
 
   /**

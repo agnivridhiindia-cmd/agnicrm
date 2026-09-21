@@ -25,6 +25,7 @@ export default function ActivityTracker({
   completedSteps,
   progress,
   onStepToggle,
+  onRequestRollback,
   interactive = false,
   showTrack = true,
   size = "normal",
@@ -38,7 +39,7 @@ export default function ActivityTracker({
   className = "",
 }) {
   // If clients array is supplied or mode is 'breakdown', render the Pipeline Breakdown Widget
-  if (mode === "breakdown" || (clients && clients.length > 0 && !completedSteps && !progress && mode !== "stepper")) {
+  if (mode === "breakdown" || (clients && clients.length > 0 && !completedSteps && !progress)) {
     return (
       <section className={`activity-panel ${className}`} style={{ marginBottom: 18 }}>
         <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -99,25 +100,33 @@ export default function ActivityTracker({
   const processLabel = getProcessTypeLabel(processType);
 
   const handlePointClick = (stage, idx) => {
-    if (!interactive || !onStepToggle) return;
+    if (!interactive) return;
 
-    let nextCompleted;
-    if (currentCompleted.includes(stage.name)) {
-      nextCompleted = currentCompleted.filter((name) => {
-        const stageIdx = stages.findIndex((s) => s.name === name);
-        return stageIdx < idx;
-      });
-    } else {
-      if (!canCompleteStage(stage.name, stages, currentCompleted)) {
-        return;
-      }
-      nextCompleted = stages.slice(0, idx + 1).map((s) => s.name);
+    // Stage 1 (CRM Creation) is always mandatory and locked completed
+    if (stage.name === "CRM Creation" || idx === 0) {
+      return;
     }
 
+    // Attempting to deselect/uncheck an already completed stage -> requires Branch Manager approval
+    if (currentCompleted.includes(stage.name)) {
+      if (onRequestRollback) {
+        onRequestRollback(stage.name);
+      }
+      return;
+    }
+
+    // Moving FORWARD: Checking an uncompleted stage
+    if (!onStepToggle) return;
+    if (!canCompleteStage(stage.name, stages, currentCompleted)) {
+      return;
+    }
+
+    const nextCompleted = stages.slice(0, idx + 1).map((s) => s.name);
     const normalized = normalizeCompletedStages(nextCompleted, stages);
     const updatedTracker = getTrackerState({ scheme, completedSteps: normalized });
     onStepToggle(stage.name, updatedTracker.completedStages, updatedTracker.progressPercent);
   };
+
 
   return (
     <div className={`activity-status-wrapper size-${size} ${className}`}>
@@ -174,10 +183,12 @@ export default function ActivityTracker({
               onClick={() => handlePointClick(stage, idx)}
               title={
                 interactive
-                  ? isDone
-                    ? `Click to mark pending from ${stage.name}`
+                  ? idx === 0
+                    ? "CRM Creation is mandatory and completed by default"
+                    : isDone
+                    ? `Click to request rollback approval from Branch Manager for ${stage.name}`
                     : isClickable
-                    ? `Click to complete ${stage.name}`
+                    ? `Click to mark completed: ${stage.name}`
                     : `Locked: Complete prior steps first`
                   : undefined
               }

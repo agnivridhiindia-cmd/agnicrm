@@ -3,6 +3,8 @@ import Icon from "../../components/Icon";
 import SimpleModal from "../../components/SimpleModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import ManagerClientInfoModal from "./ManagerClientInfoModal";
+import { normalizeSalesPersonName } from "../../utils/branchHelper";
+import { parseNetRevenue, parseRevenueValue, formatCurrency } from "../../utils/paymentHelpers";
 
 export default function ManagerClientsPage({
   clients = [],
@@ -16,18 +18,24 @@ export default function ManagerClientsPage({
 
   const filteredClients = useMemo(() => {
     return clients.filter((client) => {
+      if (!client) return false;
       if (selectedSalesPerson !== "all") {
-        const selectedId = Number(selectedSalesPerson);
-        if (client.assignedSalesPersonId !== selectedId) return false;
+        const targetStr = String(selectedSalesPerson).toLowerCase().trim();
+        const repName = String(client.salesRep || client.owner || client.salesPerson || "").toLowerCase().trim();
+        const repId = String(client.assignedSalesPersonId || "");
+        if (repName !== targetStr && repId !== targetStr && !repName.includes(targetStr)) {
+          return false;
+        }
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchName = client.name?.toLowerCase().includes(q);
-        const matchCompany = client.company?.toLowerCase().includes(q);
-        const matchRep = client.salesRep?.toLowerCase().includes(q);
-        const matchEmail = client.email?.toLowerCase().includes(q);
-        const matchPhone = client.phone?.toLowerCase().includes(q);
-        if (!matchName && !matchCompany && !matchRep && !matchEmail && !matchPhone) return false;
+        const matchName = (client.name || "").toLowerCase().includes(q);
+        const matchCompany = (client.company || "").toLowerCase().includes(q);
+        const matchRep = (client.salesRep || client.owner || client.salesPerson || "").toLowerCase().includes(q);
+        const matchEmail = (client.email || "").toLowerCase().includes(q);
+        const matchPhone = (client.phone || "").toLowerCase().includes(q);
+        const matchService = (client.service || client.scheme || "").toLowerCase().includes(q);
+        if (!matchName && !matchCompany && !matchRep && !matchEmail && !matchPhone && !matchService) return false;
       }
       return true;
     });
@@ -36,8 +44,9 @@ export default function ManagerClientsPage({
   const stats = useMemo(() => {
     const total = clients.length;
     const totalRevenue = clients.reduce((sum, c) => {
-      const num = parseFloat(String(c.revenue || "0").replace(/[^0-9.-]+/g, "")) || 0;
-      return sum + num;
+      const rawVal = c.revenue || c.totalPayment || c.amount || c.paymentReceived || 0;
+      const netVal = parseNetRevenue(rawVal);
+      return sum + netVal;
     }, 0);
     return { total, totalRevenue };
   }, [clients]);
@@ -115,7 +124,7 @@ export default function ManagerClientsPage({
             </div>
           </div>
           <div>
-            <strong className="manager-kpi-tile-value" style={{ color: "#10b981" }}>₹{stats.totalRevenue.toLocaleString("en-IN")}k</strong>
+            <strong className="manager-kpi-tile-value" style={{ color: "#10b981" }}>{formatCurrency(stats.totalRevenue)}</strong>
             <span className="manager-kpi-tile-sub">Acquired Contract Revenue</span>
           </div>
         </div>
@@ -142,11 +151,15 @@ export default function ManagerClientsPage({
             onChange={(event) => setSelectedSalesPerson(event.target.value)}
           >
             <option value="all">All Sales Persons</option>
-            {salesPeople.map((person) => (
-              <option key={person.id} value={person.id}>
-                {person.name}
-              </option>
-            ))}
+            {salesPeople.map((person, idx) => {
+              const pName = typeof person === "string" ? person : person.name;
+              const pVal = pName;
+              return (
+                <option key={person.id || idx} value={pVal}>
+                  {pName}
+                </option>
+              );
+            })}
           </select>
         </div>
 
@@ -163,7 +176,7 @@ export default function ManagerClientsPage({
           <table className="manager-team-table">
             <thead>
               <tr>
-                <th>Client & Company</th>
+                <th>Client &amp; Company</th>
                 <th>Assigned Rep</th>
                 <th>Contact Info</th>
                 <th>Service Plan</th>
@@ -174,14 +187,23 @@ export default function ManagerClientsPage({
             </thead>
             <tbody>
               {filteredClients.map((client) => {
-                const initials = client.name
-                  ? client.name
+                const clientNameStr = client.name || client.company || "Client Account";
+                const initials = clientNameStr
+                  ? clientNameStr
                       .split(" ")
+                      .filter(Boolean)
                       .map((n) => n[0])
                       .join("")
                       .slice(0, 2)
                       .toUpperCase()
                   : "CL";
+
+                const repName = normalizeSalesPersonName(client.salesRep || client.owner || client.salesPerson || "Sales Executive");
+                const serviceName = client.service || client.scheme || client.serviceName || "Consultancy";
+                const rawRev = parseRevenueValue(client.paymentReceived) || parseRevenueValue(client.revenue) || parseRevenueValue(client.totalPayment) || parseRevenueValue(client.amount) || 0;
+                const netVal = parseNetRevenue(rawRev);
+                const revText = netVal > 0 ? formatCurrency(netVal) : (rawRev > 0 ? formatCurrency(parseNetRevenue(rawRev)) : "—");
+                const onbDate = client.startDate || (client.createdAt ? String(client.createdAt).split("T")[0] : "2025");
 
                 return (
                   <tr key={client.id}>
@@ -189,9 +211,9 @@ export default function ManagerClientsPage({
                       <div className="manager-member-avatar-cell">
                         <div className="manager-member-avatar">{initials}</div>
                         <div className="manager-member-details">
-                          <strong className="manager-member-name">{client.name}</strong>
+                          <strong className="manager-member-name">{clientNameStr}</strong>
                           <span className="manager-member-branch">
-                            {client.company || "Individual"}
+                            {client.company || client.name || "Corporate Account"}
                           </span>
                         </div>
                       </div>
@@ -199,29 +221,29 @@ export default function ManagerClientsPage({
                     <td>
                       <span className="manager-rep-pill">
                         <Icon name="user" size={12} />
-                        {client.salesRep || "Unassigned"}
+                        {repName}
                       </span>
                     </td>
                     <td>
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span>{client.email}</span>
+                        <span>{client.email || "—"}</span>
                         <span style={{ fontSize: 12, color: "#7a748e", fontFamily: "monospace" }}>
-                          {client.phone}
+                          {client.phone || "—"}
                         </span>
                       </div>
                     </td>
                     <td>
                       <span className="manager-service-pill">
-                        {client.service || "Standard"}
+                        {serviceName}
                       </span>
                     </td>
                     <td>
                       <strong style={{ fontSize: 13.5, fontWeight: 800, color: "#10b981" }}>
-                        {client.revenue || "—"}
+                        {revText}
                       </strong>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12.5, color: "#7a748e" }}>{client.startDate || "2025"}</span>
+                      <span style={{ fontSize: 12.5, color: "#7a748e" }}>{onbDate}</span>
                     </td>
                     <td style={{ textAlign: "right" }}>
                       <div style={{ display: "inline-flex", gap: 8 }}>

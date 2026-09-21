@@ -1,12 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import RevenueSummaryCard from "../../components/RevenueSummaryCard";
 import { RevenueTrendChart } from "../../components/charts";
 import { revenueSeries } from "./mockOwnerData";
+import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 
 export default function OwnerRevenuePage({
   revenueRange = "monthly",
   setRevenueRange,
+  clients = [],
+  invoices = [],
 }) {
   const [localRange, setLocalRange] = useState(revenueRange);
 
@@ -16,29 +19,86 @@ export default function OwnerRevenuePage({
     else setLocalRange(val);
   };
 
-  const selectedRevenueData = revenueSeries[activeRange] || revenueSeries.monthly;
-  const revenueTotal = selectedRevenueData.reduce((sum, point) => sum + point.value, 0);
-  const revenueReceived = Math.round(revenueTotal * 0.72);
-  const revenuePending = Math.round(revenueTotal * 0.28);
+  const metrics = useMemo(
+    () => calculateRevenueMetrics(clients || [], invoices || []),
+    [clients, invoices]
+  );
+
+  const revenueReceived = useMemo(() => {
+    switch (activeRange) {
+      case "daily":
+        return metrics.dailyNet || 0;
+      case "weekly":
+        return metrics.weeklyNet || 0;
+      case "monthly":
+        return metrics.monthlyNet || 0;
+      case "yearly":
+        return metrics.yearlyNet || 0;
+      case "allTime":
+        return metrics.totalReceivedNet || 0;
+      default:
+        return metrics.monthlyNet || 0;
+    }
+  }, [activeRange, metrics]);
+
+  const revenuePending = useMemo(() => {
+    switch (activeRange) {
+      case "daily":
+        return metrics.dailyPendingNet || 0;
+      case "weekly":
+        return metrics.weeklyPendingNet || 0;
+      case "monthly":
+        return metrics.monthlyPendingNet || 0;
+      case "yearly":
+        return metrics.yearlyPendingNet || 0;
+      case "allTime":
+        return metrics.totalPendingNet || 0;
+      default:
+        return metrics.monthlyPendingNet || 0;
+    }
+  }, [activeRange, metrics]);
+
+  const revenueTotal = revenueReceived + revenuePending;
+
+  const selectedRevenueData = useMemo(() => {
+    const baseSeries = revenueSeries[activeRange] || revenueSeries.monthly;
+    if (revenueReceived === 0) {
+      return baseSeries.map((pt) => ({ ...pt, value: 0 }));
+    }
+
+    const baseTotal = baseSeries.reduce((sum, pt) => sum + pt.value, 0) || 1;
+    const scaleRatio = revenueReceived / baseTotal;
+    return baseSeries.map((pt) => ({
+      label: pt.label,
+      value: Math.round(pt.value * scaleRatio),
+    }));
+  }, [activeRange, revenueReceived]);
+
+  const averageRunRate = selectedRevenueData.length > 0
+    ? Math.round(revenueReceived / selectedRevenueData.length)
+    : 0;
+  const cyclePeak = selectedRevenueData.length > 0
+    ? Math.max(...selectedRevenueData.map((pt) => pt.value))
+    : 0;
 
   const revenueSummaryCards = [
     {
       label: "Payment received",
-      value: `₹${revenueReceived.toLocaleString()}`,
-      hint: "Collected from clients",
+      value: `₹${revenueReceived.toLocaleString("en-IN")}`,
+      hint: "Collected from clients (Net)",
       accentClass: "received",
       icon: "arrowUp",
     },
     {
       label: "Payment pending",
-      value: `₹${revenuePending.toLocaleString()}`,
+      value: `₹${revenuePending.toLocaleString("en-IN")}`,
       hint: "Awaiting confirmation",
       accentClass: "pending",
       icon: "overview",
     },
     {
       label: "Total payment",
-      value: `₹${revenueTotal.toLocaleString()}`,
+      value: `₹${revenueTotal.toLocaleString("en-IN")}`,
       hint: "Overall revenue range",
       accentClass: "total",
       icon: "revenue",
@@ -88,7 +148,7 @@ export default function OwnerRevenuePage({
         <div className="revenue-summary">
           <div>
             <p className="eyebrow">Revenue overview</p>
-            <h2>₹{revenueTotal.toLocaleString()}</h2>
+            <h2>₹{revenueReceived.toLocaleString("en-IN")}</h2>
             <p className="revenue-copy">
               Selected range: {activeRange.charAt(0).toUpperCase() + activeRange.slice(1)} horizon across all active enterprise portfolios.
             </p>
@@ -98,13 +158,13 @@ export default function OwnerRevenuePage({
             <div>
               <span>Average Run Rate</span>
               <strong>
-                ₹{Math.round(revenueTotal / selectedRevenueData.length).toLocaleString()}
+                ₹{averageRunRate.toLocaleString("en-IN")}
               </strong>
             </div>
             <div>
               <span>Cycle Peak</span>
               <strong>
-                ₹{Math.max(...selectedRevenueData.map((item) => item.value)).toLocaleString()}
+                ₹{cyclePeak.toLocaleString("en-IN")}
               </strong>
             </div>
             <div>

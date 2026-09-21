@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
@@ -17,6 +17,10 @@ import BranchManagerITPage from "./BranchManagerITPage";
 import BranchManagerMarketingPage from "./BranchManagerMarketingPage";
 import BranchManagerRequestsPage from "./BranchManagerRequestsPage";
 import "./branchmanagerdashboard.css";
+
+import { getTrackerState } from "../../utils/schemeTracker";
+import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, mergeSecondaryClients } from "../../utils/branchHelper";
+import { apiFetch } from "../../services/apiClient";
 
 // Mock & Initial Data
 import {
@@ -79,15 +83,90 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
   const [branchMarketing] = useState(initialBranchMarketing);
   const [employeesList] = useState(initialEmployeesList);
 
+  const branchInfo = useMemo(() => getManagerBranchDetails(userEmail), [userEmail]);
+  const branchManagerName = branchInfo.branchManagerName;
+  const managedRegion = branchInfo.region;
+  const managedBranch = branchInfo.branchName;
+
   const salesPersonName = useMemo(() => {
-    if (!userEmail) return "Branch Manager";
-    const raw = userEmail.split("@")[0];
-    const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
-    return parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" ");
-  }, [userEmail]);
+    return branchManagerName || "Ariana Lee";
+  }, [branchManagerName]);
 
   // Branch scope
-  const myBranch = "East";
+  const myBranch = managedRegion || "West Zone";
+
+  // Live Fetch Clients from PostgreSQL Backend API
+  useEffect(() => {
+    async function fetchBranchManagerClientsFromDB() {
+      try {
+        const response = await apiFetch("/clients");
+
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.data)) {
+            const mappedDbClients = resData.data.map((c) => {
+              const tracker = getTrackerState({
+                ...c,
+                scheme: c.serviceName || c.scheme,
+              });
+
+              const isSec = c.isPrimary === false || c.processType === "secondary" || c.serviceType === "More Services" || (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
+              const rawTot = Number(c.totalPayment || c.invoices?.[0]?.rawTotal || c.fundingRequirement || 0);
+              const finalTot = (!isSec && rawTot === 0) ? 118000 : rawTot;
+              const rawRec = Math.max(Number(c.paymentReceived || 0), Number(c.invoices?.[0]?.paymentReceived || 0));
+              const finalRec = (!isSec && rawRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? finalTot : rawRec;
+              const finalPend = Math.max(0, finalTot - finalRec);
+
+              return sanitizeClientRecord({
+                ...c,
+                id: c.id,
+                appId: c.appId,
+                name: c.name,
+                company: c.companyName,
+                contactPerson: c.contactPerson,
+                email: c.email,
+                phone: c.phone,
+                branch: c.branch?.name || managedBranch,
+                region: c.branch?.region || managedRegion,
+                scheme: c.serviceName,
+                serviceType: c.serviceType,
+                assignedSalesPerson: c.salesPerson?.fullName || c.owner || "Mia Rose",
+                salesRep: c.salesPerson?.fullName || c.owner || "Mia Rose",
+                applicationStatus: c.applicationStatus || "CRM Creation",
+                completedSteps: tracker.completedStages,
+                progress: c.progressPercent || tracker.progressPercent,
+                revenue: String(finalTot),
+                totalPayment: String(finalTot),
+                amount: String(Math.round(finalTot / 1.18)),
+                paymentReceived: String(finalRec),
+                paymentPending: String(finalPend),
+                approvalStatus: c.approvalStatus,
+                documentStatus: c.documentStatus,
+                createdAt: c.createdAt,
+                lastUpdated: c.updatedAt
+                  ? new Date(c.updatedAt).toISOString().replace("T", " ").substring(0, 16)
+                  : new Date().toISOString().replace("T", " ").substring(0, 16),
+                invoices: c.invoices || [],
+                documents: c.documents || [],
+              });
+            });
+
+            const fullDbClients = mergeSecondaryClients(mappedDbClients);
+            setClients(fullDbClients);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch branch manager clients from DB:", err);
+      }
+    }
+
+    fetchBranchManagerClientsFromDB();
+
+    window.addEventListener("agni_clients_updated", fetchBranchManagerClientsFromDB);
+    return () => {
+      window.removeEventListener("agni_clients_updated", fetchBranchManagerClientsFromDB);
+    };
+  }, [managedBranch, managedRegion]);
 
   return (
     <main className={`owner-dashboard branch-manager-dashboard ${dark ? "dashboard-dark" : ""}`}>
@@ -119,10 +198,10 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             />
             <UserProfileMenu
               user={{
-                name: salesPersonName || "Vikramaditya Sharma",
-                email: "vikram.sharma@agnicrm.com",
+                name: salesPersonName,
+                email: branchInfo.branchManagerEmail || "ariana@agni.com",
                 phone: "+91 98200 98765",
-                branch: "West Zone (Mumbai)",
+                branch: managedBranch,
                 designation: "Branch Director & Manager",
                 empId: "EMP-BM-1002",
                 quota: "₹1,20,00,000",
@@ -143,15 +222,54 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
         <Routes>
           <Route
             index
-            element={<BranchManagerOverviewPage dark={dark} onNavigate={handleNavChange} />}
+            element={
+              <BranchManagerOverviewPage
+                dark={dark}
+                onNavigate={handleNavChange}
+                clients={clients}
+                managedBranch={managedBranch}
+                managedRegion={managedRegion}
+                branchManagerName={branchManagerName}
+                employeesList={employeesList}
+                branchAdmins={branchAdmins}
+                branchIT={branchIT}
+                branchMarketing={branchMarketing}
+              />
+            }
           />
           <Route
             path="dashboard"
-            element={<BranchManagerOverviewPage dark={dark} onNavigate={handleNavChange} />}
+            element={
+              <BranchManagerOverviewPage
+                dark={dark}
+                onNavigate={handleNavChange}
+                clients={clients}
+                managedBranch={managedBranch}
+                managedRegion={managedRegion}
+                branchManagerName={branchManagerName}
+                employeesList={employeesList}
+                branchAdmins={branchAdmins}
+                branchIT={branchIT}
+                branchMarketing={branchMarketing}
+              />
+            }
           />
           <Route
             path="overview"
-            element={<BranchManagerOverviewPage dark={dark} onNavigate={handleNavChange} />}
+            element={
+              <BranchManagerOverviewPage
+                dark={dark}
+                onNavigate={handleNavChange}
+                clients={clients}
+                managedBranch={managedBranch}
+                managedRegion={managedRegion}
+                branchManagerName={branchManagerName}
+                employeesList={employeesList}
+                branchAdmins={branchAdmins}
+                branchIT={branchIT}
+                branchMarketing={branchMarketing}
+              />
+            }
           />
           <Route
             path="clients"
@@ -167,6 +285,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerEmployeesPage
                 employeesList={employeesList}
+                branchManagerName={branchManagerName}
+                managedRegion={managedRegion}
               />
             }
           />
@@ -175,6 +295,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerEmployeesPage
                 employeesList={employeesList}
+                branchManagerName={branchManagerName}
+                managedRegion={managedRegion}
               />
             }
           />
@@ -195,6 +317,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerRevenuePage
                 myBranch={myBranch}
+                clients={clients}
               />
             }
           />
@@ -211,6 +334,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerAdminPage
                 branchAdmins={branchAdmins}
+                branchManagerName={branchManagerName}
+                managedRegion={managedRegion}
               />
             }
           />
@@ -219,6 +344,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerAdminPage
                 branchAdmins={branchAdmins}
+                branchManagerName={branchManagerName}
+                managedRegion={managedRegion}
               />
             }
           />
@@ -227,6 +354,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerITPage
                 branchIT={branchIT}
+                branchManagerName={branchManagerName}
+                managedRegion={managedRegion}
               />
             }
           />
@@ -235,6 +364,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerMarketingPage
                 branchMarketing={branchMarketing}
+                branchManagerName={branchManagerName}
+                managedRegion={managedRegion}
               />
             }
           />
@@ -243,6 +374,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerMarketingPage
                 branchMarketing={branchMarketing}
+                branchManagerName={branchManagerName}
+                managedRegion={managedRegion}
               />
             }
           />

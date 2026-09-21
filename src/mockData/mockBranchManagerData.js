@@ -1,122 +1,132 @@
 export const branchRevenueData = [
-  { branch: "North", revenue: 145 },
-  { branch: "South", revenue: 210 },
-  { branch: "East", revenue: 180 },
-  { branch: "West", revenue: 320 },
+  { branch: "North", revenue: 0 },
+  { branch: "South", revenue: 0 },
+  { branch: "East", revenue: 0 },
+  { branch: "West", revenue: 0 },
 ];
 
 export const kpiCards = [
-  { label: "Total Regional Managers", value: "7", trend: "+3%", description: "Managers across region", accent: "#9a74e9", linkTo: "Employees" },
-  { label: "Total Employees", value: "124", trend: "+6%", description: "Staff at branch", accent: "#4e7cff", linkTo: "Employees" },
-  { label: "Active Clients", value: "248", trend: "+8%", description: "Currently active", accent: "#44bfb0", linkTo: "Clients" },
-  { label: "Pending Requests", value: "12", trend: "-2%", description: "Awaiting action", accent: "#f2aa38", linkTo: "Requests" },
-  { label: "Branch Revenue", value: "₹278.8k", trend: "+22%", description: "This month", accent: "#f97316", linkTo: "Revenue" },
+  { label: "Total Regional Managers", value: "1", trend: "Sales Managers", description: "Sales managers in branch", accent: "#9a74e9", linkTo: "Employees" },
+  { label: "Total Employees", value: "9", trend: "Live DB", description: "Staff in branch (excl. manager)", accent: "#4e7cff", linkTo: "Employees" },
+  { label: "Active Clients", value: "0", trend: "Live DB", description: "Currently active", accent: "#44bfb0", linkTo: "Clients" },
+  { label: "Pending Requests", value: "0", trend: "All Clear", description: "Awaiting action", accent: "#f2aa38", linkTo: "Requests" },
+  { label: "Branch Revenue", value: "₹0", trend: "Live", description: "This month", accent: "#f97316", linkTo: "Revenue" },
 ];
 
-export const initialBranchManagerClients = [
-  {
-    id: 1,
-    name: "Bright Retail",
-    company: "Bright Retail Pvt Ltd",
-    email: "hello@brightretail.com",
-    phone: "+91 98765 32100",
-    service: "CRM Implementation",
-    salesRep: "Mia Ross",
-    branch: "East",
-    revenue: "₹68k",
-    startDate: "2024-03-02",
-    region: "East Zone",
-    managerName: "Ariana Lee",
-  },
-  {
-    id: 2,
-    name: "Urban Foods",
-    company: "Urban Foods Ltd",
-    email: "sales@urbanfoods.com",
-    phone: "+91 91234 55678",
-    service: "Marketing Campaign",
-    salesRep: "Mia Ross",
-    branch: "East",
-    revenue: "₹54k",
-    startDate: "2024-04-18",
-    region: "East Zone",
-    managerName: "Ariana Lee",
-  },
-  {
-    id: 3,
-    name: "Nova Textiles",
-    company: "Nova Textiles Co",
-    email: "contact@novatextiles.com",
-    phone: "+91 99876 44556",
-    service: "IT Support",
-    salesRep: "Rohan Varma",
-    branch: "South",
-    revenue: "₹46k",
-    startDate: "2024-05-09",
-    region: "South Zone",
-    managerName: "Priya Menon",
-  },
-];
+export const initialBranchManagerClients = [];
 
 export const initialBranchAdmins = [
-  { id: 1, name: "Sara Kim", email: "sara@agni.com", joiningDate: "2023-01-15", role: "admin", region: "North Zone", branchManagerName: "Ariana Lee" },
-  { id: 2, name: "Nisha Rao", email: "nisha@agni.com", joiningDate: "2024-03-22", role: "admin", region: "South Zone", branchManagerName: "Priya Menon" },
+  // --- WEST ZONE (MUMBAI) - Ariana Lee ---
+  { id: 1, name: "Vikramaditya Roy", email: "admin@agni.com", joiningDate: "2023-01-15", role: "Admin Lead", region: "West Zone", branch: "West Zone (Mumbai)", branchManagerName: "Ariana Lee" },
+  { id: 2, name: "Priya Nair", email: "priya.admin@agni.com", joiningDate: "2024-03-22", role: "Admin Officer", region: "West Zone", branch: "West Zone (Mumbai)", branchManagerName: "Ariana Lee" },
+
+  // --- NORTH ZONE (DELHI) - Rajesh Khanna ---
+  { id: 3, name: "Amit Joshi", email: "amit.admin@agni.com", joiningDate: "2023-06-10", role: "Admin Lead", region: "North Zone", branch: "North Zone (Delhi)", branchManagerName: "Rajesh Khanna" },
+  { id: 4, name: "Simran Kaur", email: "simran.admin@agni.com", joiningDate: "2024-01-05", role: "Admin Officer", region: "North Zone", branch: "North Zone (Delhi)", branchManagerName: "Rajesh Khanna" },
+
+  // --- SOUTH ZONE (BENGALURU) - Suresh Reddy ---
+  { id: 5, name: "Lakshmi Narayanan", email: "lakshmi.admin@agni.com", joiningDate: "2023-04-18", role: "Admin Lead", region: "South Zone", branch: "South Zone (Bengaluru)", branchManagerName: "Suresh Reddy" },
+  { id: 6, name: "Rahul Gowda", email: "rahul.admin@agni.com", joiningDate: "2024-02-12", role: "Admin Officer", region: "South Zone", branch: "South Zone (Bengaluru)", branchManagerName: "Suresh Reddy" },
+
+  // --- EAST ZONE (KOLKATA) - Subhash Banerjee ---
+  { id: 7, name: "Pronab Paul", email: "pronab.admin@agni.com", joiningDate: "2023-09-18", role: "Admin Lead", region: "East Zone", branch: "East Zone (Kolkata)", branchManagerName: "Subhash Banerjee" },
+  { id: 8, name: "Moumita Kar", email: "moumita.admin@agni.com", joiningDate: "2024-01-20", role: "Admin Officer", region: "East Zone", branch: "East Zone (Kolkata)", branchManagerName: "Subhash Banerjee" },
 ];
 
 export const initialBranchIT = [
-  { id: 1, name: "Noah Kim", email: "noah@agni.com", joiningDate: "2022-11-04", role: "IT Support", region: "West Zone", branchManagerName: "Ariana Lee" },
-  { id: 2, name: "Janet Paul", email: "janet@agni.com", joiningDate: "2024-01-18", role: "Systems Admin", region: "West Zone", branchManagerName: "Ariana Lee" },
+  // --- WEST ZONE (MUMBAI) - Ariana Lee ---
+  { id: 1, name: "Noah Kim", email: "noah@agni.com", joiningDate: "2022-11-04", role: "IT Lead", region: "West Zone", branch: "West Zone (Mumbai)", branchManagerName: "Ariana Lee" },
+  { id: 2, name: "Sophia Patel", email: "sophia.it@agni.com", joiningDate: "2024-01-18", role: "IT Specialist", region: "West Zone", branch: "West Zone (Mumbai)", branchManagerName: "Ariana Lee" },
+
+  // --- NORTH ZONE (DELHI) - Rajesh Khanna ---
+  { id: 3, name: "Aarav Mehta", email: "aarav.it@agni.com", joiningDate: "2023-04-12", role: "IT Lead", region: "North Zone", branch: "North Zone (Delhi)", branchManagerName: "Rajesh Khanna" },
+  { id: 4, name: "Ishaan Verma", email: "ishaan.it@agni.com", joiningDate: "2023-11-05", role: "Sys Admin", region: "North Zone", branch: "North Zone (Delhi)", branchManagerName: "Rajesh Khanna" },
+
+  // --- SOUTH ZONE (BENGALURU) - Suresh Reddy ---
+  { id: 5, name: "Vikram Rao", email: "vikram.it@agni.com", joiningDate: "2023-10-20", role: "Cloud Architect", region: "South Zone", branch: "South Zone (Bengaluru)", branchManagerName: "Suresh Reddy" },
+  { id: 6, name: "Niharika Bhat", email: "niharika.it@agni.com", joiningDate: "2024-03-01", role: "IT Lead", region: "South Zone", branch: "South Zone (Bengaluru)", branchManagerName: "Suresh Reddy" },
+
+  // --- EAST ZONE (KOLKATA) - Subhash Banerjee ---
+  { id: 7, name: "Arindam Bose", email: "arindam.it@agni.com", joiningDate: "2024-02-14", role: "IT Lead", region: "East Zone", branch: "East Zone (Kolkata)", branchManagerName: "Subhash Banerjee" },
+  { id: 8, name: "Swati Ganguly", email: "swati.it@agni.com", joiningDate: "2023-08-25", role: "Network Eng", region: "East Zone", branch: "East Zone (Kolkata)", branchManagerName: "Subhash Banerjee" },
 ];
 
 export const initialBranchMarketing = [
-  { id: 1, name: "Daniel Cruz", email: "daniel@agni.com", joiningDate: "2023-05-11", role: "Marketing Specialist", region: "South Zone", branchManagerName: "Ariana Lee" },
-  { id: 2, name: "Lily Chen", email: "lily@agni.com", joiningDate: "2023-08-02", role: "SEO Expert", region: "East Zone", branchManagerName: "Priya Menon" },
+  // --- WEST ZONE (MUMBAI) - Ariana Lee ---
+  { id: 1, name: "Daniel Cruz", email: "daniel@agni.com", joiningDate: "2023-05-11", role: "Marketing Lead", region: "West Zone", branch: "West Zone (Mumbai)", branchManagerName: "Ariana Lee" },
+  { id: 2, name: "Chloe Bennett", email: "chloe@agni.com", joiningDate: "2023-11-15", role: "Marketing Assoc", region: "West Zone", branch: "West Zone (Mumbai)", branchManagerName: "Ariana Lee" },
+
+  // --- NORTH ZONE (DELHI) - Rajesh Khanna ---
+  { id: 3, name: "Neha Kapoor", email: "neha.mkt@agni.com", joiningDate: "2024-02-01", role: "Marketing Lead", region: "North Zone", branch: "North Zone (Delhi)", branchManagerName: "Rajesh Khanna" },
+  { id: 4, name: "Sanya Malhotra", email: "sanya.mkt@agni.com", joiningDate: "2023-09-14", role: "Digital Specialist", region: "North Zone", branch: "North Zone (Delhi)", branchManagerName: "Rajesh Khanna" },
+
+  // --- SOUTH ZONE (BENGALURU) - Suresh Reddy ---
+  { id: 5, name: "Pooja Menon", email: "pooja.mkt@agni.com", joiningDate: "2023-07-19", role: "Marketing Lead", region: "South Zone", branch: "South Zone (Bengaluru)", branchManagerName: "Suresh Reddy" },
+  { id: 6, name: "Tarun Kumar", email: "tarun.mkt@agni.com", joiningDate: "2024-01-10", role: "Campaign Lead", region: "South Zone", branch: "South Zone (Bengaluru)", branchManagerName: "Suresh Reddy" },
+
+  // --- EAST ZONE (KOLKATA) - Subhash Banerjee ---
+  { id: 7, name: "Tanmoy Dutta", email: "tanmoy.mkt@agni.com", joiningDate: "2023-08-02", role: "Marketing Lead", region: "East Zone", branch: "East Zone (Kolkata)", branchManagerName: "Subhash Banerjee" },
+  { id: 8, name: "Sneha Ghosh", email: "sneha.mkt@agni.com", joiningDate: "2024-03-05", role: "Brand Assoc", region: "East Zone", branch: "East Zone (Kolkata)", branchManagerName: "Subhash Banerjee" },
 ];
 
 export const initialEmployeesList = [
-  { id: 1, name: "Eli Brooks", email: "eli@agni.com", phone: "+91 91234 00222", role: "manager", branch: "South", branchManager: "Ariana Lee" },
-  { id: 2, name: "Mia Ross", email: "mia@agni.com", phone: "+91 91234 10101", role: "sales", branch: "East", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
-  { id: 3, name: "Noah Kim", email: "noah@agni.com", phone: "+91 91234 10202", role: "sales", branch: "West", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
-  { id: 4, name: "Daniel Cruz", email: "daniel@agni.com", phone: "+91 91234 30303", role: "manager", branch: "South", branchManager: "Ariana Lee" },
-  { id: 5, name: "Priya Menon", email: "priya@agni.com", phone: "+91 91234 40404", role: "sales", branch: "East", branchManager: "Ariana Lee", reportingManager: "Daniel Cruz" },
+  // --- WEST ZONE (MUMBAI) - Ariana Lee ---
+  { id: 1, name: "Eli Brooks", email: "eli@agni.com", phone: "+91 91234 00222", role: "Sales Manager", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee" },
+  { id: 2, name: "Mia Rose", email: "mia@agni.com", phone: "+91 91234 10101", role: "Senior Sales Representative", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
+  { id: 3, name: "Lucas Scott", email: "lucas@agni.com", phone: "+91 91234 10104", role: "Sales Executive", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
+
+  // --- NORTH ZONE (DELHI) - Rajesh Khanna ---
+  { id: 4, name: "Ananya Sen", email: "ananya.sm@agni.com", phone: "+91 91234 30300", role: "Sales Manager", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna" },
+  { id: 5, name: "Rohan Gupta", email: "rohan.sales@agni.com", phone: "+91 91234 30301", role: "Senior Sales Representative", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
+  { id: 6, name: "Kavya Sharma", email: "kavya.sales@agni.com", phone: "+91 91234 30302", role: "Sales Executive", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
+
+  // --- SOUTH ZONE (BENGALURU) - Suresh Reddy ---
+  { id: 7, name: "Karthik Iyer", email: "karthik.sm@agni.com", phone: "+91 91234 20200", role: "Sales Manager", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy" },
+  { id: 8, name: "Arjun Hegde", email: "arjun.sales@agni.com", phone: "+91 91234 20201", role: "Senior Sales Officer", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Karthik Iyer" },
+  { id: 9, name: "Deepa Rao", email: "deepa.sales@agni.com", phone: "+91 91234 20202", role: "Sales Representative", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Karthik Iyer" },
+
+  // --- EAST ZONE (KOLKATA) - Subhash Banerjee ---
+  { id: 10, name: "Debolina Roy", email: "debolina.sm@agni.com", phone: "+91 91234 40400", role: "Sales Manager", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee" },
+  { id: 11, name: "Sourav Das", email: "sourav.sales@agni.com", phone: "+91 91234 40401", role: "Sales Executive", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Debolina Roy" },
+  { id: 12, name: "Riya Mukherjee", email: "riya.sales@agni.com", phone: "+91 91234 40402", role: "Sales Representative", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Debolina Roy" },
 ];
 
 export const revenueSeries = {
   daily: [
-    { label: "Mon", value: 4200 },
-    { label: "Tue", value: 4800 },
-    { label: "Wed", value: 4500 },
-    { label: "Thu", value: 5200 },
-    { label: "Fri", value: 5000 },
-    { label: "Sat", value: 5600 },
+    { label: "Mon", value: 0 },
+    { label: "Tue", value: 0 },
+    { label: "Wed", value: 0 },
+    { label: "Thu", value: 0 },
+    { label: "Fri", value: 0 },
+    { label: "Sat", value: 0 },
   ],
   weekly: [
-    { label: "W1", value: 21000 },
-    { label: "W2", value: 23000 },
-    { label: "W3", value: 25000 },
-    { label: "W4", value: 27000 },
+    { label: "W1", value: 0 },
+    { label: "W2", value: 0 },
+    { label: "W3", value: 0 },
+    { label: "W4", value: 0 },
   ],
   monthly: [
-    { label: "Jan", value: 18000 },
-    { label: "Feb", value: 21000 },
-    { label: "Mar", value: 22800 },
-    { label: "Apr", value: 24500 },
-    { label: "May", value: 27000 },
-    { label: "Jun", value: 30500 },
+    { label: "Jan", value: 0 },
+    { label: "Feb", value: 0 },
+    { label: "Mar", value: 0 },
+    { label: "Apr", value: 0 },
+    { label: "May", value: 0 },
+    { label: "Jun", value: 0 },
   ],
   yearly: [
-    { label: "2021", value: 120000 },
-    { label: "2022", value: 155000 },
-    { label: "2023", value: 190000 },
-    { label: "2024", value: 227000 },
-    { label: "2025", value: 260000 },
+    { label: "2021", value: 0 },
+    { label: "2022", value: 0 },
+    { label: "2023", value: 0 },
+    { label: "2024", value: 0 },
+    { label: "2025", value: 0 },
   ],
   allTime: [
-    { label: "2019", value: 80000 },
-    { label: "2020", value: 118000 },
-    { label: "2021", value: 155000 },
-    { label: "2022", value: 190000 },
-    { label: "2023", value: 230000 },
-    { label: "2024", value: 270000 },
+    { label: "2019", value: 0 },
+    { label: "2020", value: 0 },
+    { label: "2021", value: 0 },
+    { label: "2022", value: 0 },
+    { label: "2023", value: 0 },
+    { label: "2024", value: 0 },
   ],
 };

@@ -8,6 +8,11 @@ import {
   TEMPLATE_NAMES,
   normalizeAgreementData,
 } from "../../../services/agreementService";
+import {
+  getAgreementDynamicFields,
+  downloadDocxFile,
+} from "../docxService";
+import { getCanonicalSchemeName } from "../../../utils/schemeTracker";
 import "../../Admin/AdminDashboard.css";
 
 export default function AgreementDocumentViewer({
@@ -25,7 +30,8 @@ export default function AgreementDocumentViewer({
   if (!agreement) return null;
 
   const agr = normalizeAgreementData(agreement);
-  const isPrivate = agr.scheme?.type === TEMPLATE_TYPES.PRIVATE_FUNDING;
+  const fields = getAgreementDynamicFields(agr);
+  const isPrivate = fields.isPrivate;
   const isSent = agr.agreement?.status === AGREEMENT_STATUSES.SENT;
   const statusStyle =
     agreementStatusBadgeColors[agr.agreement?.status] || agreementStatusBadgeColors.Ready;
@@ -37,9 +43,9 @@ export default function AgreementDocumentViewer({
     setDownloadingDocx(true);
     setFeedbackMsg(null);
     try {
-      await agreementService.downloadAgreementDocx(agr.id);
+      downloadDocxFile(agr);
       if (showToast) {
-        showToast(`✓ Downloaded ${templateTitle} (.docx) for ${agr.client?.companyName}`);
+        showToast(`✓ Downloaded ${templateTitle} (.docx) for ${fields.company}`);
       }
     } catch (err) {
       console.error("Error downloading DOCX:", err);
@@ -53,10 +59,10 @@ export default function AgreementDocumentViewer({
     setDownloadingPdf(true);
     setFeedbackMsg(null);
     try {
-      const result = await agreementService.downloadAgreementPdf(agr.id);
+      const result = await agreementService.downloadAgreementPdf(agr.id, `${fields.company} Agreement.pdf`);
       if (result.success) {
         if (showToast) {
-          showToast(`✓ Downloaded Agreement PDF for ${agr.client?.companyName}`);
+          showToast(`✓ Opened PDF document for ${fields.company}`);
         }
       } else {
         setFeedbackMsg({
@@ -329,159 +335,316 @@ export default function AgreementDocumentViewer({
             {/* Document Paper Container */}
             <div
               style={{
-                padding: "28px 32px",
+                padding: "32px 36px",
                 background: "#ffffff",
                 color: "#1e293b",
                 display: "flex",
                 flexDirection: "column",
-                gap: 18,
-                fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                gap: 16,
+                fontFamily: "'Calibri', 'Arial', sans-serif",
                 fontSize: 13,
                 lineHeight: 1.6,
+                maxHeight: "550px",
+                overflowY: "auto",
+                border: "1px solid #e2e8f0",
+                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.03)",
               }}
             >
-              {/* Official Header Strip */}
-              <div
-                style={{
-                  borderBottom: "2px solid #1e293b",
-                  paddingBottom: 14,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  flexWrap: "wrap",
-                  gap: 12,
-                }}
-              >
-                <div>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1.5, color: "#4f46e5", textTransform: "uppercase" }}>
-                    AGNI CRM • LEGAL CONSULTANCY &amp; SERVICE AGREEMENT
-                  </span>
-                  <h3 style={{ margin: "2px 0 0", fontSize: 17, fontWeight: 800, color: "#0f172a" }}>
-                    {templateTitle}
-                  </h3>
-                  <div style={{ fontSize: 11.5, color: "#64748b" }}>
-                    Document Ref: <strong>{agr.id}</strong> • CRM App Ref: <strong>{agr.applicationId || agr.crmId || "CRM-REF"}</strong>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", fontWeight: 700 }}>Execution Date</div>
-                  <strong style={{ fontSize: 13, color: "#0f172a" }}>{agr.agreement?.date || agr.createdAt}</strong>
+              {/* Header Title */}
+              <div style={{ textAlign: "center", borderBottom: "2px solid #0f172a", paddingBottom: 12, marginBottom: 8 }}>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0f172a", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  CONSULTANCY SERVICE AGREEMENT
+                </h2>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+                  Ref No: <strong>{fields.id}</strong> • CRM App ID: <strong>{fields.appId}</strong>
                 </div>
               </div>
 
-              {/* Parties Block */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 16,
-                  padding: "12px 16px",
-                  background: "#f8fafc",
-                  borderRadius: 10,
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <div>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, color: "#4f46e5", textTransform: "uppercase" }}>
-                    FIRST PARTY (SERVICE PROVIDER)
-                  </span>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", marginTop: 2 }}>
-                    AGNI BUSINESS CONSULTANCY SERVICES
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "#64748b" }}>Corporate Legal &amp; Financial Advisory Division</div>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, color: isPrivate ? "#db2777" : "#059669", textTransform: "uppercase" }}>
-                    SECOND PARTY (CLIENT / APPLICANT)
-                  </span>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a", marginTop: 2 }}>
-                    {agr.client?.companyName || "Client Enterprise"}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "#64748b" }}>
-                    Rep: <strong>{agr.client?.clientName}</strong> • {agr.client?.address || "Registered Business Address"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Scope & Service Mandate */}
-              <div>
-                <strong style={{ fontSize: 13, color: "#0f172a", display: "block", marginBottom: 4 }}>
-                  1. Mandate &amp; Scope of Services
+              {/* Introduction */}
+              <p style={{ margin: 0, textAlign: "justify" }}>
+                This <strong>CONSULTANCY SERVICE AGREEMENT</strong> (the “Agreement”) is entered into on this{" "}
+                <strong style={{ color: "#000000" }}>
+                  {fields.date}
                 </strong>
-                <p style={{ margin: 0, color: "#475569", fontSize: 12.5 }}>
-                  The First Party agrees to provide end-to-end consultancy, DPR project formulation, document vetting, compliance verification,
-                  and liaison services for the <strong>{agr.scheme?.name || "Govt. Credit Link Scheme"}</strong> on behalf of the Second Party.
+                , by and between:
+              </p>
+
+              <ul style={{ margin: "4px 0 8px 20px", padding: 0 }}>
+                <li style={{ marginBottom: 6 }}>
+                  <strong>Agnivridhi India</strong>, hereinafter referred to as the <em>Service Provider</em>, having its principal place of business at{" "}
+                  <strong>Lg-02, H-165, Sector 63, Noida, Gautam Buddha Nagar, Noida, Uttar Pradesh, India, 201301</strong>;
+                </li>
+              </ul>
+              <p style={{ margin: "2px 0", fontWeight: 600 }}>and</p>
+              <ul style={{ margin: "4px 0 8px 20px", padding: 0 }}>
+                <li style={{ marginBottom: 6 }}>
+                  <strong>
+                    <span style={{ color: "#000000", fontWeight: 700 }}>
+                      {fields.company}
+                    </span>
+                  </strong>{" "}
+                  hereinafter referred to as the <em>Service Receiver</em>, having its principal place of business at{" "}
+                  <strong>
+                    <span style={{ color: "#000000", fontWeight: 700 }}>
+                      {fields.address}
+                    </span>
+                  </strong>
+                  .
+                </li>
+              </ul>
+
+              {/* WHEREAS */}
+              <p style={{ margin: "8px 0", textAlign: "justify", background: "#f8fafc", padding: "10px 14px", borderRadius: 8, borderLeft: "4px solid #334155" }}>
+                <strong>WHEREAS</strong>, the Service Provider agrees to provide consultancy services for assisting the Service Receiver in{" "}
+                {isPrivate ? (
+                  "raising Private Funding by facilitating investor outreach, investor introductions, investor meeting coordination, pitch presentation support, and related consultancy services."
+                ) : (
+                  <>
+                    availing benefits under the{" "}
+                    <strong>
+                      <span style={{ color: "#000000", fontWeight: 700 }}>
+                        {fields.schemeName}
+                      </span>
+                    </strong>{" "}
+                    CONSULTANCY SERVICE including assistance in form filling and completion of the necessary documentation as required under the scheme.
+                  </>
+                )}
+              </p>
+
+              {/* 1) Definitions */}
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>1) Definitions</h4>
+              <p style={{ margin: "0 0 4px" }}>a) <strong>Agreement</strong>: Refers to this Agreement and all annexures or amendments made in writing and mutually agreed upon by both parties.</p>
+              <p style={{ margin: "0 0 4px" }}>b) <strong>Service Provider</strong>: The party providing the consultancy services in exchange for payment.</p>
+              <p style={{ margin: "0 0 4px" }}>c) <strong>Service Receiver</strong>: The party receiving and availing the consultancy services.</p>
+
+              {/* 2) Covenants of the Service Provider */}
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>2) Covenants of the Service Provider</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                a) {isPrivate
+                  ? "Review and assist in preparation of Pitch Deck, Business Profile, Financial Projections, Investor Memorandum, and other documents required for investor discussions under the CONSULTANCY SERVICE based on the information and data received from the Service Receiver. Upon request, the Service Provider may also submit the application on behalf of the Service Receiver."
+                  : "The Service Provider shall prepare all the necessary documents for filing the application under the CONSULTANCY SERVICE based on the information and data received from the Service Receiver. Upon request, the Service Provider may also submit the application on behalf of the Service Receiver."}
+              </p>
+              <p style={{ margin: "0 0 4px" }}>
+                b) The Service Provider agrees to maintain strict confidentiality of all information and documents provided by the Service Receiver and shall not disclose them to any third party except authorized personnel.
+              </p>
+
+              {/* 3) Covenants of the Service Receiver */}
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>3) Covenants of the Service Receiver</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                a) The Service Receiver acknowledges that the registration and application process is subject to change as per applicable norms and has no objection if delays arise due to such changes.
+              </p>
+              <p style={{ margin: "0 0 4px" }}>
+                b) The Service Receiver agrees to pay a Consultancy fee of{" "}
+                <strong>
+                  ₹
+                  <span style={{ color: "#000000", fontWeight: 700 }}>
+                    {fields.pitched}
+                  </span>
+                </strong>{" "}
+                as per the following structure:
+              </p>
+              <ul style={{ margin: "4px 0 8px 20px", padding: 0 }}>
+                <li>
+                  Stage 1: ₹
+                  <span style={{ color: "#000000", fontWeight: 700 }}>
+                    {fields.received}
+                  </span>{" "}
+                  as token money, payable at the time of signing this Agreement.
+                </li>
+                <li>
+                  Stage 2: ₹
+                  <span style={{ color: "#000000", fontWeight: 700 }}>
+                    {fields.left}
+                  </span>{" "}
+                  {isPrivate ? "At the time of Interview" : "to initiate the preparation of reports and commence the work."}
+                </li>
+                <li>
+                  Stage 3:{" "}
+                  <span style={{ color: "#000000", fontWeight: 700 }}>
+                    {fields.rate}
+                  </span>{" "}
+                  as success fee of the funded amount, payable after the disbursement.
+                </li>
+              </ul>
+              <p style={{ margin: "0 0 4px" }}>
+                c) The Service Receiver shall provide all required documents requested by the Service Provider for processing the application.
+              </p>
+              <p style={{ margin: "0 0 4px" }}>
+                d) <strong>Refund Clause</strong>: All payments made to Agnivridhi India are strictly non-refundable once services have commenced. Refunds shall be made only if the Service Provider fails to initiate or deliver consultancy work.
+              </p>
+              <p style={{ margin: "0 0 4px" }}>
+                e) All payments must be made only to Agnivridhi India’s official bank account.
+              </p>
+
+              {/* 4) Process & Details */}
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                4) {isPrivate ? "Funding Process" : "Scheme Details & Process"}
+              </h4>
+              <p style={{ margin: "0 0 4px" }}>
+                {isPrivate ? (
+                  "The funding process includes: Business Profile Review → Pitch Deck & Financial Review → Investor Identification & Outreach → Coordination with prospective Investors → Scheduling Investor Meetings → Facilitation of Investor Discussions → Follow-up regarding Investor Feedback."
+                ) : (
+                  `Application preparation under the selected Government Scheme (${fields.schemeName}) → Submission to Bank / Financial Institution / Body → Coordination for approval & disbursement.`
+                )}
+              </p>
+
+              {/* 5) Eligibility Criteria */}
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                5) {isPrivate ? "Funding Eligibility" : "Eligibility Criteria"}
+              </h4>
+              <p style={{ margin: "0 0 4px" }}>
+                {isPrivate
+                  ? "Funding eligibility shall depend upon business viability, revenue model, management capability, financial performance, market opportunity, and investor preferences."
+                  : "Eligibility will depend on the documents and project details provided by the Client. Agnivridhi India will not be responsible for rejection due to incorrect or incomplete documents."}
+              </p>
+
+              {/* 6 to 13 Remaining Clauses */}
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                6) {isPrivate ? "Investor Evaluation" : "Waiver Benefits & Interest Subsidy"}
+              </h4>
+              <p style={{ margin: "0 0 4px" }}>
+                {isPrivate
+                  ? "The Service Receiver acknowledges that investors may independently conduct due diligence, financial review, management assessment, and market evaluation before making any investment decision."
+                  : "Any interest waiver, moratorium, or subsidy under the chosen scheme shall be governed by official scheme guidelines."}
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>7) Duration & Processing Timeline</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                {isPrivate
+                  ? "Investor funding timelines depend entirely upon investor evaluation and internal decision-making processes."
+                  : "The loan/grant duration or approval timeline depends solely on the concerned Bank / Financial Institution / Government Authority. Estimated duration 30 to 180 working days."}
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>8) Documentation & Procedures</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                {isPrivate
+                  ? "The Service Receiver shall provide Pitch Deck, Financial Statements, Company Profile, Business Plan, and Incorporation Documents."
+                  : "All required documents (KYC, financials, collateral details) must be submitted by Client within requested time frame. Project Report & Financial Projections prepared by Agnivridhi India."}
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>9) Company Duties & Responsibilities</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                {isPrivate
+                  ? "Agnivridhi India shall review funding documents, approach suitable investors, coordinate communications, and schedule a maximum of Two (2) Investor Meetings."
+                  : "Agnivridhi India shall guide Client in documentation, coordinate between Client and authorities, submit application, and follow up until loan sanction/disbursement."}
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>10) Client Duties & Responsibilities</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                The Client must provide accurate information and documents, respond promptly to communications, and bear all government, bank, and third-party fees directly.
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                11) {isPrivate ? "Investor Decision Process" : "Department & Sanction Process"}
+              </h4>
+              <p style={{ margin: "0 0 4px" }}>
+                {isPrivate
+                  ? "The final funding decision shall rest solely with the Investor. Upon scheduling and coordinating up to Two (2) Investor Meetings, the Service Provider's obligations shall be deemed fulfilled."
+                  : "The sanctioning authority will be the concerned Bank / NBFC / Government Department as per the selected scheme. Agnivridhi India's role ends upon submission, coordination, and approval assistance."}
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>12) Time Limitation & Workflow</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                The estimated duration for outreach, submission, and sanction may vary from 30 to 180 working days depending on authority or investor response time.
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>13) Liability Disclaimer</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                The Company shall not be liable for delay, rejection, policy changes, investor decisions, or financial loss incurred by the Client.
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>14 to 20) General Contractual Terms</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                Agreement automatically expires if required documents are not provided within 30 days. Agreement valid for 3 months from execution date. Each party is an independent contractor. Modifications must be in writing.
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>21) Effective Date</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                The effective date of this Agreement shall be{" "}
+                <span style={{ color: "#000000", fontWeight: 700 }}>
+                  {fields.date}
+                </span>
+                , regardless of the actual date of signature.
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>22 to 25) Governing Law & Dispute Resolution</h4>
+              <p style={{ margin: "0 0 4px" }}>
+                Disputes shall be referred to a sole arbitrator appointed mutually under the Arbitration and Conciliation Act, 1996 in Delhi. All notices sent via registered post or email.
+              </p>
+
+              <h4 style={{ margin: "10px 0 4px", fontSize: 14, fontWeight: 700, color: "#0f172a" }}>26) Acceptance & Acknowledgment</h4>
+              <p style={{ margin: "0 0 8px" }}>
+                Both parties confirm that they have read and understood all the terms and conditions of this Agreement and voluntarily agree to be bound by it.
+              </p>
+
+              {/* Witness & Signature Box */}
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: "2px solid #0f172a" }}>
+                <p style={{ fontSize: 12, fontWeight: 700, margin: "0 0 10px", color: "#0f172a" }}>
+                  IN WITNESS WHEREOF, the undersigned have executed this Agreement on the day and year first written above.
                 </p>
-              </div>
 
-              {/* Financial Considerations Breakdown Table */}
-              <div>
-                <strong style={{ fontSize: 13, color: "#0f172a", display: "block", marginBottom: 6 }}>
-                  2. Agreed Commercials &amp; Milestone Payment Terms
-                </strong>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: "left" }}>
-                  <thead>
-                    <tr style={{ background: "#f1f5f9", borderBottom: "1px solid #cbd5e1" }}>
-                      <th style={{ padding: "7px 10px", color: "#475569" }}>Schedule Milestone</th>
-                      <th style={{ padding: "7px 10px", color: "#475569" }}>Payable Amount</th>
-                      <th style={{ padding: "7px 10px", color: "#475569" }}>Status</th>
-                    </tr>
-                  </thead>
+                <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #cbd5e1", fontSize: 12 }}>
                   <tbody>
-                    <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                      <td style={{ padding: "7px 10px" }}>Upfront File Inception &amp; DPR Formulation</td>
-                      <td style={{ padding: "7px 10px", fontWeight: 700, color: "#059669" }}>
-                        {typeof agr.agreement?.pricing?.received === "number"
-                          ? `₹${agr.agreement.pricing.received.toLocaleString("en-IN")}`
-                          : agr.agreement?.pricing?.received || "—"}
+                    <tr>
+                      <td style={{ width: "50%", padding: 10, border: "1px solid #cbd5e1", verticalAlign: "top" }}>
+                        <strong>Signed and delivered for and on behalf of:</strong>
+                        <br /><br />
+                        <strong>Name: Agnivridhi India Private Limited</strong>
+                        <br />
+                        Title: Director
+                        <br />
+                        Date:{" "}
+                        <span style={{ color: "#000000", fontWeight: 700 }}>{fields.date}</span>
+                        <br /><br />
+                        <strong>Signature:</strong>
+                        <div style={{ fontSize: 20, fontFamily: "cursive", color: "#1e3a8a", marginTop: 4 }}>Rahul.</div>
                       </td>
-                      <td style={{ padding: "7px 10px", color: "#059669", fontWeight: 700 }}>✓ Cleared</td>
-                    </tr>
-                    <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-                      <td style={{ padding: "7px 10px" }}>Application Submission &amp; Bank Portal Filing</td>
-                      <td style={{ padding: "7px 10px", fontWeight: 700, color: "#f59e0b" }}>
-                        {typeof agr.agreement?.pricing?.left === "number"
-                          ? `₹${agr.agreement.pricing.left.toLocaleString("en-IN")}`
-                          : agr.agreement?.pricing?.left || "—"}
+                      <td style={{ width: "50%", padding: 10, border: "1px solid #cbd5e1", verticalAlign: "top" }}>
+                        <strong>I have read and understood the provisions of this Agreement &amp; hereby accept the same.</strong>
+                        <br /><br />
+                        <strong>
+                          Name:{" "}
+                          <span style={{ color: "#000000", fontWeight: 700 }}>{fields.company}</span>
+                        </strong>
+                        <br />
+                        Title: Director
+                        <br />
+                        Date:{" "}
+                        <span style={{ color: "#000000", fontWeight: 700 }}>{fields.date}</span>
+                        <br /><br />
+                        <strong>Signature:</strong> ________________________
                       </td>
-                      <td style={{ padding: "7px 10px", color: "#f59e0b", fontWeight: 700 }}>Pending Milestone</td>
-                    </tr>
-                    <tr style={{ background: "#f8fafc" }}>
-                      <td style={{ padding: "7px 10px" }}>Disbursement Success Fee</td>
-                      <td style={{ padding: "7px 10px", fontWeight: 700, color: "#ec4899" }}>
-                        {agr.agreement?.pricing?.successRate || "5%"} of Sanctioned Value
-                      </td>
-                      <td style={{ padding: "7px 10px", color: "#64748b" }}>On Final Sanction</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              {/* Signatures Block */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 24,
-                  marginTop: 10,
-                  paddingTop: 16,
-                  borderTop: "1px solid #e2e8f0",
-                }}
-              >
-                <div>
-                  <div style={{ height: 36, borderBottom: "1px dashed #cbd5e1", marginBottom: 4 }} />
-                  <strong style={{ fontSize: 12, color: "#0f172a", display: "block" }}>For Agni Business Consultants</strong>
-                  <span style={{ fontSize: 11, color: "#64748b" }}>Authorized Commercial Signatory</span>
-                </div>
-                <div>
-                  <div style={{ height: 36, borderBottom: "1px dashed #cbd5e1", marginBottom: 4 }} />
-                  <strong style={{ fontSize: 12, color: "#0f172a", display: "block" }}>
-                    For {agr.client?.companyName || "Client"}
-                  </strong>
-                  <span style={{ fontSize: 11, color: "#64748b" }}>Authorized Client Signatory</span>
-                </div>
+              {/* Undertaking Section */}
+              <div style={{ marginTop: 14, background: "#f8fafc", padding: "14px 16px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <h4 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 800, color: "#0f172a", textTransform: "uppercase" }}>
+                  UNDERTAKING
+                </h4>
+                <p style={{ margin: "0 0 6px", fontSize: 12 }}>
+                  I, the Director/Partner of{" "}
+                  <strong>
+                    <span style={{ color: "#000000", fontWeight: 700 }}>{fields.company}</span>
+                  </strong>{" "}
+                  do hereby undertake as follows:
+                </p>
+                <ol style={{ margin: 0, paddingLeft: 18, fontSize: 11.5, color: "#334155" }}>
+                  <li style={{ marginBottom: 3 }}>
+                    That I shall fully comply with all the sub-clauses stated under Clause (3) of the Consultancy Service Agreement.
+                  </li>
+                  <li style={{ marginBottom: 3 }}>
+                    All official communications shall be through company registered email domain (<strong>Legal@agnivridhiindia.com</strong>).
+                  </li>
+                  <li style={{ marginBottom: 3 }}>
+                    Providing false, misleading, or incomplete information will render this Agreement voidable at sole discretion of Service Provider.
+                  </li>
+                  <li>
+                    I hereby confirm that I have read, understood, and accepted all terms on official website <strong>www.agnivridhiindia.com</strong>.
+                  </li>
+                </ol>
               </div>
             </div>
           </div>
@@ -507,35 +670,17 @@ export default function AgreementDocumentViewer({
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  background: "rgba(59, 130, 246, 0.12)",
-                  color: "#3b82f6",
-                  borderColor: "rgba(59, 130, 246, 0.3)",
-                }}
-                onClick={handleDownloadDocx}
-                disabled={downloadingDocx}
-                title="Download generated Word document (.docx)"
-              >
-                <Icon name="document" size={15} />
-                <span>{downloadingDocx ? "Downloading..." : "Download DOCX"}</span>
-              </button>
-
-              <button
-                type="button"
-                className="admin-btn-secondary"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: "rgba(239, 68, 68, 0.12)",
-                  color: "#ef4444",
-                  borderColor: "rgba(239, 68, 68, 0.3)",
+                  background: "rgba(16, 185, 129, 0.12)",
+                  color: "#10b981",
+                  borderColor: "rgba(16, 185, 129, 0.3)",
+                  fontWeight: 700,
                 }}
                 onClick={handleDownloadPdf}
                 disabled={downloadingPdf}
-                title="Download generated PDF document"
+                title="Generate & Download official PDF document"
               >
                 <Icon name="document" size={15} />
-                <span>{downloadingPdf ? "Downloading..." : "Download PDF"}</span>
+                <span>{downloadingPdf ? "Generating PDF..." : "Download PDF"}</span>
               </button>
 
               <button

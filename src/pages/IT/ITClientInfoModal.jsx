@@ -128,7 +128,7 @@ export default function ITClientInfoModal({ client, onClose }) {
             <div className="it-subcard">
               <div style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>Pitched / Created By</div>
               <div style={{ fontSize: 15, fontWeight: 700, marginTop: 4 }}>
-                {client.salesPerson || "Mia Ross"}
+                {client.salesPerson || "Mia Rose"}
               </div>
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
                 {client.branch} Branch Team

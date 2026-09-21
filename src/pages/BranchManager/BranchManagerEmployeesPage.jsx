@@ -1,17 +1,35 @@
 import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import SimpleModal from "../../components/SimpleModal";
+import { sortByRoleRanking } from "../../utils/branchHelper";
 
 export default function BranchManagerEmployeesPage({
   employeesList = [],
+  branchManagerName = "Ariana Lee",
+  managedRegion = "West Zone",
 }) {
   const [selectedManagerForTeam, setSelectedManagerForTeam] = useState(null);
   const [selectedEmployeeInfo, setSelectedEmployeeInfo] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const branchEmployees = useMemo(() => {
+    return employeesList.filter((emp) => {
+      if (!emp) return false;
+      const empBM = (emp.branchManager || emp.branchManagerName || "").toLowerCase().trim();
+      const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();
+      const targetBM = (branchManagerName || "").toLowerCase().trim();
+      const targetRegion = (managedRegion || "").toLowerCase().trim();
+
+      if (targetBM && empBM && empBM !== targetBM) return false;
+      if (targetRegion && empRegion && !empRegion.includes(targetRegion.split(" ")[0].toLowerCase()) && !targetRegion.includes(empRegion)) return false;
+      return true;
+    });
+    return sortByRoleRanking(list);
+  }, [employeesList, branchManagerName, managedRegion]);
+
   const managers = useMemo(() => {
-    return employeesList.filter((emp) => (emp.role || "").toLowerCase().includes("manager"));
-  }, [employeesList]);
+    return branchEmployees.filter((emp) => (emp.role || "").toLowerCase().includes("manager"));
+  }, [branchEmployees]);
 
   const displayedManagers = useMemo(() => {
     return managers.filter((m) => {
@@ -28,10 +46,10 @@ export default function BranchManagerEmployeesPage({
 
   const teamMembers = useMemo(() => {
     if (!selectedManagerForTeam) return [];
-    return employeesList.filter(
+    return branchEmployees.filter(
       (emp) => emp.reportingManager === selectedManagerForTeam.name || emp.branchManager === selectedManagerForTeam.name
     );
-  }, [employeesList, selectedManagerForTeam]);
+  }, [branchEmployees, selectedManagerForTeam]);
 
   const displayedTeam = useMemo(() => {
     return teamMembers.filter((emp) => {
@@ -220,7 +238,7 @@ export default function BranchManagerEmployeesPage({
                 </div>
               </div>
               <div>
-                <strong className="bm-kpi-tile-value">{employeesList.length}</strong>
+                <strong className="bm-kpi-tile-value">{branchEmployees.length}</strong>
                 <span className="bm-kpi-tile-sub">Employees at Branch</span>
               </div>
             </div>
@@ -233,8 +251,8 @@ export default function BranchManagerEmployeesPage({
                 </div>
               </div>
               <div>
-                <strong className="bm-kpi-tile-value">4 Zones</strong>
-                <span className="bm-kpi-tile-sub">North, South, East, West</span>
+                <strong className="bm-kpi-tile-value">{managedRegion}</strong>
+                <span className="bm-kpi-tile-sub">Designated Territory</span>
               </div>
             </div>
           </div>
@@ -370,12 +388,12 @@ export default function BranchManagerEmployeesPage({
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Assigned Branch</span>
-              <span className="bm-modal-card-val">{selectedEmployeeInfo.branch} Branch</span>
+              <span className="bm-modal-card-val">{selectedEmployeeInfo.branch || managedRegion}</span>
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Reporting Manager</span>
               <span className="bm-modal-card-val">
-                {selectedEmployeeInfo.reportingManager || selectedEmployeeInfo.branchManager || "Branch Head"}
+                {selectedEmployeeInfo.branchManager || selectedEmployeeInfo.reportingManager || branchManagerName}
               </span>
             </div>
             <div className="bm-modal-card">

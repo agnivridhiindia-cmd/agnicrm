@@ -126,7 +126,7 @@ export const topPerformers = [
   { name: "Daniel Cruz", role: "Branch Manager", score: "88%", detail: "Customer retention" },
   { name: "Sara Reddy", role: "Branch Manager", score: "85%", detail: "Process improvements" },
   { name: "Kavya Patel", role: "Branch Manager", score: "82%", detail: "Team mentoring" },
-  { name: "Mia Ross", role: "Sales Person", score: "89%", detail: "Lead conversion" },
+  { name: "Mia Rose", role: "Sales Person", score: "89%", detail: "Lead conversion" },
   { name: "Noah Kim", role: "Sales Person", score: "87%", detail: "Revenue uplift" },
   { name: "Rohan Varma", role: "Sales Person", score: "84%", detail: "New accounts" },
   { name: "Meera Singh", role: "Sales Person", score: "80%", detail: "Deal closure" },
@@ -185,7 +185,7 @@ export const notifications = [
   {
     title: "Team message",
     detail: "Sales team reached 82% of monthly goal.",
-    issuer: "Mia Ross",
+    issuer: "Mia Rose",
     tone: "#88cda4",
   },
   {
@@ -203,22 +203,22 @@ export const services = [
 ];
 
 export const initialOwnerClients = [
-  { id: 1, name: 'Acme Industries', company: 'Acme Industries Pvt. Ltd.', email: 'contact@acme.com', phone: '+91 98765 43210', serviceType: 'Certificate', serviceName: 'Mudra Export Certification', serviceStart: '2026-01-15', totalPayment: 120000, paymentReceived: 80000, branch: 'North', salesPerson: 'Mia Ross', progressPercent: 80, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement"], applicationStatus: "Agreement" },
-  { id: 2, name: 'Summit Co', company: 'Summit Co.', email: 'hello@summitco.com', phone: '+91 91234 56789', serviceType: 'IT', serviceName: 'Enterprise CRM Setup', serviceStart: '2026-03-01', totalPayment: 85000, paymentReceived: 50000, branch: 'South', salesPerson: 'Mia Ross', progressPercent: 60, completedSteps: ["Submission", "Doc Audit", "Manager Review"], applicationStatus: "Manager Review" },
-  { id: 3, name: 'Blue Retail', company: 'Blue Retail Pvt Ltd', email: 'info@blueretail.com', phone: '+91 99876 54321', serviceType: 'Marketing', serviceName: 'Website & Brand Growth Suite', serviceStart: '2026-05-20', totalPayment: 60000, paymentReceived: 60000, branch: 'East', salesPerson: 'Mia Ross', progressPercent: 100, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement", "Final Approval"], applicationStatus: "Final Approval" },
-  { id: 4, name: 'Nexus Logistics', company: 'Nexus Logistics Solutions', email: 'support@nexuslogistics.com', phone: '+91 98111 22233', serviceType: 'IT', serviceName: 'Supply Chain Analytics Platform', serviceStart: '2026-06-10', totalPayment: 150000, paymentReceived: 100000, branch: 'West', salesPerson: 'Alex Vance', progressPercent: 40, completedSteps: ["Submission", "Doc Audit"], applicationStatus: "Doc Audit" },
-  { id: 5, name: 'Apex Healthcare', company: 'Apex Healthcare Systems', email: 'info@apexhealth.com', phone: '+91 97222 33344', serviceType: 'Certificate', serviceName: 'Corporate Health Shield Annual', serviceStart: '2026-08-01', totalPayment: 42000, paymentReceived: 42000, branch: 'North', salesPerson: 'Alex Vance', progressPercent: 100, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement", "Final Approval"], applicationStatus: "Final Approval" },
+  { id: 1, name: 'Acme Industries', company: 'Acme Industries Pvt. Ltd.', email: 'contact@acme.com', phone: '+91 98765 43210', serviceType: 'Certificate', serviceName: 'PM MUDRA', serviceStart: '2026-01-15', totalPayment: 120000, paymentReceived: 80000, branch: 'North', salesPerson: 'Mia Rose', progressPercent: 80, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement"], applicationStatus: "Agreement" },
+  { id: 2, name: 'Summit Co', company: 'Summit Co.', email: 'hello@summitco.com', phone: '+91 91234 56789', serviceType: 'IT', serviceName: 'Enterprise CRM Setup', serviceStart: '2026-03-01', totalPayment: 85000, paymentReceived: 50000, branch: 'South', salesPerson: 'Mia Rose', progressPercent: 60, completedSteps: ["Submission", "Doc Audit", "Manager Review"], applicationStatus: "Manager Review" },
+  { id: 3, name: 'Blue Retail', company: 'Blue Retail Pvt Ltd', email: 'info@blueretail.com', phone: '+91 99876 54321', serviceType: 'Marketing', serviceName: 'Website & Brand Growth Suite', serviceStart: '2026-05-20', totalPayment: 60000, paymentReceived: 60000, branch: 'East', salesPerson: 'Mia Rose', progressPercent: 100, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement", "Final Approval"], applicationStatus: "Final Approval" },
+  { id: 4, name: 'Nexus Logistics', company: 'Nexus Logistics Solutions', email: 'support@nexuslogistics.com', phone: '+91 98111 22233', serviceType: 'IT', serviceName: 'Supply Chain Analytics Platform', serviceStart: '2026-06-10', totalPayment: 150000, paymentReceived: 100000, branch: 'West', salesPerson: 'Lucas Scott', progressPercent: 40, completedSteps: ["Submission", "Doc Audit"], applicationStatus: "Doc Audit" },
+  { id: 5, name: 'Apex Healthcare', company: 'Apex Healthcare Systems', email: 'info@apexhealth.com', phone: '+91 97222 33344', serviceType: 'Certificate', serviceName: 'Corporate Health Shield Annual', serviceStart: '2026-08-01', totalPayment: 42000, paymentReceived: 42000, branch: 'North', salesPerson: 'Lucas Scott', progressPercent: 100, completedSteps: ["Submission", "Doc Audit", "Manager Review", "Agreement", "Final Approval"], applicationStatus: "Final Approval" },
 ];
 
 export const initialOwnerEmployees = [
   { id: 1, name: 'Ariana Lee', email: 'ariana@agni.com', phone: '+91 91234 00111', role: 'branch manager', branch: 'North', region: 'North Zone', reportingManager: 'Devika Shah' },
   { id: 2, name: 'Eli Brooks', email: 'eli@agni.com', phone: '+91 91234 00222', role: 'manager', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
-  { id: 3, name: 'Mia Ross', email: 'mia@agni.com', phone: '+91 91234 10101', role: 'sales', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Eli Brooks' },
+  { id: 3, name: 'Mia Rose', email: 'mia@agni.com', phone: '+91 91234 10101', role: 'sales', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Eli Brooks' },
   { id: 4, name: 'Noah Kim', email: 'noah@agni.com', phone: '+91 91234 10202', role: 'IT', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
   { id: 5, name: 'Sara Kim', email: 'sara@agni.com', phone: '+91 91234 20202', role: 'admin', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
   { id: 6, name: 'Daniel Cruz', email: 'daniel@agni.com', phone: '+91 91234 30303', role: 'market', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
   { id: 7, name: 'Priya Menon', email: 'priya@agni.com', phone: '+91 91234 40404', role: 'admin', branch: 'South', region: 'South Zone', branchManager: 'Ariana Lee', reportingManager: 'Ariana Lee' },
-  { id: 8, name: 'Alex Vance', email: 'alex@agni.com', phone: '+91 91234 50505', role: 'sales', branch: 'North', region: 'North Zone', branchManager: 'Ariana Lee', reportingManager: 'Eli Brooks' },
+  { id: 8, name: 'Lucas Scott', email: 'lucas@agni.com', phone: '+91 98205 55670', role: 'sales', branch: 'West', region: 'West Zone', branchManager: 'Ariana Lee', reportingManager: 'Eli Brooks' },
 ];
 
 export const initialInvoices = [
@@ -226,7 +226,7 @@ export const initialInvoices = [
     id: "INV-2026-001",
     clientName: "Acme Industries",
     company: "Acme Industries Pvt. Ltd.",
-    serviceName: "Mudra Export Certification",
+    serviceName: "PM MUDRA",
     branch: "North",
     region: "North Zone",
     issueDate: "15 Jan 2026",
@@ -273,7 +273,7 @@ export const initialInvoices = [
     totalAmount: "₹70,800",
     rawTotal: 70800,
     status: "Paid",
-    accountManager: "Mia Ross",
+    accountManager: "Mia Rose",
     gstNo: "19AAACB9876C1Z9"
   },
   {
@@ -481,7 +481,6 @@ export const branchOptions = [
   { label: 'South', value: 'South' },
   { label: 'East', value: 'East' },
   { label: 'West', value: 'West' },
-  { label: 'Central', value: 'Central' },
 ];
 
 export const regionOptions = [
@@ -490,10 +489,9 @@ export const regionOptions = [
   { label: 'South Zone', value: 'South Zone' },
   { label: 'East Zone', value: 'East Zone' },
   { label: 'West Zone', value: 'West Zone' },
-  { label: 'Central Zone', value: 'Central Zone' },
 ];
 
-export const employeeRoles = ['All roles', 'branch manager', 'manager', 'IT', 'admin', 'market', 'sales', 'hr'];
+export const employeeRoles = ['All roles', 'branch manager', 'manager', 'IT', 'admin', 'market', 'sales'];
 
 export const monthNamesList = ["All", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 

@@ -3,6 +3,7 @@ import Icon from "../../components/Icon";
 import BranchManagerCreateRequestModal from "./BranchManagerCreateRequestModal";
 import BranchManagerRequestModal from "./BranchManagerRequestModal";
 import { initialBranchSentRequests, initialManagerReceivedRequests } from "./mockBranchRequests";
+import { repairPendingClientCreations } from "../../utils/branchHelper";
 
 export default function BranchManagerRequestsPage({
   employeesList = [],
@@ -22,6 +23,45 @@ export default function BranchManagerRequestsPage({
   const [statusFilter, setStatusFilter] = useState("All");
   const [deptFilter, setDeptFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Sync live client creation requests into Branch Manager received requests pool
+  React.useEffect(() => {
+    function loadLiveBranchRequests() {
+      try {
+        const repaired = repairPendingClientCreations();
+        const rawCreations = JSON.parse(localStorage.getItem("agni_pending_client_creations") || "[]");
+        const list = Array.isArray(rawCreations) && rawCreations.length ? rawCreations : repaired;
+
+        const liveCreationsMap = list.map((c) => ({
+          id: c.id?.startsWith("REQ") ? c.id : `REQ-REG-${String(c.id || "").slice(-4).toUpperCase() || Math.floor(1000 + Math.random() * 9000)}`,
+          requesterName: c.salesPerson || c.owner || "Sales Executive",
+          targetRole: "Sales Manager / Branch Manager",
+          targetName: c.company || c.companyName || c.clientName || c.name || "New Client Onboarding",
+          department: "Sales",
+          requestType: "Client Onboarding",
+          reason: `Registration request for "${c.company || c.companyName || c.clientName || c.name}" under scheme "${c.scheme || c.serviceName || 'Consultancy'}".`,
+          effectiveDate: c.createdAt ? String(c.createdAt).split("T")[0] : new Date().toISOString().split("T")[0],
+          status: c.status || "Pending",
+          source: "client_creation",
+        }));
+
+        setReceivedRequests((prev) => {
+          const nonCreation = prev.filter((r) => r.source !== "client_creation");
+          return [...liveCreationsMap, ...nonCreation];
+        });
+      } catch (e) {}
+    }
+
+    loadLiveBranchRequests();
+    window.addEventListener("storage", loadLiveBranchRequests);
+    window.addEventListener("agni_pending_updated", loadLiveBranchRequests);
+    const interval = setInterval(loadLiveBranchRequests, 2000);
+    return () => {
+      window.removeEventListener("storage", loadLiveBranchRequests);
+      window.removeEventListener("agni_pending_updated", loadLiveBranchRequests);
+      clearInterval(interval);
+    };
+  }, []);
 
   // KPIs
   const pendingSentCount = useMemo(

@@ -10,8 +10,22 @@ import {
   initialBranchClients,
   initialBranchTeam,
   ACTIVITY_STAGES,
-  getTrackerState,
 } from "./mockAdminData";
+import {
+  getTrackerState,
+  getCanonicalSchemeName,
+  canCompleteStage,
+  getTrackerStages,
+  normalizeCompletedStages,
+  isPaymentDemandOrSettlement
+} from "../../utils/schemeTracker";
+import {
+  sanitizeClientRecord,
+  mergeSecondaryClients,
+  sortByRoleRanking,
+  getManagerBranchDetails
+} from "../../utils/branchHelper";
+import { apiFetch, apiClient } from "../../services/apiClient";
 
 // Modular Page Components
 import AdminOverviewPage from "./AdminOverviewPage";
@@ -28,11 +42,7 @@ import AdminClientDossierModal from "./AdminClientDossierModal";
 import AdminCreateRequestModal from "./AdminCreateRequestModal";
 import "./AdminDashboard.css";
 
-import {
-  canCompleteStage,
-  getTrackerStages,
-  normalizeCompletedStages,
-} from "../../utils/schemeTracker";
+import { useApiClients } from "../../hooks/useApiClients";
 
 // Navigation items
 const adminNavItems = [
@@ -78,7 +88,7 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
 
   const notificationWrapRef = useRef(null);
 
-  // Admin Name
+  // Admin Name & Branch Details
   const adminName = useMemo(() => {
     if (!userEmail) return "Branch Admin";
     const raw = userEmail.split("@")[0];
@@ -88,33 +98,96 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
     return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
   }, [userEmail]);
 
-  // Selected Branch (every branch has its own admin team)
-  const [selectedBranch, setSelectedBranch] = useState("West Zone (Mumbai)");
+  const adminBranchDetails = useMemo(() => {
+    return getManagerBranchDetails(userEmail);
+  }, [userEmail]);
 
-  // Clients state with localStorage persistence
-  const [clients, setClients] = useState(() => {
-    try {
-      const saved = localStorage.getItem("agni_branch_clients");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.warn("Failed to load saved clients from localStorage", e);
-    }
-    return initialBranchClients;
+  // Selected Branch (dynamically bound to logged-in Admin's branch)
+  const [selectedBranch, setSelectedBranch] = useState(() => {
+    const details = getManagerBranchDetails(userEmail);
+    return details?.branchName || "North Zone (Delhi)";
   });
 
-  const [teamMembers] = useState(initialBranchTeam);
-
-  // Sync to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem("agni_branch_clients", JSON.stringify(clients));
-    } catch (e) {
-      console.warn("Failed to save clients to localStorage", e);
+    if (adminBranchDetails && adminBranchDetails.branchName) {
+      setSelectedBranch(adminBranchDetails.branchName);
+      try {
+        localStorage.setItem("agni_user_branch", adminBranchDetails.branchName);
+      } catch (e) { }
     }
-  }, [clients]);
+  }, [adminBranchDetails]);
+
+  const [teamMembers, setTeamMembers] = useState(initialBranchTeam);
+
+  const [departmentNotifs, setDepartmentNotifs] = useState([]);
+
+  // Fetch Salespersons & Team members from Database
+  useEffect(() => {
+    async function fetchDatabaseTeam() {
+      try {
+        const response = await apiFetch("/auth/users");
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && Array.isArray(data.users) && data.users.length > 0) {
+            setTeamMembers((prev) => {
+              const dbUsers = data.users;
+              const userMap = new Map();
+              dbUsers.forEach((u) => {
+                userMap.set(u.email.toLowerCase(), u);
+              });
+              prev.forEach((m) => {
+                if (m.email && !userMap.has(m.email.toLowerCase())) {
+                  userMap.set(m.email.toLowerCase(), m);
+                }
+              });
+              return sortByRoleRanking(Array.from(userMap.values()));
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch team from database, using local fallback:", err);
+      }
+    }
+
+    fetchDatabaseTeam();
+  }, []);
+
+
+  const handleDismissNotif = (notifId) => {
+    try {
+      const saved = localStorage.getItem("agni_department_notifications");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.map((n) => (n.id === notifId ? { ...n, read: true } : n));
+          localStorage.setItem("agni_department_notifications", JSON.stringify(updated));
+          setDepartmentNotifs(updated.filter((n) => n.department === "Admin" && !n.read));
+        }
+      }
+    } catch (e) { }
+  };
+
+  // Live Fetch Clients from PostgreSQL Backend API
+  const { clients: apiClients, refreshClients } = useApiClients();
+
+  const clients = useMemo(() => {
+    return apiClients.map((c) => {
+      const tracker = getTrackerState({
+        ...c,
+        scheme: c.serviceName || c.scheme,
+      });
+
+      return sanitizeClientRecord({
+        ...c,
+        scheme: c.serviceName || c.scheme,
+        branch: typeof c.branch === 'object' ? c.branch?.name : (c.branch || selectedBranch),
+        assignedSalesPerson: c.salesPerson?.fullName || c.assignedSalesPerson || c.owner || "Mia Rose",
+        progress: c.progressPercent || tracker.progressPercent,
+        completedSteps: tracker.completedStages,
+      });
+    });
+  }, [apiClients, selectedBranch]);
 
   // Filter States for Clients Page
   const [statusTab, setStatusTab] = useState("All");
@@ -137,22 +210,58 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
     setTimeout(() => setToastMessage(""), 4500);
   };
 
-  // Branch Clients (filtered by selected branch)
+  // Branch Clients (strictly filtered by Admin's assigned branch, excluding Payment Demands)
   const branchClients = useMemo(() => {
-    return clients.filter((c) => c.branch === selectedBranch);
-  }, [clients, selectedBranch]);
+    const targetBranch = selectedBranch || adminBranchDetails.branchName || "North Zone (Delhi)";
+    const targetRegion = targetBranch.split(" ")[0].toLowerCase(); // "north", "west", "south", "east"
+
+    return clients.map(sanitizeClientRecord).filter((c) => {
+      if (!c) return false;
+      if (isPaymentDemandOrSettlement(c)) return false;
+      const sName = c.scheme || c.serviceName || c.particularScheme;
+      if (isPaymentDemandOrSettlement(sName)) return false;
+
+      const rawBranch = c.branch || c.branchName || c.region || "";
+      const cBranch = typeof rawBranch === "object" ? rawBranch?.name || "" : String(rawBranch);
+
+      if (targetRegion === "all" || targetBranch.toLowerCase().includes("all")) return true;
+
+      if (cBranch.trim()) {
+        const cBranchLower = cBranch.toLowerCase();
+        return cBranchLower.includes(targetRegion) || cBranchLower === targetBranch.toLowerCase();
+      }
+
+      // If client branch is unpopulated, derive branch from sales representative or creator
+      const sales = (c.assignedSalesPerson || c.salesPerson || c.owner || c.salesperson || c.creatorName || "").toLowerCase();
+      const email = (c.salesPersonEmail || c.creatorEmail || c.email || "").toLowerCase();
+
+      const belongsToWest = sales.includes("mia") || sales.includes("lucas") || sales.includes("eli") || sales.includes("ariana") || email.includes("mumbai");
+      const belongsToNorth = sales.includes("rohan") || sales.includes("kavya") || sales.includes("ananya") || sales.includes("rajesh") || email.includes("delhi");
+      const belongsToSouth = sales.includes("arjun") || sales.includes("deepa") || sales.includes("karthik") || sales.includes("suresh") || email.includes("bengaluru");
+      const belongsToEast = sales.includes("sourav") || sales.includes("riya") || sales.includes("debolina") || sales.includes("subhash") || email.includes("kolkata");
+
+      if (targetRegion === "north") return belongsToNorth;
+      if (targetRegion === "west") return belongsToWest;
+      if (targetRegion === "south") return belongsToSouth;
+      if (targetRegion === "east") return belongsToEast;
+
+      return false;
+    });
+  }, [clients, selectedBranch, adminBranchDetails]);
 
   // Filtered clients list for Clients Page based on statusTab and search
   const filteredClients = useMemo(() => {
     return branchClients.filter((c) => {
-      const matchesStatus = statusTab === "All" || c.applicationStatus === statusTab;
+      const tracker = getTrackerState(c);
+      const matchesStatus = statusTab === "All" || tracker.currentStage === statusTab;
       const q = clientSearch.trim().toLowerCase();
+      const schemeStr = (c.particularScheme || c.schemeName || c.scheme || c.serviceName || "").toLowerCase();
       const matchesSearch =
         !q ||
         c.name.toLowerCase().includes(q) ||
         c.company.toLowerCase().includes(q) ||
         c.appId.toLowerCase().includes(q) ||
-        c.scheme.toLowerCase().includes(q) ||
+        schemeStr.includes(q) ||
         c.assignedSalesPerson.toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
     });
@@ -161,16 +270,20 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   // Status Metrics for current branch
   const metrics = useMemo(() => {
     const total = branchClients.length;
-    const completed = branchClients.filter((c) => c.progress === 100 || c.applicationStatus === "Final Approval").length;
-    const inProgress = branchClients.filter((c) => c.progress > 0 && c.progress < 100).length;
-    const managerReview = branchClients.filter((c) => c.applicationStatus === "Manager Review").length;
-    const docAudit = branchClients.filter((c) => c.applicationStatus === "Doc Audit").length;
+    const completed = branchClients.filter((c) => getTrackerState(c).progressPercent === 100).length;
+    const inProgress = branchClients.filter((c) => {
+      const p = getTrackerState(c).progressPercent;
+      return p > 0 && p < 100;
+    }).length;
+    const managerReview = branchClients.filter((c) => getTrackerState(c).currentStage === "Reports").length;
+    const docAudit = branchClients.filter((c) => getTrackerState(c).currentStage === "Agreement").length;
     return { total, completed, inProgress, managerReview, docAudit };
   }, [branchClients]);
 
   // Handle direct quick interactive point toggle on client card
   const handleQuickStepToggle = (client, stepName, nextCompletedSteps, newPercent) => {
-    const tracker = getTrackerState({ scheme: client.scheme, completedSteps: nextCompletedSteps });
+    const schemeToUse = client.scheme || "PMEGP";
+    const tracker = getTrackerState({ ...client, scheme: schemeToUse, completedSteps: nextCompletedSteps });
     const activeStageName = tracker.completedStages.length > 0
       ? tracker.completedStages[tracker.completedStages.length - 1]
       : "CRM Creation";
@@ -182,9 +295,11 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
       notes: `Updated milestone to "${activeStageName}" (${tracker.progressPercent}% completion - ${tracker.completedStages.length}/${tracker.totalStages} points checked).`,
     };
 
+    saveSchemeCompletedStages(client, schemeToUse, tracker.completedStages);
+
     setClients((prev) =>
       prev.map((c) => {
-        if (c.id === client.id) {
+        if (c.id === client.id || (c.email && client.email && c.email.toLowerCase() === client.email.toLowerCase())) {
           return {
             ...c,
             completedSteps: tracker.completedStages,
@@ -197,6 +312,17 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
         return c;
       })
     );
+
+
+
+    // Sync to backend DB if token available
+    if (client.id && typeof client.id === "string" && client.id.length > 10) {
+      apiClient.patch(`/clients/${client.id}/status`, {
+        completedSteps: tracker.completedStages,
+        applicationStatus: activeStageName,
+        progressPercent: tracker.progressPercent,
+      }).catch((err) => console.warn("Failed to sync client status to backend:", err));
+    }
 
     showToast(`✓ Updated ${client.name} to "${activeStageName}" (${tracker.progressPercent}% — ${tracker.completedStages.length}/${tracker.totalStages} points completed)`);
   };
@@ -215,8 +341,10 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
     }
 
     const normalized = normalizeCompletedStages(nextCompleted, stages);
-    const tracker = getTrackerState({ scheme: client.scheme, completedSteps: normalized });
+    const tracker = getTrackerState({ ...client, scheme: client.scheme, completedSteps: normalized });
     const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
+
+    saveSchemeCompletedStages(client, client.scheme, tracker.completedStages);
 
     const historyEntry = {
       date: nowStr.split(" ")[0],
@@ -229,7 +357,7 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
 
     setClients((prev) =>
       prev.map((c) => {
-        if (c.id === client.id) {
+        if (c.id === client.id || (c.email && client.email && c.email.toLowerCase() === client.email.toLowerCase())) {
           return {
             ...c,
             completedSteps: tracker.completedStages,
@@ -242,15 +370,24 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
         return c;
       })
     );
+
+    window.dispatchEvent(new Event("storage"));
   };
 
   // Open Status Update Modal
-  const handleOpenStatusUpdate = (client) => {
+  const handleOpenStatusUpdate = (client, targetScheme) => {
     setUpdatingClient(client);
-    const tracker = getTrackerState(client);
+    const schemeToUse = targetScheme || client.scheme || "PMEGP";
+    const isPrimary = client.isPrimary === false || client.processType === "secondary" ? false : isClientPrimaryScheme(client, schemeToUse);
+    const defaultSteps = isPrimary
+      ? (client.completedSteps || ["CRM Creation"])
+      : ["CRM Creation", "Agreement", "Reports"];
+    const savedSteps = getSchemeCompletedStages(client, schemeToUse, defaultSteps);
+    const tracker = getTrackerState({ ...client, scheme: schemeToUse }, savedSteps);
 
     setStatusFormData({
-      status: client.applicationStatus || tracker.currentStage,
+      schemeName: schemeToUse,
+      status: tracker.currentStage,
       completedSteps: tracker.completedStages,
       progress: tracker.progressPercent,
       notes: client.adminNotes || "",
@@ -262,39 +399,42 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   };
 
   // Save Application Status Update
-  const handleSaveStatusUpdate = (e) => {
-    e.preventDefault();
+  const handleSaveStatusUpdate = (e, overrideData) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!updatingClient) return;
 
-    const newStatus = statusFormData.status;
-    const newProgress = Number(statusFormData.progress);
-    const newCompletedSteps = statusFormData.completedSteps;
+    const targetScheme = overrideData?.schemeName || statusFormData.schemeName || updatingClient.scheme || "PMEGP";
+    const isPrimary = targetScheme.toLowerCase().includes("pmegp") || targetScheme.toLowerCase() === (updatingClient.primaryScheme || updatingClient.scheme || "PMEGP").toLowerCase();
+    const newCompletedSteps = overrideData?.completedSteps || statusFormData.completedSteps || (isPrimary ? ["CRM Creation"] : ["CRM Creation", "Agreement", "Reports"]);
+    const newStatus = overrideData?.status || statusFormData.status || "CRM Creation";
+    const newProgress = overrideData?.progress !== undefined ? Number(overrideData.progress) : Number(statusFormData.progress || 20);
     const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
+
+    saveSchemeCompletedStages(updatingClient, targetScheme, newCompletedSteps);
 
     const historyEntry = {
       date: nowStr.split(" ")[0],
       status: newStatus,
       updatedBy: `${adminName} (Branch Admin)`,
-      notes: statusFormData.notes || `Milestones updated: ${newCompletedSteps.length}/5 points checked (${newProgress}% completed).`,
+      notes: (overrideData?.notes || statusFormData.notes) || `Milestones updated for ${targetScheme}: ${newCompletedSteps.length} points checked (${newProgress}% completed).`,
     };
 
+    const docUpdates = overrideData?.documentUpdates || statusFormData.documentUpdates || {};
     const updatedDocuments = (updatingClient.documents || []).map((doc) => {
-      if (statusFormData.documentUpdates[doc.name]) {
-        return { ...doc, status: statusFormData.documentUpdates[doc.name] };
+      if (docUpdates[doc.name]) {
+        return { ...doc, status: docUpdates[doc.name] };
       }
       return doc;
     });
 
     setClients((prev) =>
       prev.map((c) => {
-        if (c.id === updatingClient.id) {
+        if (c.id === updatingClient.id || (c.email && updatingClient.email && c.email.toLowerCase() === updatingClient.email.toLowerCase())) {
           return {
             ...c,
-            applicationStatus: newStatus,
-            completedSteps: newCompletedSteps,
-            progress: newProgress,
+            ...(isPrimary ? { completedSteps: newCompletedSteps, progress: newProgress, applicationStatus: newStatus } : {}),
             lastUpdated: nowStr,
-            adminNotes: statusFormData.notes || c.adminNotes,
+            adminNotes: (overrideData?.notes || statusFormData.notes) || c.adminNotes,
             documents: updatedDocuments,
             history: [historyEntry, ...(c.history || [])],
           };
@@ -308,16 +448,30 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
       setSelectedClientForDossier((prev) => ({
         ...prev,
         applicationStatus: newStatus,
-        completedSteps: newCompletedSteps,
+        ...(isPrimary ? { completedSteps: newCompletedSteps } : {}),
         progress: newProgress,
         lastUpdated: nowStr,
-        adminNotes: statusFormData.notes || prev.adminNotes,
+        adminNotes: (overrideData?.notes || statusFormData.notes) || prev.adminNotes,
         documents: updatedDocuments,
         history: [historyEntry, ...(prev.history || [])],
       }));
     }
 
-    showToast(`✓ Application ${updatingClient.appId} (${updatingClient.name}) saved: "${newStatus}" (${newProgress}% — ${newCompletedSteps.length}/5 points).`);
+
+
+    // Sync to backend DB if token available
+    if (updatingClient.id && typeof updatingClient.id === "string" && updatingClient.id.length > 10) {
+      const backendSteps = isPrimary ? newCompletedSteps : (updatingClient.completedSteps || ["CRM Creation"]);
+
+      apiClient.patch(`/clients/${updatingClient.id}/status`, {
+        completedSteps: backendSteps,
+        applicationStatus: newStatus,
+        progressPercent: newProgress,
+        adminNotes: (overrideData?.notes || statusFormData.notes) || undefined,
+      }).catch((err) => console.warn("Failed to sync client status to backend:", err));
+    }
+
+    showToast(`✓ Application ${updatingClient.appId} (${updatingClient.name}) saved for ${targetScheme}: "${newStatus}" (${newProgress}%).`);
     setUpdatingClient(null);
   };
 
@@ -401,6 +555,45 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
           </div>
         </DashboardHeader>
 
+        {departmentNotifs.length > 0 && (
+          <div style={{
+            background: "linear-gradient(135deg, rgba(78, 124, 255, 0.15) 0%, rgba(16, 185, 129, 0.15) 100%)",
+            border: "1px solid rgba(78, 124, 255, 0.4)",
+            borderRadius: "12px",
+            padding: "14px 18px",
+            margin: "16px 24px 8px 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            color: "#ffffff",
+            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "13.5px" }}>
+              <span style={{ fontSize: "18px" }}>⚡</span>
+              <span>
+                <strong>Sales Assignment Alert:</strong> Salesperson <strong>{departmentNotifs[0].salesPerson}</strong> assigned client <strong>{departmentNotifs[0].companyName}</strong> ({departmentNotifs[0].serviceName}) to <strong>{departmentNotifs[0].targetStaffName}</strong> ({departmentNotifs[0].targetStaffRole})!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleDismissNotif(departmentNotifs[0].id)}
+              style={{
+                background: "rgba(255, 255, 255, 0.15)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                color: "#ffffff",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              Acknowledge ✓
+            </button>
+          </div>
+        )}
+
         {/* Global Toast Alert */}
         {toastMessage && (
           <div
@@ -464,6 +657,7 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
                 onOpenHistory={() => handleNavChange("History")}
                 onOpenStatusUpdate={handleOpenStatusUpdate}
                 onQuickStepToggle={handleQuickStepToggle}
+                onRequestRollback={(client, targetStage) => setRollbackRequestData({ client, targetStage })}
                 onOpenDossier={setSelectedClientForDossier}
               />
             }
@@ -482,6 +676,7 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
                 onOpenHistory={() => handleNavChange("History")}
                 onOpenStatusUpdate={handleOpenStatusUpdate}
                 onQuickStepToggle={handleQuickStepToggle}
+                onRequestRollback={(client, targetStage) => setRollbackRequestData({ client, targetStage })}
                 onOpenDossier={setSelectedClientForDossier}
               />
             }

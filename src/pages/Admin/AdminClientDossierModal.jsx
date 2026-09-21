@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import Icon from "../../components/Icon";
 import ActivityTracker from "../../components/ActivityTracker";
 import { stageBadgeColors, formatCurrency } from "./mockAdminData";
-import { getTrackerState, getProcessTypeForScheme, getProcessTypeLabel } from "../../utils/schemeTracker";
+import { getTrackerState, getProcessTypeForScheme, getProcessTypeLabel, getClientAllSchemeTrackers, isClientPrimaryScheme, getSchemeCompletedStages } from "../../utils/schemeTracker";
 import "./AdminDashboard.css";
 
 export default function AdminClientDossierModal({
@@ -12,10 +12,16 @@ export default function AdminClientDossierModal({
 }) {
   if (!selectedClientForDossier) return null;
 
-  const tracker = getTrackerState(selectedClientForDossier);
-  const schemeName = selectedClientForDossier.scheme || tracker.schemeName;
-  const processType = getProcessTypeForScheme(schemeName);
-  const processLabel = tracker.processTypeLabel || getProcessTypeLabel(processType);
+  const targetScheme = selectedClientForDossier.particularScheme || selectedClientForDossier.schemeName || selectedClientForDossier.scheme || selectedClientForDossier.serviceName || "PMEGP";
+  const isPrimary = selectedClientForDossier.isPrimary === false || selectedClientForDossier.processType === "secondary" ? false : isClientPrimaryScheme(selectedClientForDossier, targetScheme);
+  const defaultSteps = isPrimary
+    ? (selectedClientForDossier.completedSteps || selectedClientForDossier.completedStages || ["CRM Creation"])
+    : ["CRM Creation", "Agreement", "Reports"];
+  const completedSteps = getSchemeCompletedStages(selectedClientForDossier, targetScheme, defaultSteps);
+  const tracker = getTrackerState({ scheme: targetScheme }, completedSteps, !isPrimary);
+  const schemeName = tracker.schemeName || targetScheme;
+  const processType = tracker.processType || (isPrimary ? getProcessTypeForScheme(schemeName) : "secondary");
+  const processLabel = tracker.processTypeLabel || (isPrimary ? getProcessTypeLabel(processType) : "Secondary Scheme");
 
   return (
     <div
@@ -89,13 +95,13 @@ export default function AdminClientDossierModal({
               <span
                 className="admin-badge"
                 style={{
-                  background: `${stageBadgeColors[selectedClientForDossier.applicationStatus || tracker.currentStage] || "#10b981"}18`,
-                  color: stageBadgeColors[selectedClientForDossier.applicationStatus || tracker.currentStage] || "#10b981",
-                  border: `1px solid ${stageBadgeColors[selectedClientForDossier.applicationStatus || tracker.currentStage] || "#10b981"}33`,
+                  background: `${stageBadgeColors[tracker.currentStage] || "#10b981"}18`,
+                  color: stageBadgeColors[tracker.currentStage] || "#10b981",
+                  border: `1px solid ${stageBadgeColors[tracker.currentStage] || "#10b981"}33`,
                   fontSize: 11,
                 }}
               >
-                ● {selectedClientForDossier.applicationStatus || tracker.currentStage}
+                ● {tracker.currentStage}
               </span>
             </div>
             <h3 style={{ margin: "2px 0 4px", fontSize: 20, fontWeight: 800, color: "inherit", letterSpacing: -0.3 }}>
@@ -166,11 +172,37 @@ export default function AdminClientDossierModal({
             </div>
           </div>
 
-          {/* Stepper Bar in 1 Row */}
+          {/* Multi-Scheme Stepper Bar */}
           <div className="admin-subcard" style={{ padding: "14px 16px" }}>
-            <span className="admin-kicker" style={{ fontSize: 11, display: "block", marginBottom: 8 }}>
-              Activity Progress Pipeline ({schemeName})
-            </span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+              <span className="admin-kicker" style={{ fontSize: 11, margin: 0 }}>
+                Active Service Pipeline ({schemeName})
+              </span>
+              <button
+                type="button"
+                className="admin-action-btn"
+                onClick={() => {
+                  onClose();
+                  if (onOpenStatusUpdate) {
+                    onOpenStatusUpdate(selectedClientForDossier, schemeName);
+                  }
+                }}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 6,
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg, #4e7cff 0%, #3b66e8 100%)",
+                  color: "#ffffff",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Edit {schemeName} Pipeline ✏️
+              </button>
+            </div>
+
+
             <ActivityTracker
               scheme={schemeName}
               completedSteps={tracker.completedStages}

@@ -119,18 +119,35 @@
    4. Toast & Alert Notifications
    -------------------------------------------------------------------------- */
 .sales-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 99999;
+  min-width: 320px;
+  max-width: 480px;
   padding: 14px 20px;
-  margin-bottom: 18px;
   border-radius: 12px;
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #ffffff;
   font-weight: 600;
   font-size: 13.5px;
-  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  animation: salesFadeIn 0.25s ease;
+  gap: 12px;
+  animation: salesToastSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes salesToastSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .sales-toast-close {
@@ -1919,5 +1936,191 @@
   .sales-vm-info-tile.span-2 {
     grid-column: span 1;
   }
+
+/* ==========================================================================
+   Requests Table High-Contrast & Theme-Aware UI Enhancements
+   ========================================================================== */
+.req-table-id {
+  font-weight: 700;
+  color: #7c3aed;
+  font-family: monospace;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.req-table-client-name {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a; /* Deep Slate in Light Mode */
+}
+
+.dashboard-dark .req-table-client-name {
+  color: #f8fafc; /* Crisp White in Dark Mode */
+}
+
+.req-table-client-email {
+  display: block;
+  font-size: 11.5px;
+  color: #475569; /* Slate in Light Mode */
+}
+
+.dashboard-dark .req-table-client-email {
+  color: #94a3b8;
+}
+
+.req-table-scheme-name {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0369a1; /* Deep Sky Blue in Light Mode */
+  margin-top: 2px;
+}
+
+.dashboard-dark .req-table-scheme-name {
+  color: #38bdf8;
+}
+
+.req-table-target-dept {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.dashboard-dark .req-table-target-dept {
+  color: #cbd5e1;
+}
+
+.req-table-submitted-date {
+  font-size: 12px;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.dashboard-dark .req-table-submitted-date {
+  color: #94a3b8;
+}
+
+.req-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+.req-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.req-actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+}
+
+/* ── Modal Popups: Scrollable, Responsive & Theme-Adaptive Styling ── */
+.cd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 14, 23, 0.65) !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 20px !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
+}
+
+.cd-modal-glass,
+.cd-modal {
+  max-height: 88vh !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.35) !important;
+  transition: all 0.25s ease;
+}
+
+/* Light Mode Theme Matching for Approval & Scheme Modals */
+.cd-modal-theme-card {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1.5px solid rgba(140, 95, 248, 0.25) !important;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2) !important;
+}
+
+.cd-modal-theme-card h3,
+.cd-modal-theme-card h2,
+.cd-modal-theme-card strong {
+  color: #0f172a !important;
+}
+
+.cd-modal-theme-card .sub-text,
+.cd-modal-theme-card label {
+  color: #334155 !important;
+}
+
+.cd-modal-theme-card .info-block {
+  background: rgba(140, 95, 248, 0.05) !important;
+  border: 1px solid rgba(140, 95, 248, 0.18) !important;
+  color: #0f172a !important;
+}
+
+.cd-modal-theme-card input,
+.cd-modal-theme-card select,
+.cd-modal-theme-card textarea {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1.5px solid rgba(140, 95, 248, 0.3) !important;
+}
+
+.cd-modal-theme-card input::placeholder,
+.cd-modal-theme-card textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Dark Mode Theme Overrides */
+.dashboard-dark .cd-modal-theme-card {
+  background: rgba(15, 23, 42, 0.96) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.dashboard-dark .cd-modal-theme-card h3,
+.dashboard-dark .cd-modal-theme-card h2,
+.dashboard-dark .cd-modal-theme-card strong {
+  color: #f8fafc !important;
+}
+
+.dashboard-dark .cd-modal-theme-card .sub-text,
+.dashboard-dark .cd-modal-theme-card label {
+  color: #cbd5e1 !important;
+}
+
+.dashboard-dark .cd-modal-theme-card input,
+.dashboard-dark .cd-modal-theme-card select,
+.dashboard-dark .cd-modal-theme-card textarea {
+  background: rgba(15, 23, 42, 0.9) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 

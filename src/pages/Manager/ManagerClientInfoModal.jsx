@@ -85,11 +85,15 @@ export default function ManagerClientInfoModal({ client, onClose, onSave }) {
             </div>
             <div className="manager-modal-card">
               <span className="manager-modal-card-label">Onboarding Date</span>
-              <span className="manager-modal-card-val">{client.startDate || "2025"}</span>
+              <span className="manager-modal-card-val">
+                {client.startDate || (client.createdAt ? String(client.createdAt).split("T")[0] : "—")}
+              </span>
             </div>
             <div className="manager-modal-card">
               <span className="manager-modal-card-label">Contract Revenue Value</span>
-              <span className="manager-modal-card-val" style={{ color: "#10b981", fontWeight: 800 }}>{client.revenue || "—"}</span>
+              <span className="manager-modal-card-val" style={{ color: "#10b981", fontWeight: 800 }}>
+                {client.revenue || (client.totalPayment ? `₹${Number(client.totalPayment).toLocaleString("en-IN")}` : "—")}
+              </span>
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>

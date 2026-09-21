@@ -1,26 +1,27 @@
 import React from "react";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
+import { getCategoryBadgeStyle } from "./RequestTable";
 
 const formatDate = (value) => value || "—";
-
-const statusConfig = {
-  Pending: { bg: "rgba(245, 158, 11, 0.12)", color: "#f59e0b" },
-  Approved: { bg: "rgba(16, 185, 129, 0.12)", color: "#10b981" },
-  Rejected: { bg: "rgba(244, 63, 94, 0.12)", color: "#f43f5e" },
-  Cancelled: { bg: "rgba(100, 116, 139, 0.12)", color: "#64748b" },
-};
 
 export default function RequestDetailsModal({ request, onClose }) {
   if (!request) return null;
 
-  const isDelete = request.requestType === "Delete Client";
-  const statusStyle = statusConfig[request.status] || statusConfig.Pending;
+  const badge = getCategoryBadgeStyle(request.category || request.requestType || request.schemeName);
+  const isSchemeReq = request.requestType === "Eligible Scheme" || request.requestType === "More Services" || !!request.schemeName;
+  const isDelete = request.requestType === "Delete Client" || request.category === "Manager Approval: Client Delete";
+
+  const totalWithGst = Number(request.totalInvoice || request.totalPayment || request.pitchedAmount || request.price || 0);
+  const pitchedNum = Math.round(totalWithGst / 1.18);
+  const gstNum = totalWithGst - pitchedNum;
+  const paidNum = Number(request.paidAmount || request.paymentReceived || totalWithGst);
+  const remainingNum = Math.max(0, totalWithGst - paidNum);
 
   return (
-    <Modal title={`Request Details — ${request.id}`} onClose={onClose} closeLabel="Close">
+    <Modal title={`Request Audit Dossier — ${request.id}`} onClose={onClose} closeLabel="Close">
       <div style={{ display: "flex", flexDirection: "column", gap: 18, maxWidth: 680 }}>
-        {/* Top Summary Banner */}
+        {/* Header Summary Banner */}
         <div
           style={{
             display: "grid",
@@ -28,80 +29,150 @@ export default function RequestDetailsModal({ request, onClose }) {
             gap: 12,
             padding: 16,
             borderRadius: 14,
-            background: "linear-gradient(135deg, rgba(140, 95, 248, 0.08) 0%, rgba(109, 59, 245, 0.03) 100%)",
-            border: "1px solid rgba(140, 95, 248, 0.16)",
+            background: "linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.8) 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
           }}
         >
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Client Name</span>
-            <strong style={{ display: "block", fontSize: 15, marginTop: 2 }}>{request.clientName}</strong>
+            <span style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, display: "block" }}>Client Entity</span>
+            <strong style={{ fontSize: 15, color: "#f8fafc", marginTop: 2, display: "block" }}>{request.clientName || request.companyName}</strong>
+            <span style={{ fontSize: 12, color: "#38bdf8", fontWeight: 600, display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
+              <Icon name="mail" size={13} />
+              {request.clientEmail || request.email || "No email specified"}
+            </span>
           </div>
+
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Request Type</span>
+            <span style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, display: "block" }}>Category &amp; Type</span>
             <span
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 5,
-                fontSize: 12.5,
+                padding: "4px 10px",
+                borderRadius: 12,
+                fontSize: 11.5,
                 fontWeight: 700,
-                color: isDelete ? "#f43f5e" : "#8c5ff8",
-                marginTop: 2,
+                background: badge.bg,
+                color: badge.color,
+                border: `1px solid ${badge.border}`,
+                marginTop: 4,
               }}
             >
-              <Icon name={isDelete ? "trash" : "document"} size={13} />
-              {request.requestType}
+              <Icon name={badge.icon} size={12} />
+              {badge.label}
             </span>
           </div>
+
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Status</span>
+            <span style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700, display: "block" }}>Decision Status</span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 12px",
+                borderRadius: 999,
+                background: request.status.includes("Approved") ? "rgba(16, 185, 129, 0.16)" : request.status.includes("Pending") ? "rgba(245, 158, 11, 0.16)" : "rgba(239, 68, 68, 0.16)",
+                color: request.status.includes("Approved") ? "#10b981" : request.status.includes("Pending") ? "#f59e0b" : "#ef4444",
+                border: `1px solid ${request.status.includes("Approved") ? "rgba(16, 185, 129, 0.4)" : request.status.includes("Pending") ? "rgba(245, 158, 11, 0.4)" : "rgba(239, 68, 68, 0.4)"}`,
+                fontWeight: 700,
+                fontSize: 12,
+                marginTop: 4,
+              }}
+            >
+              {request.status}
+            </span>
+          </div>
+        </div>
+
+        {/* Requested Service / Scheme Card (if applicable) */}
+        {(request.schemeName || request.serviceName) && (
+          <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(147, 51, 234, 0.08)", border: "1.5px solid rgba(147, 51, 234, 0.35)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "3px 10px",
-                  borderRadius: 999,
-                  background: statusStyle.bg,
-                  color: statusStyle.color,
-                  fontWeight: 700,
-                  fontSize: 11.5,
-                  marginTop: 2,
-                }}
-              >
-                {request.status}
+              <span style={{ fontSize: 11, color: "#6b21a8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6, display: "block" }}>
+                Enrolling Service / Scheme Name
+              </span>
+              <strong style={{ fontSize: 16, color: "#0f172a", fontWeight: 800, marginTop: 2, display: "block" }}>
+                {request.schemeName || request.serviceName}
+              </strong>
+            </div>
+            <span style={{ padding: "5px 12px", borderRadius: 8, background: "#7e22ce", color: "#ffffff", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 6px rgba(126, 34, 206, 0.25)" }}>
+              {request.category || request.requestType || "Service Request"}
+            </span>
+          </div>
+        )}
+
+        {/* Audit Meta Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(15, 23, 42, 0.6)" }}>
+            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, display: "block" }}>Submitted On</span>
+            <strong style={{ fontSize: 12.5, color: "#e2e8f0", marginTop: 3, display: "block" }}>{formatDate(request.submittedDate || request.createdAt)}</strong>
+          </div>
+          <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(15, 23, 42, 0.6)" }}>
+            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, display: "block" }}>Actioned By</span>
+            <strong style={{ fontSize: 12.5, color: "#38bdf8", marginTop: 3, display: "block" }}>{request.actionedBy || request.managerName || "Sales Executive"}</strong>
+          </div>
+          <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255, 255, 255, 0.08)", background: "rgba(15, 23, 42, 0.6)" }}>
+            <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, display: "block" }}>Decision Timestamp</span>
+            <strong style={{ fontSize: 12.5, color: "#10b981", marginTop: 3, display: "block" }}>{formatDate(request.decisionDate || request.actionedAt || request.createdAt)}</strong>
+          </div>
+        </div>
+
+        {/* Department Specialist Assignment (if applicable) */}
+        {request.targetDepartment && (
+          <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(30, 41, 59, 0.7)", border: "1px solid rgba(56, 189, 248, 0.3)" }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", color: "#38bdf8", letterSpacing: 0.5, display: "block", marginBottom: 6 }}>
+              🏛️ Department Specialist Assignment
+            </span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <strong style={{ fontSize: 14, color: "#f8fafc", display: "block" }}>{request.assignedStaffName || "Department Specialist"}</strong>
+                <span style={{ fontSize: 12, color: "#94a3b8" }}>{request.assignedStaffRole || `${request.targetDepartment} Lead`} ({request.assignedStaffEmail || `${request.targetDepartment.toLowerCase()}@agni.com`})</span>
+              </div>
+              <span style={{ padding: "4px 12px", borderRadius: 12, background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", fontSize: 12, fontWeight: 700, border: "1px solid rgba(56, 189, 248, 0.3)" }}>
+                {request.targetDepartment} Department
               </span>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Meta Info Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-          <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(140, 95, 248, 0.12)", background: "rgba(255, 255, 255, 0.02)" }}>
-            <span style={{ fontSize: 11.5, color: "#7a748e", fontWeight: 600, display: "block" }}>Date Submitted</span>
-            <strong style={{ fontSize: 13, marginTop: 3, display: "block" }}>{formatDate(request.createdAt)}</strong>
+        {/* Commercials & Financial Breakdown (for Schemes/Services) */}
+        {isSchemeReq && pitchedNum > 0 && (
+          <div style={{ padding: "16px", borderRadius: 12, background: "rgba(30, 41, 59, 0.6)", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", color: "#10b981", letterSpacing: 0.5, display: "block", marginBottom: 10 }}>
+              💰 Commercial &amp; Payment Audit Record
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 10 }}>
+              <div style={{ background: "rgba(15, 23, 42, 0.8)", padding: "10px", borderRadius: 8 }}>
+                <span style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>Requested Payment Amount</span>
+                <strong style={{ fontSize: 14, color: "#10b981" }}>₹{totalWithGst.toLocaleString("en-IN")}</strong>
+              </div>
+              <div style={{ background: "rgba(15, 23, 42, 0.8)", padding: "10px", borderRadius: 8 }}>
+                <span style={{ fontSize: 11, color: "#94a3b8", display: "block" }}>Quota Base Contribution (Amt / 1.18)</span>
+                <strong style={{ fontSize: 14, color: "#38bdf8" }}>₹{pitchedNum.toLocaleString("en-IN")}</strong>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(15, 23, 42, 0.9)", padding: "10px 14px", borderRadius: 8 }}>
+              <span style={{ fontSize: 12, color: "#cbd5e1", fontWeight: 600 }}>Amount Paid by Client</span>
+              <strong style={{ fontSize: 14, color: "#10b981" }}>₹{paidNum.toLocaleString("en-IN")}</strong>
+            </div>
           </div>
-          <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(140, 95, 248, 0.12)", background: "rgba(255, 255, 255, 0.02)" }}>
-            <span style={{ fontSize: 11.5, color: "#7a748e", fontWeight: 600, display: "block" }}>Assigned Manager</span>
-            <strong style={{ fontSize: 13, marginTop: 3, display: "block" }}>{request.managerName}</strong>
-          </div>
-          <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(140, 95, 248, 0.12)", background: "rgba(255, 255, 255, 0.02)" }}>
-            <span style={{ fontSize: 11.5, color: "#7a748e", fontWeight: 600, display: "block" }}>Decision Date</span>
-            <strong style={{ fontSize: 13, marginTop: 3, display: "block" }}>{formatDate(request.decisionDate)}</strong>
-          </div>
-        </div>
+        )}
 
-        {/* Reason Section */}
-        <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(140, 95, 248, 0.14)", background: "rgba(140, 95, 248, 0.04)" }}>
-          <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#8c5ff8", display: "block", marginBottom: 6 }}>
-            {isDelete ? "Reason for Deletion Request" : "Reason for Edit Request"}
-          </span>
-          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: "inherit" }}>
-            {request.reason || "No reason specified."}
-          </p>
-        </div>
+        {/* Manager Remarks / Approval Notes Audit Trail */}
+        {(request.managerRemarks || request.assignmentNotes || request.reason) && (
+          <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(140, 95, 248, 0.2)", background: "rgba(140, 95, 248, 0.05)" }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#a855f7", display: "block", marginBottom: 6 }}>
+              📝 Approval Notes &amp; Decision Remarks
+            </span>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: "#e2e8f0" }}>
+              {request.managerRemarks || request.assignmentNotes || request.reason}
+            </p>
+          </div>
+        )}
 
-        {/* Changes Diff List (for Edit Client) */}
+        {/* Requested Mod Diffs (For Client Edit) */}
         {!isDelete && request.requestedChanges && request.requestedChanges.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#8c5ff8" }}>
@@ -112,24 +183,24 @@ export default function RequestDetailsModal({ request, onClose }) {
                 <div
                   key={change.field}
                   style={{
-                    borderRadius: 12,
-                    border: "1px solid rgba(140, 95, 248, 0.14)",
-                    background: "rgba(255, 255, 255, 0.02)",
-                    padding: "12px 16px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255, 255, 255, 0.1)",
+                    background: "rgba(15, 23, 42, 0.6)",
+                    padding: "12px 14px",
                   }}
                 >
-                  <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8, color: "#8c5ff8" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: "#38bdf8" }}>
                     {change.field}
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(244, 63, 94, 0.08)", border: "1px solid rgba(244, 63, 94, 0.2)" }}>
-                      <span style={{ fontSize: 11, color: "#f43f5e", fontWeight: 600, display: "block" }}>Original</span>
-                      <strong style={{ fontSize: 13, wordBreak: "break-word" }}>{change.oldValue || "—"}</strong>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
+                    <div style={{ padding: "8px 10px", borderRadius: 6, background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)" }}>
+                      <span style={{ fontSize: 10.5, color: "#f43f5e", fontWeight: 700, display: "block" }}>Original</span>
+                      <strong style={{ fontSize: 12.5, color: "#f8fafc" }}>{change.oldValue || "—"}</strong>
                     </div>
-                    <span style={{ color: "#8c5ff8", fontWeight: 800, fontSize: 16 }}>→</span>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
-                      <span style={{ fontSize: 11, color: "#10b981", fontWeight: 600, display: "block" }}>Requested</span>
-                      <strong style={{ fontSize: 13, wordBreak: "break-word", color: "#10b981" }}>{change.newValue || "—"}</strong>
+                    <span style={{ color: "#38bdf8", fontWeight: 800, fontSize: 14 }}>→</span>
+                    <div style={{ padding: "8px 10px", borderRadius: 6, background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+                      <span style={{ fontSize: 10.5, color: "#10b981", fontWeight: 700, display: "block" }}>Requested</span>
+                      <strong style={{ fontSize: 12.5, color: "#10b981" }}>{change.newValue || "—"}</strong>
                     </div>
                   </div>
                 </div>
@@ -138,24 +209,13 @@ export default function RequestDetailsModal({ request, onClose }) {
           </div>
         )}
 
-        {/* Manager Remarks if available */}
-        {request.managerRemarks && (
-          <div style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(140, 95, 248, 0.14)", background: "rgba(255, 255, 255, 0.03)" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#8c5ff8", display: "block", marginBottom: 4 }}>
-              Manager Remarks
-            </span>
-            <p style={{ margin: 0, fontSize: 13, color: "inherit" }}>{request.managerRemarks}</p>
-          </div>
-        )}
-
         {/* Close Button */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
-          <button type="button" className="sales-btn-secondary" onClick={onClose} style={{ padding: "8px 20px" }}>
-            Close Details
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+          <button type="button" className="sales-btn-secondary" onClick={onClose} style={{ padding: "8px 22px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>
+            Close Audit Dossier
           </button>
         </div>
       </div>
     </Modal>
   );
 }
-

@@ -4,12 +4,24 @@ import SimpleModal from "../../components/SimpleModal";
 
 export default function BranchManagerMarketingPage({
   branchMarketing = [],
+  branchManagerName = "Ariana Lee",
+  managedRegion = "West Zone",
 }) {
   const [selectedEmployeeInfo, setSelectedEmployeeInfo] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredTeam = useMemo(() => {
     return branchMarketing.filter((emp) => {
+      if (!emp) return false;
+      const empBM = (emp.branchManagerName || emp.branchManager || "").toLowerCase().trim();
+      const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();
+
+      const targetBM = (branchManagerName || "").toLowerCase().trim();
+      const targetRegion = (managedRegion || "").toLowerCase().trim();
+
+      if (targetBM && empBM && empBM !== targetBM) return false;
+      if (targetRegion && empRegion && !empRegion.includes(targetRegion.split(" ")[0].toLowerCase()) && !targetRegion.includes(empRegion)) return false;
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = emp.name?.toLowerCase().includes(q);
@@ -20,7 +32,7 @@ export default function BranchManagerMarketingPage({
       }
       return true;
     });
-  }, [branchMarketing, searchQuery]);
+  }, [branchMarketing, branchManagerName, managedRegion, searchQuery]);
 
   function openEmployeeInfo(emp) {
     setSelectedEmployeeInfo(emp);
@@ -46,7 +58,7 @@ export default function BranchManagerMarketingPage({
           <p className="bm-header-eyebrow">Growth & Campaigns</p>
           <h1 className="bm-header-title">Branch Marketing Specialists</h1>
           <p className="bm-header-subtitle">
-            Marketing campaign leads, brand strategists, and SEO specialists deployed across your regional branch.
+            Marketing campaign leads, brand strategists, and SEO specialists deployed across {managedRegion}.
           </p>
         </div>
       </div>
@@ -61,7 +73,7 @@ export default function BranchManagerMarketingPage({
             </div>
           </div>
           <div>
-            <strong className="bm-kpi-tile-value">{branchMarketing.length}</strong>
+            <strong className="bm-kpi-tile-value">{filteredTeam.length}</strong>
             <span className="bm-kpi-tile-sub">Active Specialists</span>
           </div>
         </div>
@@ -87,8 +99,8 @@ export default function BranchManagerMarketingPage({
             </div>
           </div>
           <div>
-            <strong className="bm-kpi-tile-value">South & East</strong>
-            <span className="bm-kpi-tile-sub">Active Campaign Zones</span>
+            <strong className="bm-kpi-tile-value">{managedRegion}</strong>
+            <span className="bm-kpi-tile-sub">Active Campaign Territory</span>
           </div>
         </div>
       </div>
@@ -112,7 +124,7 @@ export default function BranchManagerMarketingPage({
         <div className="bm-count-badge">
           <span>Showing</span>
           <strong>{filteredTeam.length}</strong>
-          <span>of {branchMarketing.length} specialists</span>
+          <span>of {filteredTeam.length} specialists</span>
         </div>
       </div>
 
@@ -164,7 +176,7 @@ export default function BranchManagerMarketingPage({
                     <td>
                       <span className="bm-rep-pill">
                         <Icon name="building" size={12} />
-                        {emp.region || "Branch Marketing"}
+                        {emp.region || managedRegion}
                       </span>
                     </td>
                     <td>
@@ -189,7 +201,7 @@ export default function BranchManagerMarketingPage({
               {filteredTeam.length === 0 && (
                 <tr>
                   <td colSpan={6} className="bm-empty-state">
-                    No marketing specialists found matching your search.
+                    No marketing specialists found for this branch matching your search.
                   </td>
                 </tr>
               )}
@@ -224,12 +236,12 @@ export default function BranchManagerMarketingPage({
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Campaign Territory</span>
-              <span className="bm-modal-card-val">{selectedEmployeeInfo.region || "South Zone"}</span>
+              <span className="bm-modal-card-val">{selectedEmployeeInfo.region || managedRegion}</span>
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Reporting Branch Head</span>
               <span className="bm-modal-card-val">
-                {selectedEmployeeInfo.branchManagerName || "Branch Head"}
+                {selectedEmployeeInfo.branchManagerName || branchManagerName}
               </span>
             </div>
             <div className="bm-modal-card">

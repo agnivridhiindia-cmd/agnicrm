@@ -1,76 +1,91 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { mockEligibleSchemes } from "../mockData/mockEligibleSchemes";
 
-const eligibleSchemesData = [
-  {
-    id: 1,
-    name: "Group Health Insurance",
-    matchScore: "98% Match",
-    matchNum: 98,
-    categoryKey: "health",
-    description: "Comprehensive health protection for your employees and their families with cashless pan-India coverage.",
-    cover: "₹10,00,000",
-    price: "₹899/mo per member",
-    icon: "GH",
-    tag: "Health & Benefits",
-    features: ["Cashless Hospitalization", "Pre/Post Hospitalization", "Maternity Benefit", "24/7 Claim Desk"]
-  },
-  {
-    id: 2,
-    name: "Business Continuity Shield",
-    matchScore: "95% Match",
-    matchNum: 95,
-    categoryKey: "commercial",
-    description: "Keep your business operations prepared against unexpected property loss, cyber risk, and operational delays.",
-    cover: "₹25,00,000",
-    price: "₹1,250/mo",
-    icon: "BP",
-    tag: "Commercial Asset",
-    features: ["Property Protection", "Cyber Liability", "Business Interruption", "Legal Defense Support"]
-  },
-  {
-    id: 3,
-    name: "Executive Wellness Cover",
-    matchScore: "92% Match",
-    matchNum: 92,
-    categoryKey: "health",
-    description: "Support team wellbeing with preventive healthcare checkups, mental wellness, and outpatient consultation benefits.",
-    cover: "₹5,00,000",
-    price: "₹549/mo",
-    icon: "EW",
-    tag: "Wellness & Outpatient",
-    features: ["Annual Full Health Checkup", "Tele-consultation Pass", "Pharmacy Discounts", "Fitness Allowance"]
-  },
-  {
-    id: 4,
-    name: "Director & Officer Liability",
-    matchScore: "89% Match",
-    matchNum: 89,
-    categoryKey: "commercial",
-    description: "Protects executive leadership against personal liability arising from legal claims and managerial actions.",
-    cover: "₹50,00,000",
-    price: "₹2,400/mo",
-    icon: "DO",
-    tag: "Leadership Liability",
-    features: ["Regulatory Defense", "Legal Fee Cover", "Worldwide Jurisdiction", "Crisis PR Support"]
-  }
-];
+function cleanDescription(desc) {
+  if (!desc) return "";
+  return desc.replace(/up to ₹?10 Lakhs?\s*/gi, "").replace(/\s+/g, " ").trim();
+}
 
-export default function EligibilityPage() {
-  const [selectedScheme, setSelectedScheme] = React.useState(null);
-  const [appliedScheme, setAppliedScheme] = React.useState(null);
-  const [activeFilter, setActiveFilter] = React.useState("all");
+function readStoredSchemes(userEmail, clientInfo) {
+  try {
+    if (userEmail) {
+      const dedicated = localStorage.getItem(`agni_client_eligible_schemes_${userEmail.toLowerCase().trim()}`);
+      if (dedicated) {
+        const parsed = JSON.parse(dedicated);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    }
+    if (clientInfo?.companyName) {
+      const dedicated = localStorage.getItem(`agni_client_eligible_schemes_${clientInfo.companyName.toLowerCase().trim()}`);
+      if (dedicated) {
+        const parsed = JSON.parse(dedicated);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    }
 
-  const filteredSchemes = eligibleSchemesData.filter(s => {
-    if (activeFilter === "high") return s.matchNum >= 95;
-    if (activeFilter === "health") return s.categoryKey === "health";
-    if (activeFilter === "commercial") return s.categoryKey === "commercial";
-    return true;
-  });
+    const saved = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_branch_clients");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const match = parsed.find((c) => c.email && userEmail && c.email.toLowerCase().trim() === userEmail.toLowerCase().trim())
+          || parsed.find((c) => c.company && clientInfo?.companyName && c.company.toLowerCase().trim().includes(clientInfo.companyName.toLowerCase().trim()));
+        if (match && Array.isArray(match.eligibleSchemes)) {
+          return match.eligibleSchemes;
+        }
+      }
+    }
+  } catch (e) { }
+  // Without salesperson showing/unlocking eligible schemes, return empty list []
+  return [];
+}
+
+export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = [], userEmail, clientInfo }) {
+  const [selectedScheme, setSelectedScheme] = useState(null);
+  const [appliedScheme, setAppliedScheme] = useState(null);
+
+  const [schemesList, setSchemesList] = useState(() => readStoredSchemes(userEmail, clientInfo));
+
+  useEffect(() => {
+    function syncSchemes() {
+      setSchemesList(readStoredSchemes(userEmail, clientInfo));
+    }
+
+    syncSchemes();
+    window.addEventListener("storage", syncSchemes);
+    const interval = setInterval(syncSchemes, 1500);
+    return () => {
+      window.removeEventListener("storage", syncSchemes);
+      clearInterval(interval);
+    };
+  }, [userEmail, clientInfo]);
+
+  // STRICT FILTER: Show schemes enabled by Salesperson UNTIL the client enrolls in them
+  const visibleSchemes = useMemo(() => {
+    const enrolledLower = (enrolledPlanNames || []).map((p) => String(p).toLowerCase());
+    return (schemesList || []).filter((s) => {
+      const isVisible = s.visibleToClient === true || String(s.visibleToClient) === "true";
+      const sName = String(s.schemeName || s.name || "").toLowerCase();
+      const isAlreadyEnrolled = enrolledLower.some((pName) => pName && (pName.includes(sName) || sName.includes(pName)));
+      return isVisible && !isAlreadyEnrolled;
+    });
+  }, [schemesList, enrolledPlanNames]);
 
   function handleApply(scheme) {
-    setAppliedScheme(scheme.name);
+    const schemeTitle = scheme.schemeName || scheme.name;
+    setAppliedScheme(schemeTitle);
+    if (onEnrollScheme) {
+      onEnrollScheme({
+        name: schemeTitle,
+        description: scheme.description,
+        tag: scheme.processType === "interview" ? "Interview Evaluation" : scheme.processType === "application_interview" ? "Application + Pitch" : "Direct Scheme Application",
+        price: "Government / Subsidy Scheme",
+        features: ["Government Approved Framework", "Verified Eligibility Criteria", "Direct Application Tracking"],
+      });
+    }
     setSelectedScheme(null);
   }
+
+  const companyDisplayName = clientInfo?.companyName || "Acme Industries";
 
   return (
     <div className="cd-subpage-container">
@@ -78,112 +93,92 @@ export default function EligibilityPage() {
       <div className="cd-subpage-intro">
         <div>
           <span className="cd-kicker">SCHEME MATCHING & ELIGIBILITY</span>
-          <h2>Eligible Schemes for Acme Industries</h2>
-          <p>Based on your corporate profile and active headcount (120 members), these verified schemes are pre-qualified for immediate activation.</p>
+          <h2>Eligible Schemes for {companyDisplayName}</h2>
+          <p>Government &amp; Institutional schemes evaluated and unlocked by your assigned Sales Officer.</p>
         </div>
-        <span className="cd-count-pill">{eligibleSchemesData.length} Schemes Pre-Qualified</span>
+        <span className="cd-count-pill">{visibleSchemes.length} Schemes Unlocked</span>
       </div>
 
       {/* Corporate Compatibility Banner */}
       <div className="cd-eligibility-compatibility-card">
         <div className="cd-compat-icon-wrap">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></svg>
         </div>
         <div className="cd-compat-info">
           <div className="cd-compat-title">
-            <h3>98% Corporate Eligibility Compatibility Index</h3>
+            <h3>Verified Eligible Corporate Schemes</h3>
             <span className="cd-match-badge" style={{ background: 'rgba(68, 191, 176, 0.18)', color: '#44bfb0' }}>
               ● Profile Verified
             </span>
           </div>
-          <p>Verified against Acme Industries Pvt. Ltd. (Client ID: CLI-2026-8942). Pre-approved for group underwriting with zero waiting period.</p>
+          <p>Schemes displayed below have been reviewed and approved for client visibility by your assigned Sales Officer.</p>
         </div>
-      </div>
-
-      {/* Category Filter Tabs */}
-      <div className="cd-category-filter-tabs">
-        <button
-          type="button"
-          className={`cd-filter-tab ${activeFilter === "all" ? "active" : ""}`}
-          onClick={() => setActiveFilter("all")}
-        >
-          All Schemes ({eligibleSchemesData.length})
-        </button>
-        <button
-          type="button"
-          className={`cd-filter-tab ${activeFilter === "high" ? "active" : ""}`}
-          onClick={() => setActiveFilter("high")}
-        >
-          Top Match (95%+)
-        </button>
-        <button
-          type="button"
-          className={`cd-filter-tab ${activeFilter === "health" ? "active" : ""}`}
-          onClick={() => setActiveFilter("health")}
-        >
-          Health & Wellness
-        </button>
-        <button
-          type="button"
-          className={`cd-filter-tab ${activeFilter === "commercial" ? "active" : ""}`}
-          onClick={() => setActiveFilter("commercial")}
-        >
-          Commercial & Leadership
-        </button>
       </div>
 
       {/* Applied Banner Notice */}
       {appliedScheme && (
-        <div className="cd-alert-success-banner">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Application for <strong>{appliedScheme}</strong> sent to your assigned sales lead, <strong>Mia Ross</strong>! She will contact you regarding onboarding.</span>
+        <div className="cd-alert-success-banner" style={{ background: "rgba(245, 158, 11, 0.15)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#f59e0b", marginBottom: 20 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" /></svg>
+          <span>Application request for <strong>{appliedScheme}</strong> sent directly to your assigned Sales Representative! Upon approval, your Active Services will update.</span>
           <button type="button" onClick={() => setAppliedScheme(null)}>×</button>
         </div>
       )}
 
       {/* Schemes Grid */}
-      <div className="cd-eligibility-grid">
-        {filteredSchemes.map((scheme) => (
-          <article key={scheme.id} className="cd-eligibility-card cd-eligibility-card-enhanced">
-            <div className="cd-eligibility-card-head">
-              <span className="cd-match-badge cd-match-glow">
-                <i className="cd-pulse-green" style={{ width: 7, height: 7, background: '#44bfb0' }} />
-                {scheme.matchScore}
-              </span>
-              <span className="cd-scheme-tag">{scheme.tag}</span>
-            </div>
+      {visibleSchemes.length > 0 && (
+        <div className="cd-eligibility-grid">
+          {visibleSchemes.map((scheme) => {
+            const isEnrolled = enrolledPlanNames.includes((scheme.schemeName || scheme.name || "").toLowerCase());
+            const processTag = scheme.processType === "interview"
+              ? "Interview Evaluation"
+              : scheme.processType === "application_interview"
+                ? "Application + Pitch"
+                : "Direct Scheme Application";
 
-            <h3>{scheme.name}</h3>
-            <p>{scheme.description}</p>
+            return (
+              <article key={scheme.id || scheme.schemeName} className="cd-eligibility-card cd-eligibility-card-enhanced">
+                <div className="cd-eligibility-card-head">
+                  <span className="cd-match-badge cd-match-glow">
+                    <i className="cd-pulse-green" style={{ width: 7, height: 7, background: '#44bfb0' }} />
+                    Eligible
+                  </span>
+                  <span className="cd-scheme-tag">{processTag}</span>
+                </div>
 
-            <div className="cd-eligibility-meta-grid">
-              <div>
-                <span>Max Coverage</span>
-                <strong className="cd-cover-amount">{scheme.cover}</strong>
-              </div>
-              <div>
-                <span>Starting Premium</span>
-                <strong>{scheme.price}</strong>
-              </div>
-            </div>
+                <h3>{scheme.schemeName || scheme.name}</h3>
+                <p>{cleanDescription(scheme.description)}</p>
 
-            <div className="cd-feature-bullets">
-              {scheme.features.map(f => (
-                <span key={f} className="cd-feature-chip">✓ {f}</span>
-              ))}
-            </div>
+                <div className="cd-eligibility-meta-grid">
+                  <div>
+                    <span>Scheme Status</span>
+                    <strong className="cd-cover-amount" style={{ color: '#44bfb0' }}>Eligible</strong>
+                  </div>
+                  <div>
+                    <span>Workflow</span>
+                    <strong>{scheme.processType || "Government Scheme"}</strong>
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              className="cd-req-service-btn"
-              onClick={() => setSelectedScheme(scheme)}
-            >
-              <span>Apply For Scheme</span>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
-            </button>
-          </article>
-        ))}
-      </div>
+                <div className="cd-feature-bullets">
+                  <span className="cd-feature-chip">✓ Verified Eligibility Criteria</span>
+                  <span className="cd-feature-chip">✓ Direct Sales Officer Tracking</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="cd-req-service-btn"
+                  disabled={isEnrolled}
+                  onClick={() => setSelectedScheme(scheme)}
+                  style={{ opacity: isEnrolled ? 0.6 : 1 }}
+                >
+                  <span>{isEnrolled ? "Scheme Enrolled" : "Apply For Scheme"}</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
       {/* Scheme Application Modal */}
       {selectedScheme && (
@@ -193,39 +188,23 @@ export default function EligibilityPage() {
 
             <div className="cd-modal-head-pill">
               <span className="cd-match-badge" style={{ background: 'rgba(68, 191, 176, 0.15)', color: '#44bfb0' }}>
-                ● {selectedScheme.matchScore} Pre-Approved
+                ● Eligible
               </span>
-              <span className="cd-scheme-tag">{selectedScheme.tag}</span>
+              <span className="cd-scheme-tag">{selectedScheme.processType || "Government Scheme"}</span>
             </div>
 
-            <h2 className="cd-modal-title">Apply for {selectedScheme.name}</h2>
-            <p className="cd-modal-desc">{selectedScheme.description}</p>
+            <h2 className="cd-modal-title">Apply for {selectedScheme.schemeName || selectedScheme.name}</h2>
+            <p className="cd-modal-desc">{cleanDescription(selectedScheme.description)}</p>
 
-            <div className="cd-scheme-meta-box" style={{ gridTemplateColumns: '1fr 1fr 1fr', marginBottom: 24 }}>
+            <div className="cd-scheme-meta-box" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 24 }}>
               <div>
-                <span>Coverage Limit</span>
-                <strong style={{ color: '#4e7cff' }}>{selectedScheme.cover}</strong>
+                <span>Scheme Status</span>
+                <strong style={{ color: '#44bfb0' }}>Eligible</strong>
               </div>
               <div>
-                <span>Estimated Premium</span>
-                <strong>{selectedScheme.price}</strong>
+                <span>Eligibility Status</span>
+                <strong style={{ color: '#44bfb0' }}>Verified Eligible</strong>
               </div>
-              <div>
-                <span>Assigned Sales Lead</span>
-                <strong>Mia Ross (Senior Lead)</strong>
-              </div>
-            </div>
-
-            <div className="cd-modal-benefits" style={{ marginBottom: 24 }}>
-              <h3 style={{ fontSize: 13, textTransform: 'uppercase', color: 'var(--cd-muted)', margin: '0 0 10px 0' }}>Pre-Qualified Policy Benefits</h3>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {selectedScheme.features.map(f => (
-                  <li key={f} style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--cd-ink)' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#44bfb0" strokeWidth="2.5"><path d="M20 6 9 17l-5-5"/></svg>
-                    {f}
-                  </li>
-                ))}
-              </ul>
             </div>
 
             <button
@@ -233,7 +212,7 @@ export default function EligibilityPage() {
               className="cd-submit-btn cd-submit-btn-glow"
               onClick={() => handleApply(selectedScheme)}
             >
-              Send Application to Mia Ross
+              Submit Application to Sales Representative
             </button>
           </section>
         </div>

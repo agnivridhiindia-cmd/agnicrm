@@ -4,12 +4,24 @@ import SimpleModal from "../../components/SimpleModal";
 
 export default function BranchManagerITPage({
   branchIT = [],
+  branchManagerName = "Ariana Lee",
+  managedRegion = "West Zone",
 }) {
   const [selectedEmployeeInfo, setSelectedEmployeeInfo] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredTeam = useMemo(() => {
     return branchIT.filter((emp) => {
+      if (!emp) return false;
+      const empBM = (emp.branchManagerName || emp.branchManager || "").toLowerCase().trim();
+      const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();
+
+      const targetBM = (branchManagerName || "").toLowerCase().trim();
+      const targetRegion = (managedRegion || "").toLowerCase().trim();
+
+      if (targetBM && empBM && empBM !== targetBM) return false;
+      if (targetRegion && empRegion && !empRegion.includes(targetRegion.split(" ")[0].toLowerCase()) && !targetRegion.includes(empRegion)) return false;
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = emp.name?.toLowerCase().includes(q);
@@ -20,7 +32,7 @@ export default function BranchManagerITPage({
       }
       return true;
     });
-  }, [branchIT, searchQuery]);
+  }, [branchIT, branchManagerName, managedRegion, searchQuery]);
 
   function openEmployeeInfo(emp) {
     setSelectedEmployeeInfo(emp);
@@ -46,7 +58,7 @@ export default function BranchManagerITPage({
           <p className="bm-header-eyebrow">Technical Operations</p>
           <h1 className="bm-header-title">Branch IT & Systems Engineering</h1>
           <p className="bm-header-subtitle">
-            IT support specialists, network engineers, and systems administrators deployed across your branch.
+            IT support specialists, network engineers, and systems administrators deployed across {managedRegion}.
           </p>
         </div>
       </div>
@@ -61,7 +73,7 @@ export default function BranchManagerITPage({
             </div>
           </div>
           <div>
-            <strong className="bm-kpi-tile-value">{branchIT.length}</strong>
+            <strong className="bm-kpi-tile-value">{filteredTeam.length}</strong>
             <span className="bm-kpi-tile-sub">Active IT Personnel</span>
           </div>
         </div>
@@ -87,8 +99,8 @@ export default function BranchManagerITPage({
             </div>
           </div>
           <div>
-            <strong className="bm-kpi-tile-value">West & East</strong>
-            <span className="bm-kpi-tile-sub">Designated IT Zones</span>
+            <strong className="bm-kpi-tile-value">{managedRegion}</strong>
+            <span className="bm-kpi-tile-sub">Designated IT Territory</span>
           </div>
         </div>
       </div>
@@ -112,7 +124,7 @@ export default function BranchManagerITPage({
         <div className="bm-count-badge">
           <span>Showing</span>
           <strong>{filteredTeam.length}</strong>
-          <span>of {branchIT.length} specialists</span>
+          <span>of {filteredTeam.length} specialists</span>
         </div>
       </div>
 
@@ -160,7 +172,7 @@ export default function BranchManagerITPage({
                     <td>
                       <span className="bm-rep-pill">
                         <Icon name="building" size={12} />
-                        {emp.region || "Branch IT"}
+                        {emp.region || managedRegion}
                       </span>
                     </td>
                     <td>
@@ -185,7 +197,7 @@ export default function BranchManagerITPage({
               {filteredTeam.length === 0 && (
                 <tr>
                   <td colSpan={6} className="bm-empty-state">
-                    No IT engineers found matching your search.
+                    No IT engineers found for this branch matching your search.
                   </td>
                 </tr>
               )}
@@ -216,12 +228,12 @@ export default function BranchManagerITPage({
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Operational Territory</span>
-              <span className="bm-modal-card-val">{selectedEmployeeInfo.region || "West Zone"}</span>
+              <span className="bm-modal-card-val">{selectedEmployeeInfo.region || managedRegion}</span>
             </div>
             <div className="bm-modal-card">
               <span className="bm-modal-card-label">Reporting Branch Head</span>
               <span className="bm-modal-card-val">
-                {selectedEmployeeInfo.branchManagerName || "Branch Head"}
+                {selectedEmployeeInfo.branchManagerName || branchManagerName}
               </span>
             </div>
             <div className="bm-modal-card">

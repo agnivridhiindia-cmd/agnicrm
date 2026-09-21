@@ -7,6 +7,7 @@ import {
   getTemplateTypeForService,
   normalizeAgreementData,
 } from "../../../services/agreementService";
+import { isPaymentDemandOrSettlement, getCanonicalSchemeName } from "../../../utils/schemeTracker";
 import "../../Admin/AdminDashboard.css";
 
 export default function CurrentAgreementsTable({
@@ -18,6 +19,15 @@ export default function CurrentAgreementsTable({
   onSendAgreement,
   onRetryAgreement,
 }) {
+  // Filter out any Payment Demand items - payment demands are NOT schemes!
+  const validClients = clients.filter((c) => {
+    if (!c) return false;
+    if (isPaymentDemandOrSettlement(c)) return false;
+    const sName = c.scheme || c.serviceName || c.particularScheme;
+    if (isPaymentDemandOrSettlement(sName)) return false;
+    return true;
+  });
+
   // Map of clientId / appId to normalized agreement record
   const agreementMap = new Map();
   agreements.forEach((agr) => {
@@ -26,6 +36,17 @@ export default function CurrentAgreementsTable({
     if (normalized.crmId) agreementMap.set(normalized.crmId, normalized);
     if (normalized.applicationId) agreementMap.set(normalized.applicationId, normalized);
     if (normalized.appId) agreementMap.set(normalized.appId, normalized);
+  });
+
+  // Filter clients whose agreements are YET TO BE SENT (Pending dispatch)
+  const pendingClients = validClients.filter((client) => {
+    const agreement =
+      agreementMap.get(client.id) ||
+      agreementMap.get(client.appId) ||
+      agreementMap.get(String(client.id)) ||
+      null;
+    const status = agreement ? (agreement.agreement?.status || agreement.status) : AGREEMENT_STATUSES.PENDING;
+    return status !== AGREEMENT_STATUSES.SENT;
   });
 
   return (
@@ -43,10 +64,10 @@ export default function CurrentAgreementsTable({
       >
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "inherit" }}>
-            Active Agreement Generation Queue
+            Active Agreement Generation Queue (Yet to Send)
           </h3>
           <p className="admin-desc" style={{ fontSize: 12.5, margin: "2px 0 0" }}>
-            Real-time client pipeline for automated contract creation, legal clause verification, and client dispatch.
+            Branch clients across all salespersons awaiting contract creation &amp; dispatch.
           </p>
         </div>
         <span
@@ -58,7 +79,7 @@ export default function CurrentAgreementsTable({
             fontSize: 12,
           }}
         >
-          {clients.length} Clients in Roster
+          {pendingClients.length} Pending Dispatch
         </span>
       </div>
 
@@ -74,7 +95,7 @@ export default function CurrentAgreementsTable({
             </tr>
           </thead>
           <tbody>
-            {clients.map((client) => {
+            {pendingClients.map((client) => {
               const agreement =
                 agreementMap.get(client.id) ||
                 agreementMap.get(client.appId) ||
@@ -87,7 +108,7 @@ export default function CurrentAgreementsTable({
               const isFailed = status === AGREEMENT_STATUSES.FAILED;
               const statusStyle = agreementStatusBadgeColors[status] || agreementStatusBadgeColors.Pending;
 
-              const serviceName = client.scheme || client.serviceName || "PMEGP";
+              const serviceName = getCanonicalSchemeName(client.scheme || client.serviceName || "PMEGP");
               const isPrivate = getTemplateTypeForService(serviceName) === TEMPLATE_TYPES.PRIVATE_FUNDING;
 
               return (
@@ -270,10 +291,10 @@ export default function CurrentAgreementsTable({
               );
             })}
 
-            {clients.length === 0 && (
+            {pendingClients.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ textAlign: "center", padding: "40px 16px", color: "#64748b" }}>
-                  No clients currently found in agreement queue.
+                  All branch client agreements have been dispatched! View sent contracts in the History Archive.
                 </td>
               </tr>
             )}

@@ -6,13 +6,21 @@ import {
   TEMPLATE_NAMES,
   normalizeAgreementData,
 } from "../../../services/agreementService";
+import { getCanonicalSchemeName, isPaymentDemandOrSettlement } from "../../../utils/schemeTracker";
 import "../../Admin/AdminDashboard.css";
 
 export default function AgreementHistoryTable({
   agreements = [],
   onReview,
 }) {
-  const normalizedList = agreements.map(normalizeAgreementData);
+  const dispatchedList = (agreements || [])
+    .map((a) => (a ? normalizeAgreementData(a) : null))
+    .filter(Boolean)
+    .filter((agr) => {
+      if (isPaymentDemandOrSettlement(agr)) return false;
+      const status = String(agr.agreement?.status || agr.status || "").toLowerCase();
+      return status === "sent" || status === "completed" || Boolean(agr.sentAt);
+    });
 
   return (
     <div className="admin-table-wrap">
@@ -29,10 +37,10 @@ export default function AgreementHistoryTable({
       >
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "inherit" }}>
-            Generated Agreement Archive &amp; Audit Trail
+            Dispatched Agreements &amp; History Archive
           </h3>
           <p className="admin-desc" style={{ fontSize: 12.5, margin: "2px 0 0" }}>
-            Official legal contracts history, execution timestamps, and client delivery status.
+            Official legal contracts dispatched to clients with execution timestamps &amp; delivery audit trail.
           </p>
         </div>
         <span
@@ -44,7 +52,7 @@ export default function AgreementHistoryTable({
             fontSize: 12,
           }}
         >
-          {normalizedList.length} Archived Records
+          {dispatchedList.length} Dispatched Records
         </span>
       </div>
 
@@ -62,10 +70,14 @@ export default function AgreementHistoryTable({
             </tr>
           </thead>
           <tbody>
-            {normalizedList.map((agr) => {
-              const isPrivate = agr.scheme?.type === TEMPLATE_TYPES.PRIVATE_FUNDING;
+            {dispatchedList.map((agr) => {
+              const canonicalScheme = getCanonicalSchemeName(agr.scheme?.name || agr.serviceType || agr.scheme);
+              const isPrivate = agr.scheme?.type === TEMPLATE_TYPES.PRIVATE_FUNDING || (canonicalScheme && canonicalScheme.toLowerCase().includes("private funding"));
+              const rawStatus = agr.agreement?.status || agr.status || "Sent";
               const statusStyle =
-                agreementStatusBadgeColors[agr.agreement?.status] || agreementStatusBadgeColors.Ready;
+                agreementStatusBadgeColors[rawStatus] ||
+                agreementStatusBadgeColors.Sent ||
+                agreementStatusBadgeColors.Ready;
               const templateTitle =
                 agr.agreement?.templateName ||
                 (isPrivate ? TEMPLATE_NAMES.PRIVATE_FUNDING : TEMPLATE_NAMES.SCHEME);
@@ -94,7 +106,7 @@ export default function AgreementHistoryTable({
                         border: `1px solid ${isPrivate ? "rgba(236, 72, 153, 0.28)" : "rgba(78, 124, 255, 0.28)"}`,
                       }}
                     >
-                      {agr.scheme?.name}
+                      {canonicalScheme}
                     </span>
                   </td>
                   <td>
@@ -148,10 +160,10 @@ export default function AgreementHistoryTable({
               );
             })}
 
-            {normalizedList.length === 0 && (
+            {dispatchedList.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: "center", padding: "40px 16px", color: "#64748b" }}>
-                  No agreement records in history archive yet.
+                  No dispatched agreement records in history archive yet.
                 </td>
               </tr>
             )}

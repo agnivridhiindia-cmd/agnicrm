@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Icon from "../../../components/Icon";
 import SalesClientViewModal from "./SalesClientViewModal";
+import { getTrackerState } from "../../../utils/schemeTracker";
 
 export default function SalesClientDirectory({
   clients = [],
@@ -11,6 +12,8 @@ export default function SalesClientDirectory({
   setStageFilter,
   paymentFilter,
   setPaymentFilter,
+  pipelineFilter = "all",
+  setPipelineFilter,
   onSelectClient,
   onCreateNewClient,
   salesPersonName,
@@ -60,11 +63,11 @@ export default function SalesClientDirectory({
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value)}
           >
-            <option value="all">All Stages</option>
-            <option value="Active">Active</option>
-            <option value="Onboarding">Onboarding</option>
-            <option value="Renewal">Renewal</option>
-            <option value="Prospect">Prospect</option>
+            <option value="all">All Service Types</option>
+            <option value="Consultancy Services">Consultancy Services</option>
+            <option value="Certification">Certification</option>
+            <option value="IT">IT</option>
+            <option value="Marketing">Marketing</option>
           </select>
 
           <select
@@ -76,6 +79,16 @@ export default function SalesClientDirectory({
             <option value="paid">Fully Paid</option>
             <option value="partial">Partially Paid</option>
             <option value="pending">Pending</option>
+          </select>
+
+          <select
+            className="sales-filter-select"
+            value={pipelineFilter || "all"}
+            onChange={(e) => setPipelineFilter && setPipelineFilter(e.target.value)}
+          >
+            <option value="all">All Pipeline Statuses</option>
+            <option value="active_incomplete">Active (Pipeline Incomplete)</option>
+            <option value="completed">Pipeline Completed (100%)</option>
           </select>
         </div>
 
@@ -101,26 +114,31 @@ export default function SalesClientDirectory({
                   <th>Client & Company</th>
                   <th>Contact Info</th>
                   <th>Scheme</th>
+                  <th style={{ minWidth: 150 }}>Pipeline Progress</th>
                   <th>Total Value</th>
-                  <th style={{ minWidth: 160 }}>Payment Status</th>
+                  <th style={{ minWidth: 150 }}>Payment Status</th>
                   <th>Stage</th>
                   <th style={{ textAlign: "right" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredClients.map((client) => {
-                  const total = parseFloat(client.totalPayment) || 0;
-                  const received = parseFloat(client.paymentReceived) || 0;
-                  const pending = parseFloat(client.paymentPending) || 0;
+                  const isSec = client.isPrimary === false || client.processType === "secondary" || client.serviceType === "More Services" || (typeof client.appId === "string" && (client.appId.endsWith("-S") || client.appId.endsWith("-E")));
+                  const rawTotal = parseFloat(client.totalPayment || client.amount || 0) || 0;
+                  const total = (!isSec && rawTotal === 0) ? 118000 : rawTotal;
+                  const rawRec = parseFloat(client.paymentReceived) || 0;
+                  const received = (!isSec && rawRec === 0 && (client.paymentStatus === "Paid" || client.approvalStatus === "ACTIVE")) ? total : rawRec;
+                  const pending = total > 0 ? Math.max(0, total - received) : (parseFloat(client.paymentPending) || 0);
                   const pct = total > 0 ? Math.min(Math.round((received / total) * 100), 100) : 0;
-                  const isPaid = pending === 0 && received > 0;
-                  const isPartial = pending > 0 && received > 0;
+                  const isPaid = (received >= total && total > 0) || (pending === 0 && received > 0);
+                  const isPartial = !isPaid && received > 0;
+                  const tracker = getTrackerState(client);
 
                   return (
                     <tr key={client.id}>
                       <td>
                         <span style={{ fontWeight: 700, color: "#8c5ff8", fontFamily: "monospace", fontSize: 13 }}>
-                          #{client.id}
+                          {client.appId ? client.appId : (client.id && String(client.id).length > 12 ? `#${String(client.id).slice(0, 8)}` : `#${client.id}`)}
                         </span>
                       </td>
                       <td>
@@ -144,6 +162,21 @@ export default function SalesClientDirectory({
                         <span className="scheme-tag">
                           {client.scheme || "Standard"}
                         </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                            <span style={{ fontWeight: 600, color: tracker.isComplete ? "#10b981" : "#38bdf8" }}>
+                              {tracker.isComplete ? "✓ Completed" : tracker.currentStage}
+                            </span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: tracker.isComplete ? "#10b981" : "#f2aa38" }}>
+                              {tracker.progressPercent}%
+                            </span>
+                          </div>
+                          <div style={{ width: "100%", height: 5, borderRadius: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${tracker.progressPercent}%`, background: tracker.isComplete ? "linear-gradient(90deg, #10b981, #34d399)" : "linear-gradient(90deg, #38bdf8, #818cf8)", borderRadius: 4, transition: "width 0.3s ease" }} />
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <strong style={{ fontSize: 14, fontWeight: 700 }}>₹{total.toLocaleString("en-IN")}</strong>
@@ -172,15 +205,14 @@ export default function SalesClientDirectory({
                       </td>
                       <td>
                         <span
-                          className={`stage-tag ${
-                            client.stage === "Active"
-                              ? "active"
-                              : client.stage === "Onboarding"
+                          className={`stage-tag ${client.stage === "Active"
+                            ? "active"
+                            : client.stage === "Onboarding"
                               ? "onboarding"
                               : client.stage === "Renewal"
-                              ? "renewal"
-                              : "prospect"
-                          }`}
+                                ? "renewal"
+                                : "prospect"
+                            }`}
                         >
                           <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor" }} />
                           {client.stage || "Active"}

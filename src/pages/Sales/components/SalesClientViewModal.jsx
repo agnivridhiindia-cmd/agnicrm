@@ -217,7 +217,7 @@ export default function SalesClientViewModal({
                   </div>
                   <div className="sales-vm-info-content">
                     <label>Registered Billing & Operations Address</label>
-                    <strong>{client.address || "101 Commercial Hub, Metro City, India"}</strong>
+                    <strong>{client.address || "Not Provided"}</strong>
                     <span>Official Verified Premises</span>
                   </div>
                 </div>

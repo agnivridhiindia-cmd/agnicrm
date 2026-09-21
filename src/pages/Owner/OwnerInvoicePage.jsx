@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Icon from "../../components/Icon";
 import { branchOptions, regionOptions, downloadInvoiceFile } from "./mockOwnerData";
+import { isBranchMatch } from "../../utils/branchHelper";
 
 const PAGE_SIZE = 15;
 
@@ -16,7 +17,7 @@ export default function OwnerInvoicePage({
   const [invoiceDownloadNotice, setInvoiceDownloadNotice] = useState(null);
 
   const filteredInvoices = invoices.filter((inv) => {
-    const branchOk = !invoiceBranchFilter || inv.branch === invoiceBranchFilter;
+    const branchOk = isBranchMatch(inv.branch, invoiceBranchFilter);
     const regionOk = !invoiceRegionFilter || inv.region === invoiceRegionFilter;
     const statusOk = !invoiceStatusFilter || inv.status === invoiceStatusFilter;
     const searchLower = invoiceSearch.toLowerCase().trim();

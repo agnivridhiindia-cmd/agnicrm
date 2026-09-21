@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ACTIVITY_STAGES, stageBadgeColors, formatCurrency, getTrackerState } from "./mockAdminData";
+import { ACTIVITY_STAGES, stageBadgeColors, formatCurrency, getTrackerState, getCanonicalSchemeName } from "./mockAdminData";
 import "./AdminDashboard.css";
 
 export default function AdminTeamPage({
@@ -13,27 +13,40 @@ export default function AdminTeamPage({
   const [clientSearch, setClientSearch] = useState("");
   const [statusTab, setStatusTab] = useState("All");
 
-  // Filter ONLY sales persons belonging to the selected branch
+  // Filter ONLY sales persons belonging to the selected branch (excluding Sales Managers)
   const branchSalesPersons = useMemo(() => {
     return teamMembers.filter((m) => {
       const isBranch = !m.branch || m.branch === selectedBranch;
-      const isSales = (m.role || "").toLowerCase().includes("sales");
-      return isBranch && isSales;
+      const roleLower = (m.role || "").toLowerCase();
+      const isSalesPerson = roleLower.includes("sales") && !roleLower.includes("manager");
+      return isBranch && isSalesPerson;
     });
   }, [teamMembers, selectedBranch]);
 
   // Helper to retrieve clients assigned to a specific sales person in this branch
   const getClientsForSalesPerson = (salesPersonName) => {
     if (!salesPersonName) return [];
-    const normalizedName = salesPersonName.toLowerCase().trim();
-    const matched = branchClients.filter(
-      (c) =>
-        c.assignedSalesPerson &&
-        c.assignedSalesPerson.toLowerCase().trim() === normalizedName
-    );
+    const targetName = salesPersonName.toLowerCase().trim();
 
-    if (matched.length > 0) return matched;
-    return branchClients;
+    return branchClients.filter((c) => {
+      const rawSales =
+        c.assignedSalesPerson ||
+        c.salesPerson ||
+        c.owner ||
+        c.salesperson ||
+        c.salesRep ||
+        "";
+      const spName = (
+        typeof rawSales === "object"
+          ? rawSales.fullName || rawSales.name || ""
+          : String(rawSales)
+      )
+        .toLowerCase()
+        .trim();
+
+      if (!spName) return false;
+      return spName === targetName || spName.includes(targetName) || targetName.includes(spName);
+    });
   };
 
   // DRILL DOWN VIEW: Clients under the selected sales person
@@ -49,7 +62,8 @@ export default function AdminTeamPage({
         (c.appId && c.appId.toLowerCase().includes(q)) ||
         (c.scheme && c.scheme.toLowerCase().includes(q));
 
-      const matchesStage = statusTab === "All" || c.applicationStatus === statusTab;
+      const tracker = getTrackerState(c);
+      const matchesStage = statusTab === "All" || tracker.currentStage === statusTab;
       return matchesSearch && matchesStage;
     });
 
@@ -129,21 +143,21 @@ export default function AdminTeamPage({
                       <div style={{ fontSize: 12, color: "#64748b" }}>{client.company}</div>
                     </td>
                     <td>
-                      <div>{client.scheme}</div>
-                      <strong style={{ color: "#4e7cff", fontSize: 12.5 }}>{formatCurrency(client.totalPayment)}</strong>
+                      <div>{getCanonicalSchemeName(client.scheme || client.serviceName)}</div>
+                      <strong style={{ color: "#4e7cff", fontSize: 12.5 }}>{formatCurrency(client.totalPayment || client.amount || 0)}</strong>
                     </td>
                     <td>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <span
                           className="admin-badge"
                           style={{
-                            background: `${stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#10b981"}18`,
-                            color: stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#10b981",
-                            border: `1px solid ${stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#10b981"}33`,
+                            background: `${stageBadgeColors[tracker.currentStage] || "#10b981"}18`,
+                            color: stageBadgeColors[tracker.currentStage] || "#10b981",
+                            border: `1px solid ${stageBadgeColors[tracker.currentStage] || "#10b981"}33`,
                             width: "fit-content",
                           }}
                         >
-                          ● {client.applicationStatus || tracker.currentStage}
+                          ● {tracker.currentStage}
                         </span>
                         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                           {tracker.stages.map((st) => {

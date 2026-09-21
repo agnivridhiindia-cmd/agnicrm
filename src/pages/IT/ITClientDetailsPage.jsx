@@ -333,7 +333,7 @@ export default function ITClientDetailsPage({
                       {/* Pitched By */}
                       <td>
                         <div style={{ fontWeight: 600, fontSize: 13 }}>
-                          {client.salesPerson || "Mia Ross"}
+                          {client.salesPerson || "Mia Rose"}
                         </div>
                         <div style={{ fontSize: 11, color: "#64748b" }}>
                           {client.origin === "Sales Pitched" ? "Salesperson Pitch" : "IT Direct"}

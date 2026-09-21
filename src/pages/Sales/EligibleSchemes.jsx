@@ -7,21 +7,37 @@ function formatDate(value) {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function SchemeCard({ scheme, onToggle }) {
+function cleanDescription(desc) {
+  if (!desc) return "";
+  return desc.replace(/up to ₹?10 Lakhs?\s*/gi, "").replace(/\s+/g, " ").trim();
+}
+
+function SchemeCard({ scheme, onToggle, isEnrolled }) {
   return (
-    <article className="eligible-scheme-card sales-eligible-card">
+    <article className={`eligible-scheme-card sales-eligible-card ${isEnrolled ? "scheme-card-locked" : ""}`} style={{ opacity: isEnrolled ? 0.8 : 1 }}>
       <div className="eligible-card-top">
         <div className="eligible-icon">{scheme.schemeName.slice(0, 2).toUpperCase()}</div>
-        <span className="eligible-badge">Eligible</span>
+        <span
+          className="eligible-badge"
+          style={
+            isEnrolled
+              ? { background: "rgba(224, 128, 97, 0.18)", color: "#e08061" }
+              : undefined
+          }
+        >
+          {isEnrolled ? "🔒 Enrolled Plan (Locked)" : "Eligible"}
+        </span>
       </div>
 
       <h3>{scheme.schemeName}</h3>
-      <p>{scheme.description}</p>
+      <p>{cleanDescription(scheme.description)}</p>
 
       <div className="eligible-meta-row">
         <div>
           <span className="eligible-meta-label">Visibility</span>
-          <strong>{scheme.visibleToClient ? "Visible" : "Hidden"}</strong>
+          <strong style={{ color: isEnrolled ? "#e08061" : undefined }}>
+            {isEnrolled ? "Locked (Active)" : scheme.visibleToClient ? "Visible" : "Hidden"}
+          </strong>
         </div>
         <div>
           <span className="eligible-meta-label">Updated</span>
@@ -29,18 +45,27 @@ function SchemeCard({ scheme, onToggle }) {
         </div>
       </div>
 
-      <label className="toggle-row" htmlFor={`scheme-${scheme.id}`}>
-        <span>Show to Client</span>
-        <button
-          id={`scheme-${scheme.id}`}
-          type="button"
-          className={`toggle-pill ${scheme.visibleToClient ? "active" : ""}`}
-          onClick={() => onToggle(scheme.id)}
-          aria-pressed={scheme.visibleToClient}
-        >
-          <i />
-        </button>
-      </label>
+      <div style={{ marginTop: 8 }}>
+        <label className="toggle-row" htmlFor={`scheme-${scheme.id}`}>
+          <span>{isEnrolled ? "Locked (Active Plan)" : "Show to Client"}</span>
+          <button
+            id={`scheme-${scheme.id}`}
+            type="button"
+            className={`toggle-pill ${scheme.visibleToClient ? "active" : ""}`}
+            onClick={() => !isEnrolled && onToggle(scheme.id)}
+            disabled={isEnrolled}
+            style={{ cursor: isEnrolled ? "not-allowed" : "pointer", opacity: isEnrolled ? 0.4 : 1 }}
+            aria-pressed={scheme.visibleToClient}
+          >
+            <i />
+          </button>
+        </label>
+        {isEnrolled && (
+          <small style={{ fontSize: 11, color: "#e08061", display: "block", marginTop: 4 }}>
+            🔒 Client is already enrolled in this scheme. Locked to prevent accidental visibility edits.
+          </small>
+        )}
+      </div>
     </article>
   );
 }
@@ -55,7 +80,7 @@ function EmptyState() {
   );
 }
 
-export default function EligibleSchemes({ initialSchemes = [], onSave } ) {
+export default function EligibleSchemes({ initialSchemes = [], enrolledSchemes = [], onSave }) {
   const [schemes, setSchemes] = useState(initialSchemes);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
@@ -96,16 +121,24 @@ export default function EligibleSchemes({ initialSchemes = [], onSave } ) {
   );
 
   const handleToggle = (schemeId) => {
-    setSchemes((prev) => prev.map((scheme) =>
-      scheme.id === schemeId ? { ...scheme, visibleToClient: !scheme.visibleToClient, updatedBy: "Sales Person" } : scheme
-    ));
+    setSchemes((prev) => {
+      const updated = prev.map((scheme) =>
+        scheme.id === schemeId ? { ...scheme, visibleToClient: !scheme.visibleToClient, updatedBy: "Sales Person" } : scheme
+      );
+
+      // Schedule the onSave call to avoid setState during render warnings
+      if (typeof onSave === 'function') {
+        setTimeout(() => onSave(updated), 0);
+      }
+      return updated;
+    });
   };
 
   const handleSave = () => {
     setSavedMessage("Recommended schemes updated successfully.");
     window.setTimeout(() => setSavedMessage(""), 2200);
     if (typeof onSave === 'function') {
-      onSave();
+      onSave(schemes);
     }
   };
 
@@ -147,9 +180,19 @@ export default function EligibleSchemes({ initialSchemes = [], onSave } ) {
           <EmptyState />
         ) : (
           <div className="eligible-scheme-grid sales-eligible-grid">
-            {filteredSchemes.map((scheme) => (
-              <SchemeCard key={scheme.id} scheme={scheme} onToggle={handleToggle} />
-            ))}
+            {filteredSchemes.map((scheme) => {
+              const isEnrolled = (enrolledSchemes || []).some(
+                (name) => name && name.toLowerCase() === scheme.schemeName.toLowerCase()
+              );
+              return (
+                <SchemeCard
+                  key={scheme.id}
+                  scheme={scheme}
+                  onToggle={handleToggle}
+                  isEnrolled={isEnrolled}
+                />
+              );
+            })}
           </div>
         )}
 

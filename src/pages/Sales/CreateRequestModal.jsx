@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
+import { isClientCreatedByUser } from "./hooks/useSalesClients";
 
 const requestTypes = [
   {
@@ -23,7 +24,32 @@ const requestTypes = [
 
 const makeRequestId = () => `RQ-${Math.floor(1000 + Math.random() * 9000)}`;
 
-export default function CreateRequestModal({ clients = [], onClose, onSubmit }) {
+export default function CreateRequestModal({ clients = [], userEmail, salesPersonName, onClose, onSubmit }) {
+  const currentSalesName = salesPersonName || localStorage.getItem("agni_user_name") || "";
+  const currentUserEmail = userEmail || localStorage.getItem("agni_user_email") || "";
+  const userRole = localStorage.getItem("agni_user_role") || "";
+
+  // Filter clients to ONLY those created by or assigned to the logged-in salesperson (Deduplicated strictly)
+  const filteredClients = useMemo(() => {
+    const list = Array.isArray(clients) ? clients : [];
+    const uniqueList = [];
+    const addedKeys = new Set();
+
+    list.forEach((c) => {
+      if (!c) return;
+      if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
+        if (!isClientCreatedByUser(c, currentSalesName, currentUserEmail)) return;
+      }
+      const key = String(c.company || c.companyName || c.name || c.contactPerson || c.email || c.id).trim().toLowerCase();
+      if (key && !addedKeys.has(key)) {
+        addedKeys.add(key);
+        uniqueList.push(c);
+      }
+    });
+
+    return uniqueList;
+  }, [clients, currentSalesName, currentUserEmail, userRole]);
+
   const [selectedType, setSelectedType] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [reason, setReason] = useState("");
@@ -37,8 +63,8 @@ export default function CreateRequestModal({ clients = [], onClose, onSubmit }) 
   });
 
   const selectedClient = useMemo(
-    () => clients.find((client) => String(client.id) === String(selectedClientId)),
-    [clients, selectedClientId]
+    () => filteredClients.find((client) => String(client.id) === String(selectedClientId)),
+    [filteredClients, selectedClientId]
   );
 
   useEffect(() => {
@@ -70,7 +96,10 @@ export default function CreateRequestModal({ clients = [], onClose, onSubmit }) 
     const request = {
       id: makeRequestId(),
       clientId: selectedClient.id,
-      clientName: selectedClient.name,
+      clientName: selectedClient.name || selectedClient.company || "Client Account",
+      company: selectedClient.company || selectedClient.name || "Corporate Entity",
+      salesPerson: currentSalesName,
+      salesPersonEmail: currentUserEmail,
       managerId: selectedClient.managerId || "MGR-101",
       managerName: selectedClient.managerName || "Assigned Manager",
       requestType: selectedType,
@@ -235,9 +264,9 @@ export default function CreateRequestModal({ clients = [], onClose, onSubmit }) 
                 required
               >
                 <option value="">-- Choose a client from directory --</option>
-                {clients.map((client) => (
+                {filteredClients.map((client) => (
                   <option key={client.id} value={client.id}>
-                    {client.name} ({client.company || "No Company"}) — Mgr: {client.managerName || "N/A"}
+                    {client.name || client.company} ({client.company || "Corporate Entity"})
                   </option>
                 ))}
               </select>

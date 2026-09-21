@@ -9,7 +9,7 @@ export const mockClients = [
     gstNumber: "27ABCDE1234F1Z5",
     address: "101 MG Road, Mumbai",
     managerId: 1,
-    managerName: "Mia Ross",
+    managerName: "Mia Rose",
   },
   {
     id: 2,
@@ -33,7 +33,7 @@ export const mockClients = [
     gstNumber: "27LMNOP4321D1Z3",
     address: "17 Industrial Park, Surat",
     managerId: 1,
-    managerName: "Mia Ross",
+    managerName: "Mia Rose",
   },
   {
     id: 4,

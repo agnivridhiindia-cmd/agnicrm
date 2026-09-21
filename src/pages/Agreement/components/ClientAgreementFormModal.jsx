@@ -23,6 +23,7 @@ export default function ClientAgreementFormModal({
   const [paymentReceived, setPaymentReceived] = useState("");
   const [paymentLeft, setPaymentLeft] = useState("");
   const [disbursementRate, setDisbursementRate] = useState("");
+  const [selectedTemplateType, setSelectedTemplateType] = useState(TEMPLATE_TYPES.SCHEME);
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -52,17 +53,16 @@ export default function ClientAgreementFormModal({
           : "₹30,000"
       );
       setDisbursementRate("5%");
+      const autoType = getTemplateTypeForService(client.scheme || client.serviceName || "PMEGP");
+      setSelectedTemplateType(autoType);
       setErrors({});
     }
   }, [client, isOpen]);
 
   if (!isOpen || !client) return null;
 
-  // Determine template type automatically from client's existing service/scheme
   const serviceName = client.scheme || client.serviceName || "PMEGP";
-  const templateType = getTemplateTypeForService(serviceName);
-  const isPrivate = templateType === TEMPLATE_TYPES.PRIVATE_FUNDING;
-  const templateDisplayName = isPrivate ? TEMPLATE_NAMES.PRIVATE_FUNDING : TEMPLATE_NAMES.SCHEME;
+  const isPrivate = selectedTemplateType === TEMPLATE_TYPES.PRIVATE_FUNDING;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -95,7 +95,7 @@ export default function ClientAgreementFormModal({
         paymentReceived: paymentReceived.trim(),
         paymentLeft: paymentLeft.trim(),
         disbursementRate: disbursementRate.trim(),
-        templateType,
+        templateType: selectedTemplateType,
         existingCount: existingAgreementsCount,
       });
 
@@ -218,36 +218,56 @@ export default function ClientAgreementFormModal({
 
         {/* Modal Form Body */}
         <form onSubmit={handleSubmit} style={{ padding: "22px 26px 26px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Template Indicator */}
+          {/* Template Indicator & Selector Dropdown */}
           <div
             className="admin-subcard"
             style={{
-              padding: "10px 14px",
+              padding: "12px 16px",
               display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
+              flexDirection: "column",
+              gap: 8,
               border: `1.5px solid ${isPrivate ? "rgba(236, 72, 153, 0.35)" : "rgba(78, 124, 255, 0.35)"}`,
               background: isPrivate ? "rgba(236, 72, 153, 0.08)" : "rgba(78, 124, 255, 0.08)",
+              borderRadius: 12,
             }}
           >
-            <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span className="admin-kicker" style={{ fontSize: 10.5, color: isPrivate ? "#ec4899" : "#4e7cff" }}>
-                Auto-Matched Contract Template ({serviceName}):
+                AUTO-MATCHED CONTRACT TEMPLATE ({serviceName}):
               </span>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "inherit", marginTop: 2 }}>
-                📄 {templateDisplayName} (.docx)
-              </div>
+              <span
+                className="admin-badge"
+                style={{
+                  fontSize: 11,
+                  background: isPrivate ? "rgba(236, 72, 153, 0.18)" : "rgba(78, 124, 255, 0.18)",
+                  color: isPrivate ? "#ec4899" : "#4e7cff",
+                  fontWeight: 750,
+                }}
+              >
+                Verified Template
+              </span>
             </div>
-            <span
-              className="admin-badge"
+
+            <select
+              value={selectedTemplateType}
+              onChange={(e) => setSelectedTemplateType(e.target.value)}
+              className="admin-form-input"
               style={{
-                fontSize: 11,
-                background: isPrivate ? "rgba(236, 72, 153, 0.18)" : "rgba(78, 124, 255, 0.18)",
-                color: isPrivate ? "#ec4899" : "#4e7cff",
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: `1px solid ${isPrivate ? "rgba(236, 72, 153, 0.4)" : "rgba(78, 124, 255, 0.4)"}`,
+                background: "#ffffff",
+                color: "#0f172a",
+                fontWeight: 700,
+                fontSize: 13,
+                outline: "none",
+                cursor: "pointer",
               }}
             >
-              Verified Template
-            </span>
+              <option value={TEMPLATE_TYPES.SCHEME}>📄 Common Scheme Agreement (.docx)</option>
+              <option value={TEMPLATE_TYPES.PRIVATE_FUNDING}>📄 Private Funding Agreement (.docx)</option>
+            </select>
           </div>
 
           {errors.form && (
@@ -265,10 +285,13 @@ export default function ClientAgreementFormModal({
             </div>
           )}
 
-          {/* 1. Agreement Date */}
+          {/* 1. Agreement Execution Date */}
           <div>
-            <label className="admin-form-label">
-              Agreement Execution Date <span style={{ color: "#ef4444" }}>*</span>
+            <label className="admin-form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Agreement Execution Date <span style={{ color: "#ef4444" }}>*</span></span>
+              <code style={{ fontSize: 10, color: "#6366f1", background: "rgba(99, 102, 241, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                PDF: (FULL DATE)
+              </code>
             </label>
             <input
               type="text"
@@ -287,8 +310,11 @@ export default function ClientAgreementFormModal({
 
           {/* 2. Company Name */}
           <div>
-            <label className="admin-form-label">
-              Registered Company / Enterprise Name <span style={{ color: "#ef4444" }}>*</span>
+            <label className="admin-form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Registered Company / Enterprise Name <span style={{ color: "#ef4444" }}>*</span></span>
+              <code style={{ fontSize: 10, color: "#6366f1", background: "rgba(99, 102, 241, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                PDF: (COMPANY NAME)
+              </code>
             </label>
             <input
               type="text"
@@ -307,13 +333,16 @@ export default function ClientAgreementFormModal({
 
           {/* 3. Company Address */}
           <div>
-            <label className="admin-form-label">
-              Principal Place of Business / Registered Address <span style={{ color: "#ef4444" }}>*</span>
+            <label className="admin-form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Principal Place of Business / Registered Address <span style={{ color: "#ef4444" }}>*</span></span>
+              <code style={{ fontSize: 10, color: "#6366f1", background: "rgba(99, 102, 241, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                PDF: (COMPANY ADDRESS)
+              </code>
             </label>
             <input
               type="text"
               className="admin-form-input"
-              placeholder="e.g. Corporate Address, Industrial Estate"
+              placeholder="e.g. Lg-02, H-165, Sector 63, Noida, Uttar Pradesh 201301"
               value={companyAddress}
               disabled={loading}
               onChange={(e) => {
@@ -328,13 +357,16 @@ export default function ClientAgreementFormModal({
           {/* 4 & 5. Pitched Money & Payment Received */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label className="admin-form-label">
-                Total Pitched Commercial <span style={{ color: "#ef4444" }}>*</span>
+              <label className="admin-form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Total Fee (Incl. 18% GST) <span style={{ color: "#ef4444" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#6366f1", background: "rgba(99, 102, 241, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (PRICE PITCHED)
+                </code>
               </label>
               <input
                 type="text"
                 className="admin-form-input"
-                placeholder="e.g. ₹50,000"
+                placeholder="e.g. ₹11,800"
                 value={pitchedMoney}
                 disabled={loading}
                 onChange={(e) => {
@@ -343,17 +375,62 @@ export default function ClientAgreementFormModal({
                 }}
                 style={{ borderColor: errors.pitchedMoney ? "#ef4444" : undefined }}
               />
+              {/* 18% GST helper display and auto-apply button */}
+              <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
+                {(() => {
+                  const num = parseFloat(String(pitchedMoney).replace(/[^0-9.]/g, ""));
+                  if (!isNaN(num) && num > 0) {
+                    const base = Math.round(num / 1.18);
+                    const gst = num - base;
+                    return (
+                      <span style={{ fontSize: 10.5, color: "#10b981", fontWeight: 600 }}>
+                        Base ₹{base.toLocaleString("en-IN")} + 18% GST ₹{gst.toLocaleString("en-IN")} = ₹{num.toLocaleString("en-IN")}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const num = parseFloat(String(pitchedMoney).replace(/[^0-9.]/g, ""));
+                    if (!isNaN(num) && num > 0) {
+                      const withGst = Math.round(num * 1.18);
+                      setPitchedMoney(`₹${withGst.toLocaleString("en-IN")}`);
+                      const rec = parseFloat(String(paymentReceived).replace(/[^0-9.]/g, "")) || 0;
+                      const remaining = Math.max(0, withGst - rec);
+                      setPaymentLeft(`₹${remaining.toLocaleString("en-IN")}`);
+                    }
+                  }}
+                  style={{
+                    fontSize: 10,
+                    padding: "2px 7px",
+                    borderRadius: 4,
+                    background: "rgba(99, 102, 241, 0.15)",
+                    color: "#6366f1",
+                    border: "1px solid rgba(99, 102, 241, 0.3)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                  title="Calculate & Add 18% GST (e.g. ₹10,000 base -> ₹11,800 total)"
+                >
+                  + Add 18% GST
+                </button>
+              </div>
               {errors.pitchedMoney && <span style={{ color: "#ef4444", fontSize: 11.5, marginTop: 2, display: "block" }}>{errors.pitchedMoney}</span>}
             </div>
 
             <div>
-              <label className="admin-form-label">
-                Upfront Inception Received <span style={{ color: "#ef4444" }}>*</span>
+              <label className="admin-form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Stage 1: Token Received <span style={{ color: "#ef4444" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#6366f1", background: "rgba(99, 102, 241, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (TOKEN MONEY)
+                </code>
               </label>
               <input
                 type="text"
                 className="admin-form-input"
-                placeholder="e.g. ₹20,000"
+                placeholder="e.g. ₹11,800"
                 value={paymentReceived}
                 disabled={loading}
                 onChange={(e) => {
@@ -369,8 +446,11 @@ export default function ClientAgreementFormModal({
           {/* 6 & 7. Payment Left & Disbursement Rate */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label className="admin-form-label">
-                Balance Payment Left <span style={{ color: "#ef4444" }}>*</span>
+              <label className="admin-form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Stage 2: Payment Left <span style={{ color: "#ef4444" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#6366f1", background: "rgba(99, 102, 241, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (PAYMENT LEFT)
+                </code>
               </label>
               <input
                 type="text"
@@ -388,8 +468,11 @@ export default function ClientAgreementFormModal({
             </div>
 
             <div>
-              <label className="admin-form-label">
-                Disbursement Success Fee <span style={{ color: "#ef4444" }}>*</span>
+              <label className="admin-form-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Stage 3: Success Fee % <span style={{ color: "#ef4444" }}>*</span></span>
+                <code style={{ fontSize: 10, color: "#6366f1", background: "rgba(99, 102, 241, 0.1)", padding: "2px 6px", borderRadius: 4 }}>
+                  (DISPERSMENT RATE)
+                </code>
               </label>
               <input
                 type="text"

@@ -2,14 +2,39 @@ import { mockEligibleSchemes } from "./mockEligibleSchemes";
 
 export const GST_RATE = 0.18; // 18% GST applied only when payment mode is Online
 
+export const caServiceCharges = {
+  "Annual Compliance": 15000,
+  "Private Limited Company Registration": 10000,
+  "Section 8 Company Registration": 10000,
+  "GeM Registration": 10000,
+  "LLP Registration": 9000,
+  "One Person Company (OPC) Registration": 9000,
+  "12A & 80G Registration": 6500,
+  "Trademark Registration": 6000,
+  "ISO Certification": 6000,
+  "ITR Filing": 2500,
+  "CSR Registration (CSR-1)": 2500,
+  "DARPAN Registration": 2000,
+  "GST Registration": 1000,
+  "DSC (Digital Signature Certificate)": 2000,
+};
+
 export const serviceTypeSchemes = {
   Certificate: [
-    "Financial Assistant SC/ST",
-    "MSME Design",
-    "Mudra Export Certification",
-    "MSME ZED Certification",
-    "ISO Certification Suite",
-    "Corporate Health Shield Annual",
+    "Annual Compliance",
+    "Private Limited Company Registration",
+    "Section 8 Company Registration",
+    "GeM Registration",
+    "LLP Registration",
+    "One Person Company (OPC) Registration",
+    "12A & 80G Registration",
+    "Trademark Registration",
+    "ISO Certification",
+    "ITR Filing",
+    "CSR Registration (CSR-1)",
+    "DARPAN Registration",
+    "GST Registration",
+    "DSC (Digital Signature Certificate)",
   ],
   "Consultancy Services": [
     "Startup India Seed Scheme",
@@ -61,145 +86,31 @@ export const schemeOptions = mockEligibleSchemes.map((scheme) => scheme.schemeNa
 
 export const navItems = [
   { icon: "dashboard", label: "Dashboard" },
-  { icon: "clients", label: "Clients" },
+  { icon: "reports", label: "Clients" },
+  { icon: "clients", label: "Register" },
   { icon: "overview", label: "Requests" },
   { icon: "invoice", label: "Invoices" },
   { icon: "wallet", label: "Payment" },
-  { icon: "reports", label: "Details" },
 ];
 
-export const salesLeads = [
-  { id: 1, client: "Bright Retail", contact: "Anil Kumar", status: "Proposal", value: "₹58k", owner: "Mia Ross" },
-  { id: 2, client: "Urban Foods", contact: "Riya Sharma", status: "Negotiation", value: "₹46k", owner: "Rohan Varma" },
-  { id: 3, client: "Nova Textiles", contact: "Sanjay Patel", status: "Qualified", value: "₹34k", owner: "Noah Kim" },
-  { id: 4, client: "Peak Logistics", contact: "Rakesh Mehra", status: "Demo", value: "₹72k", owner: "Tara Singh" },
-];
+export const salesLeads = [];
 
-export const initialSalesClients = [
-  {
-    id: 1,
-    name: "Bright Retail",
-    contactPerson: "Anil Kumar",
-    company: "Bright Retail Pvt Ltd",
-    email: "hello@brightretail.com",
-    phone: "+91 98765 32100",
-    address: "101 MG Road, Fort, Mumbai",
-    stage: "Active",
-    owner: "Mia Ross",
-    scheme: schemeOptions[0] || "Enterprise Growth Scheme",
-    amount: "50000",
-    paymentMode: "Online",
-    gstAmount: 9000,
-    totalPayment: 59000,
-    paymentReceived: "59000",
-    paymentPending: 0,
-    notes: "Key retail client onboarded for the annual growth scheme. High customer satisfaction.",
-    documentDetails: [
-      { label: "PAN Number", value: "ABCDE1234F", available: "Yes" },
-      { label: "Aadhar Number", value: "1234 5678 9012", available: "Yes" },
-      { label: "GST Number", value: "27ABCDE1234F1Z5", available: "Yes" },
-      { label: "KYC Documents", value: "Submitted", available: "Yes" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Urban Foods",
-    contactPerson: "Riya Sharma",
-    company: "Urban Foods Ltd",
-    email: "sales@urbanfoods.com",
-    phone: "+91 91234 55678",
-    address: "22 Brigade Road, Indiranagar, Bengaluru",
-    stage: "Onboarding",
-    owner: "Mia Ross",
-    scheme: schemeOptions[1] || "Retail Scale-Up Program",
-    amount: "45000",
-    paymentMode: "Online",
-    gstAmount: 8100,
-    totalPayment: 53100,
-    paymentReceived: "30000",
-    paymentPending: 23100,
-    notes: "Initial installment processed. KYC verification documents under review.",
-    documentDetails: [
-      { label: "PAN Number", value: "PQRSX6789K", available: "Yes" },
-      { label: "Aadhar Number", value: "2345 6789 0123", available: "Yes" },
-      { label: "GST Number", value: "27PQRSX6789K1Z1", available: "Yes" },
-      { label: "KYC Documents", value: "Pending", available: "No" },
-    ],
-  },
-  {
-    id: 3,
-    name: "Nova Textiles",
-    contactPerson: "Sanjay Patel",
-    company: "Nova Textiles Co",
-    email: "contact@novatextiles.com",
-    phone: "+91 99876 44556",
-    address: "17 Industrial Park, Ring Road, Surat",
-    stage: "Renewal",
-    owner: "Rohan Varma",
-    scheme: schemeOptions[2] || "Textile Machinery Subsidy",
-    amount: "75000",
-    paymentMode: "Offline",
-    gstAmount: 0,
-    totalPayment: 75000,
-    paymentReceived: "75000",
-    paymentPending: 0,
-    notes: "Renewal completed via direct wire transfer. Eligible for upcoming state incentive subsidies.",
-    documentDetails: [
-      { label: "PAN Number", value: "LMNOP4321D", available: "Yes" },
-      { label: "Aadhar Number", value: "3456 7890 1234", available: "Yes" },
-      { label: "GST Number", value: "27LMNOP4321D1Z3", available: "Yes" },
-      { label: "KYC Documents", value: "Submitted", available: "Yes" },
-    ],
-  },
-  {
-    id: 4,
-    name: "Peak Logistics",
-    contactPerson: "Rakesh Mehra",
-    company: "Peak Logistics Pvt Ltd",
-    email: "contact@peaklogistics.com",
-    phone: "+91 90123 45678",
-    address: "38 Freight Lane, GIDC, Ahmedabad",
-    stage: "Active",
-    owner: "Tara Singh",
-    scheme: schemeOptions[3] || "Fleet Modernization Grant",
-    amount: "120000",
-    paymentMode: "Online",
-    gstAmount: 21600,
-    totalPayment: 141600,
-    paymentReceived: "70800",
-    paymentPending: 70800,
-    notes: "First milestone payment received. Aadhar update requested for final sign-off.",
-    documentDetails: [
-      { label: "PAN Number", value: "RSTUV9876P", available: "Yes" },
-      { label: "Aadhar Number", value: "4567 8901 2345", available: "No" },
-      { label: "GST Number", value: "27RSTUV9876P1Z2", available: "Yes" },
-      { label: "KYC Documents", value: "Pending", available: "No" },
-    ],
-  },
-];
+export const initialSalesClients = [];
 
-export const notifications = [
-  { title: "New lead assigned", detail: "4 leads were assigned to your queue.", issuer: "CRM", tone: "#9a74e9" },
-  { title: "Deal updated", detail: "Urban Foods moved to Negotiation.", issuer: "Sales Ops", tone: "#44bfb0" },
-  { title: "Quota alert", detail: "You are 18% ahead of pace.", issuer: "System", tone: "#f2aa38" },
-];
+export const notifications = [];
 
-export const requestActivities = [
-  { title: "Request approved", detail: "Client update request approved by management.", time: "2m ago", tone: "#44bfb0" },
-  { title: "Request rejected", detail: "Delete request rejected for Nova Textiles.", time: "1h ago", tone: "#f2aa38" },
-  { title: "New request", detail: "A new approval request is ready for review.", time: "3h ago", tone: "#9a74e3" },
-];
+export const requestActivities = [];
 
 export const initialNewClientState = {
-  name: "",
-  contactPerson: "",
   company: "",
+  contactPerson: "",
+  name: "",
   email: "",
   phone: "",
   address: "",
-  serviceType: "Certificate",
+  serviceType: "Consultancy Services",
   stage: "Active",
-  scheme: serviceTypeSchemes.Certificate[0] || "Financial Assistant SC/ST",
+  scheme: "PMEGP",
   amount: "",
   paymentMode: "Online",
   gstAmount: 0,

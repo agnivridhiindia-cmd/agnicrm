@@ -50,7 +50,7 @@ export default function ManagerEmployeeInfoModal({ member, onClose, managerName 
         </div>
         <div className="manager-modal-card">
           <span className="manager-modal-card-label">Monthly Target Quota</span>
-          <span className="manager-modal-card-val" style={{ color: "#8c5ff8", fontWeight: 800 }}>{member.quota || "₹100k"}</span>
+          <span className="manager-modal-card-val" style={{ color: "#8c5ff8", fontWeight: 800 }}>{member.quota || "₹80k"}</span>
         </div>
         <div className="manager-modal-card">
           <span className="manager-modal-card-label">Monthly Sales Performance</span>

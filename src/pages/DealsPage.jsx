@@ -2,7 +2,7 @@ import React from "react";
 
 const offersMetrics = [
   { label: "Active Offers", value: "4 Available", color: "#4e7cff", bg: "rgba(78, 124, 255, 0.12)" },
-  { label: "Assigned Sales Lead", value: "Mia Ross", color: "#44bfb0", bg: "rgba(68, 191, 176, 0.12)" },
+  { label: "Assigned Sales Lead", value: "Mia Rose", color: "#44bfb0", bg: "rgba(68, 191, 176, 0.12)" },
   { label: "Deal of the Month", value: "Health Shield", color: "#9a74e9", bg: "rgba(154, 116, 233, 0.12)" },
   { label: "Expiring Soon", value: "1 Deal (12d left)", color: "#f2aa38", bg: "rgba(242, 170, 56, 0.12)" }
 ];
@@ -17,7 +17,7 @@ const serviceOffersData = [
     offerPrice: "₹899/mo per member",
     validTill: "31 Aug 2026",
     code: "HEALTH25",
-    salesRep: "Mia Ross",
+    salesRep: "Mia Rose",
     repRole: "Senior Sales Lead",
     summary: "Exclusive 25% discount on comprehensive group health insurance for your corporate headcount with zero waiting period.",
     highlights: ["Free Annual Health Checkup", "Cashless network across 8,000+ hospitals", "Maternity & OPD Cover included"]
@@ -45,7 +45,7 @@ const serviceOffersData = [
     offerPrice: "₹68,000",
     validTill: "30 Aug 2026",
     code: "GROWTH15",
-    salesRep: "Mia Ross",
+    salesRep: "Mia Rose",
     repRole: "Senior Sales Lead",
     summary: "Integrated social media campaign, press releases, and targeted digital ads to scale your corporate market reach.",
     highlights: ["Custom Brand Collateral", "Bi-weekly Analytics Report", "Dedicated Growth Lead"]

@@ -2,7 +2,7 @@ import React from "react";
 import KpiCard from "../../components/KpiCard";
 import Icon from "../../components/Icon";
 import ActivityTracker from "../../components/ActivityTracker";
-import { ACTIVITY_STAGES, stageBadgeColors } from "./mockAdminData";
+import { ACTIVITY_STAGES, stageBadgeColors, getCanonicalSchemeName } from "./mockAdminData";
 import { getTrackerState } from "../../utils/schemeTracker";
 import "./AdminDashboard.css";
 
@@ -17,6 +17,7 @@ export default function AdminOverviewPage({
   onOpenHistory,
   onOpenStatusUpdate,
   onQuickStepToggle,
+  onRequestRollback,
   onOpenDossier,
 }) {
   const verifiedDocsCount = branchClients.reduce((acc, c) => {
@@ -60,12 +61,12 @@ export default function AdminOverviewPage({
       onClick: onOpenClients,
     },
     {
-      label: "Document Audits",
-      value: `${verifiedDocsCount}/${totalDocsCount}`,
-      trend: "Verified KYC",
-      description: "Compliance documents checked",
+      label: "Pipeline Updates",
+      value: `${metrics.inProgress}/${metrics.total}`,
+      trend: "Active Stages",
+      description: "Pipeline milestone stages tracked",
       accent: "#9a74e9",
-      onClick: onOpenClients,
+      onClick: onOpenPipeline || onOpenClients,
     },
     {
       label: "Branch S.L.A Health",
@@ -204,12 +205,12 @@ export default function AdminOverviewPage({
                         <span
                           className="admin-badge"
                           style={{
-                            background: `${stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#4e7cff"}18`,
-                            color: stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#4e7cff",
-                            border: `1px solid ${stageBadgeColors[client.applicationStatus || tracker.currentStage] || "#4e7cff"}33`,
+                            background: `${stageBadgeColors[tracker.currentStage] || "#4e7cff"}18`,
+                            color: stageBadgeColors[tracker.currentStage] || "#4e7cff",
+                            border: `1px solid ${stageBadgeColors[tracker.currentStage] || "#4e7cff"}33`,
                           }}
                         >
-                          ● {client.applicationStatus || tracker.currentStage}
+                          ● {tracker.currentStage}
                         </span>
 
                         <button
@@ -248,6 +249,9 @@ export default function AdminOverviewPage({
                       onStepToggle={(stepName, nextSteps, newPercent) =>
                         onQuickStepToggle(client, stepName, nextSteps, newPercent)
                       }
+                      onRequestRollback={(targetStage) =>
+                        onRequestRollback ? onRequestRollback(client, targetStage) : null
+                      }
                     />
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "#64748b", paddingTop: 4, borderTop: "1px dashed rgba(154, 116, 233, 0.18)" }}>
@@ -264,13 +268,13 @@ export default function AdminOverviewPage({
 
       {/* Right Column: REAL-TIME TELEMETRY & Verification Widgets */}
       <aside className="owner-sidebar-widgets">
-        {/* Document Verification Checklist */}
+        {/* Pipeline Updates Checklist */}
         <section className="admin-panel-card" style={{ display: "flex", flexDirection: "column" }}>
           <div className="admin-panel-header" style={{ marginBottom: 14 }}>
             <div>
-              <span className="admin-kicker">COMPLIANCE AUDIT</span>
+              <span className="admin-kicker">PIPELINE PROGRESS</span>
               <h3 className="admin-panel-header-title" style={{ fontSize: 16 }}>
-                Document Verification
+                Pipeline Updates
               </h3>
             </div>
             <span
@@ -280,15 +284,15 @@ export default function AdminOverviewPage({
                 color: "#4e7cff",
               }}
             >
-              KYC / Legal
+              Stage Tracker
             </span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {branchClients.slice(0, 4).map((client) => {
-              const verifiedDocs = (client.documents || []).filter((d) => d.status === "Verified").length;
-              const totalDocs = (client.documents || []).length;
-              const isAllDone = totalDocs > 0 && verifiedDocs === totalDocs;
+              const tracker = getTrackerState(client);
+              const currentStage = tracker.currentStage;
+              const isCompleted = currentStage === "Final" || tracker.progressPercent === 100;
 
               return (
                 <div
@@ -304,7 +308,7 @@ export default function AdminOverviewPage({
                   <div>
                     <strong style={{ fontSize: 13, display: "block" }}>{client.name}</strong>
                     <span style={{ fontSize: 11.5, color: "#64748b" }}>
-                      {verifiedDocs} of {totalDocs} Docs Verified
+                      Stage: <strong>{currentStage}</strong>
                     </span>
                   </div>
 
@@ -314,11 +318,11 @@ export default function AdminOverviewPage({
                       style={{
                         fontSize: 10.5,
                         padding: "2px 7px",
-                        background: isAllDone ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.14)",
-                        color: isAllDone ? "#059669" : "#b45309",
+                        background: isCompleted ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.14)",
+                        color: isCompleted ? "#059669" : "#b45309",
                       }}
                     >
-                      {isAllDone ? "Verified ✓" : "Pending"}
+                      {isCompleted ? "Completed ✓" : "In Progress"}
                     </span>
                     <button
                       type="button"
@@ -326,7 +330,7 @@ export default function AdminOverviewPage({
                       style={{ padding: "3px 8px", fontSize: 11 }}
                       onClick={() => onOpenStatusUpdate(client)}
                     >
-                      Verify
+                      Update
                     </button>
                   </div>
                 </div>
@@ -341,23 +345,14 @@ export default function AdminOverviewPage({
             <div>
               <span className="admin-kicker">STAGE DISTRIBUTION</span>
               <h3 className="admin-panel-header-title" style={{ fontSize: 16 }}>
-                5 Activity Stages
+                Milestone Stage Distribution
               </h3>
             </div>
-            <span
-              className="admin-badge"
-              style={{
-                background: "rgba(154, 116, 233, 0.15)",
-                color: "#9a74e9",
-              }}
-            >
-              5 Points
-            </span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {ACTIVITY_STAGES.map((stage) => {
-              const count = branchClients.filter((c) => c.applicationStatus === stage.name).length;
+              const count = branchClients.filter((c) => getTrackerState(c).currentStage === stage.name).length;
               return (
                 <div
                   key={stage.name}

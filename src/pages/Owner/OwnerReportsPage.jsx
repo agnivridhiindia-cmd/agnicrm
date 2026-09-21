@@ -9,6 +9,8 @@ import {
   generateYearlySeries,
 } from "./mockOwnerData";
 
+import { isBranchMatch } from "../../utils/branchHelper";
+
 export default function OwnerReportsPage({
   employeesList = [],
 }) {
@@ -34,11 +36,13 @@ export default function OwnerReportsPage({
   };
 
   const filteredEmployees = employeesList.filter((employee) => {
+    const empRole = (employee.role || employee.rawRole || "").toLowerCase();
+    const fltRole = (reportRoleFilter || "").toLowerCase();
     const roleOk =
-      !reportRoleFilter ||
-      (employee.role || "").toLowerCase() === (reportRoleFilter || "").toLowerCase();
-    const branchOk =
-      !reportBranchFilter || (employee.branch || "") === reportBranchFilter;
+      !fltRole ||
+      empRole.includes(fltRole) ||
+      fltRole.includes(empRole);
+    const branchOk = isBranchMatch(employee.branch, reportBranchFilter);
     return roleOk && branchOk;
   });
 

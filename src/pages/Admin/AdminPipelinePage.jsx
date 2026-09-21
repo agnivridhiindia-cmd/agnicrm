@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   TRACKER_STAGES_DEFINITIONS,
   TRACKER_STAGE_IDS,
   getTrackerState,
+  getCanonicalSchemeName,
+  isPaymentDemandOrSettlement,
 } from "../../utils/schemeTracker";
 import { stageBadgeColors } from "./mockAdminData";
 import "./AdminDashboard.css";
@@ -21,6 +23,16 @@ export default function AdminPipelinePage({
   branchClients = [],
   onOpenStatusUpdate,
 }) {
+  const validSchemeClients = useMemo(() => {
+    return branchClients.filter((c) => {
+      if (!c) return false;
+      if (isPaymentDemandOrSettlement(c)) return false;
+      const sName = c.scheme || c.serviceName || c.particularScheme;
+      if (isPaymentDemandOrSettlement(sName)) return false;
+      return true;
+    });
+  }, [branchClients]);
+
   return (
     <div className="admin-page-container">
       {/* Glass Header Banner */}
@@ -37,10 +49,9 @@ export default function AdminPipelinePage({
       {/* Pipeline Grid (Strictly 3 cards per row) */}
       <div className="admin-pipeline-grid-3">
         {PIPELINE_STAGES.map((stage, sIdx) => {
-          const stageClients = branchClients.filter((c) => {
+          const stageClients = validSchemeClients.filter((c) => {
             const tracker = getTrackerState(c);
-            const status = c.applicationStatus || tracker.currentStage;
-            return status === stage.name;
+            return tracker.currentStage === stage.name;
           });
 
           return (
@@ -107,7 +118,7 @@ export default function AdminPipelinePage({
                       </div>
 
                       <div style={{ fontSize: 12, color: "#64748b" }}>
-                        Scheme: <strong style={{ color: "inherit" }}>{client.scheme}</strong>
+                        Scheme: <strong style={{ color: "inherit" }}>{getCanonicalSchemeName(client.particularScheme || client.schemeName || client.scheme || client.serviceName)}</strong>
                       </div>
 
                       <div style={{ height: 6, background: "rgba(154, 116, 233, 0.15)", borderRadius: 999, overflow: "hidden" }}>
