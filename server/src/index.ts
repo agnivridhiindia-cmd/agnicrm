@@ -24,10 +24,12 @@ app.use(
       // Allow requests with no origin (e.g. mobile apps, curl, postman)
       if (!origin) return callback(null, true);
       
-      // Check allowed origins list or local development pattern
+      // Check allowed origins list, vercel deployments, localtunnel, or local development pattern
       const isAllowed =
         ENV.ALLOWED_ORIGINS.includes(origin) ||
         ENV.NODE_ENV === "development" ||
+        /\.vercel\.app$/.test(origin) ||
+        /\.loca\.lt$/.test(origin) ||
         /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
 
       if (isAllowed) {
