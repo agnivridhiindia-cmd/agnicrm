@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import AuthScreen from "./Auth/AuthScreen";
 import { apiFetch } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
-import ClientDashboard from "../ClientDashboard";
-import DocumentForm from "./Documents/DocumentForm";
-import OwnerDashboard from "./Owner/OwnerDashboard";
-import ManagerDashboard from "./Manager/ManagerDashboard";
-import BranchManagerDashboard from "./BranchManager/BranchManagerDashboard";
-import SalesDashboard from "./Sales/SalesDashboard";
-import AdminDashboard from "./Admin/AdminDashboard";
-import MarketingDashboard from "./Marketing/MarketingDashboard";
-import ITDashboard from "./IT/ITDashboard";
+
+const ClientDashboard = lazy(() => import("../ClientDashboard"));
+const DocumentForm = lazy(() => import("./Documents/DocumentForm"));
+const OwnerDashboard = lazy(() => import("./Owner/OwnerDashboard"));
+const ManagerDashboard = lazy(() => import("./Manager/ManagerDashboard"));
+const BranchManagerDashboard = lazy(() => import("./BranchManager/BranchManagerDashboard"));
+const SalesDashboard = lazy(() => import("./Sales/SalesDashboard"));
+const AdminDashboard = lazy(() => import("./Admin/AdminDashboard"));
+const MarketingDashboard = lazy(() => import("./Marketing/MarketingDashboard"));
+const ITDashboard = lazy(() => import("./IT/ITDashboard"));
 
 function ClientRouteWrapper({ userEmail, onSignOut }) {
   const emailKey = (userEmail || "").trim().toLowerCase();
@@ -84,6 +85,19 @@ function ClientRouteWrapper({ userEmail, onSignOut }) {
             setStatus("done");
             return;
           }
+        } else if (res.status === 404 || res.status === 401) {
+          // Client profile not found in database (e.g. client removed/deleted)
+          console.warn("Client profile not found in DB. Clearing session.");
+          localStorage.removeItem("agni_token");
+          localStorage.removeItem("agni_user");
+          localStorage.removeItem("agni_user_role");
+          localStorage.removeItem("agni_role");
+          localStorage.removeItem("agni_user_email");
+          localStorage.removeItem("agni_email");
+          localStorage.removeItem(docSubmittedKey);
+          if (onSignOut) onSignOut();
+          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
+          return;
         }
       } catch (e) {
         // Network error — fall back to localStorage result already set above
@@ -313,7 +327,14 @@ export default function App() {
   }
 
   return (
-    <Routes>
+    <Suspense
+      fallback={
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "transparent" }}>
+          <div style={{ width: 38, height: 38, border: "3px solid rgba(99, 102, 241, 0.2)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+        </div>
+      }
+    >
+      <Routes>
       <Route
         path="/login"
         element={<AuthScreen onLogin={handleLogin} />}
@@ -413,6 +434,7 @@ export default function App() {
           <Navigate to={userRole ? (rolePathMap[userRole] || "/login") : "/login"} replace />
         }
       />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 import { Response, NextFunction } from "express";
 import { z } from "zod";
-import { PaymentMode } from "@prisma/client";
+import { InvoiceType, PaymentMode } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware";
 import {
   getInvoicesService,
@@ -10,15 +10,21 @@ import {
 } from "../services/invoice.service";
 
 const createInvoiceSchema = z.object({
-  clientId: z.string().uuid("Invalid client ID"),
-  issueDate: z.string(),
-  dueDate: z.string(),
+  // Accept any non-empty string (UUID or legacy email-based IDs)
+  clientId: z.string().min(1, "Client ID is required"),
+  invoiceType: z.nativeEnum(InvoiceType).optional(),
+  issueDate: z.string().min(1, "Issue date is required"),
+  dueDate: z.string().optional(), // Optional: proforma invoices may not have a due date
   paymentMode: z.nativeEnum(PaymentMode),
   rawAmount: z.number().nonnegative("Base amount cannot be negative"),
   gstRate: z.number().nonnegative(),
   gstAmount: z.number().nonnegative(),
   rawTotal: z.number().nonnegative(),
   gstNo: z.string().optional(),
+  description: z.string().optional(),
+  hsnSac: z.string().optional(),
+  placeOfSupply: z.string().optional(),
+  quantity: z.number().int().positive().optional(),
 });
 
 const createPaymentSchema = z.object({

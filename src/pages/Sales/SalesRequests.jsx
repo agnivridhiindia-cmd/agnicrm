@@ -176,7 +176,8 @@ export default function SalesRequests() {
             serviceType: "CONSULTANCY",
             amount: details.totalPayment || details.pitchedAmount,
             paymentMode: (details.paymentMode || "ONLINE").toUpperCase(),
-            paymentReceived: 0,
+            paymentReceived: details.paymentReceived || 0,
+            paymentPending: details.paymentPending || details.totalPayment || 0,
             fundingRequirement: details.amountRequired,
             approvalStatus: "ACTIVE",
           }

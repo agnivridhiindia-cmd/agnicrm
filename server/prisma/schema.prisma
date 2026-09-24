@@ -85,6 +85,11 @@ enum DocumentStatus {
   VERIFIED
 }
 
+enum InvoiceType {
+  PROFORMA
+  TAX
+}
+
 model Branch {
   id              String    @id @default(uuid())
   code            String    @unique // e.g. BR-01
@@ -259,8 +264,9 @@ model ClientScheme {
 model Invoice {
   id               String        @id @default(uuid())
   invoiceNo        String        @unique // e.g. INV-2026-001
+  invoiceType      InvoiceType   @default(PROFORMA) // PROFORMA for pending, TAX for fully paid
   issueDate        DateTime
-  dueDate          DateTime
+  dueDate          DateTime?     // Optional: proforma invoices may not have a due date
   paymentMode      PaymentMode
   rawAmount        Decimal       @db.Decimal(14, 2) // Base amount pre-tax
   gstRate          Decimal       @default(0.18) @db.Decimal(5, 4) // 18% for ONLINE, 0 for OFFLINE
@@ -270,6 +276,10 @@ model Invoice {
   paymentPending   Decimal       @default(0) @db.Decimal(14, 2)
   status           PaymentStatus @default(PENDING)
   gstNo            String?
+  description      String?       // Service/product description
+  hsnSac           String?       // HSN/SAC code
+  placeOfSupply    String?       // For GST (intra-state vs inter-state)
+  quantity         Int           @default(1)
   isDeleted        Boolean       @default(false)
   deletedAt        DateTime?
   createdAt        DateTime      @default(now())
@@ -427,4 +437,35 @@ model Payment {
   @@index([invoiceId])
   @@index([isDeleted])
   @@map("payments")
+}
+
+model DeletedEmployee {
+  id                  String    @id @default(uuid())
+  originalUserId      String
+  fullName            String
+  email               String
+  phone               String?
+  role                String
+  branchId            String?
+  branchName          String?
+  region              String?
+  reportingManager    String?
+  deletedAt           DateTime  @default(now())
+  deletedBy           String?   @default("Owner")
+  reason              String?
+  totalClients        Int       @default(0)
+  totalSchemes        Int       @default(0)
+  totalPitchedAmount  Decimal?  @default(0) @db.Decimal(14, 2)
+  totalReceivedAmount Decimal?  @default(0) @db.Decimal(14, 2)
+  clientsData         Json?     // Array of client records registered under this employee
+  schemesData         Json?     // Array of schemes registered under these clients
+  servicesData        Json?     // Summary of registered services
+  fullArchiveSnapshot Json?     // Complete snapshot with all details
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([originalUserId])
+  @@index([email])
+  @@index([deletedAt])
+  @@map("deleted_employees")
 }

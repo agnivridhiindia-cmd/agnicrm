@@ -152,13 +152,28 @@ export async function decideRequestService(
           });
         }
       } else if (existingRequest.requestType === RequestType.DELETE_CLIENT && existingRequest.clientId) {
-        await tx.client.update({
+        const deletedClient = await tx.client.update({
           where: { id: existingRequest.clientId },
           data: {
             isDeleted: true,
             deletedAt: new Date(),
           },
         });
+
+        // If client had an email, check if any active client records remain
+        if (deletedClient?.email) {
+          const remainingClients = await tx.client.count({
+            where: { email: deletedClient.email, isDeleted: false },
+          });
+
+          if (remainingClients === 0) {
+            // Deactivate the client User login account
+            await tx.user.updateMany({
+              where: { email: deletedClient.email, role: "CLIENT" },
+              data: { isDeleted: true, deletedAt: new Date() },
+            });
+          }
+        }
       }
     } else if (decision === "REJECTED") {
       if (existingRequest.requestType === RequestType.NEW_SERVICE && existingRequest.clientId) {

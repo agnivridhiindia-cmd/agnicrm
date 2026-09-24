@@ -1,18 +1,23 @@
-import { PaymentMode, PaymentStatus, Role, TransactionStatus } from "@prisma/client";
+import { InvoiceType, PaymentMode, PaymentStatus, Role, TransactionStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { generateInvoiceNo, generatePaymentId } from "../utils/idGenerator";
 
 export interface CreateInvoiceInput {
   clientId: string;
+  invoiceType?: InvoiceType; // PROFORMA for pending, TAX for fully paid
   issueDate: string;
-  dueDate: string;
+  dueDate?: string; // Optional — proforma may not have a due date
   paymentMode: PaymentMode;
   rawAmount: number;
   gstRate: number;
   gstAmount: number;
   rawTotal: number;
   gstNo?: string;
+  description?: string;
+  hsnSac?: string;
+  placeOfSupply?: string;
+  quantity?: number;
 }
 
 export interface CreatePaymentInput {
@@ -51,28 +56,60 @@ export async function getInvoicesService(user: AuthenticatedUser) {
 }
 
 export async function createInvoiceService(user: AuthenticatedUser, data: CreateInvoiceInput) {
-  const client = await prisma.client.findFirst({ where: { id: data.clientId, isDeleted: false } });
+  // Try to find client by UUID id first; fall back to email lookup for legacy clients
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.clientId);
+  let client = null;
+  if (isUuid) {
+    client = await prisma.client.findFirst({ where: { id: data.clientId, isDeleted: false } });
+  }
+  // Fallback: try email lookup (for legacy/mock clients that use email as id)
+  if (!client) {
+    client = await prisma.client.findFirst({ where: { email: data.clientId, isDeleted: false } });
+  }
   if (!client) {
     return { success: false, statusCode: 404, message: "Client not found" };
   }
 
   const invoiceNo = generateInvoiceNo();
 
+  // Check if client has already made payments or if this is a Tax Invoice for paid fees
+  const clientAlreadyPaid = Number(client.paymentReceived || 0);
+  const existingInvoices = await prisma.invoice.findMany({
+    where: { clientId: client.id, isDeleted: false },
+    select: { paymentReceived: true },
+  });
+  const alreadyInvoicedPaid = existingInvoices.reduce((sum, inv) => sum + Number(inv.paymentReceived || 0), 0);
+  const unallocatedClientPayment = Math.max(0, clientAlreadyPaid - alreadyInvoicedPaid);
+
+  const isTaxType = data.invoiceType === InvoiceType.TAX;
+  const initialReceived = isTaxType
+    ? Math.min(data.rawTotal, Math.max(unallocatedClientPayment, data.rawTotal))
+    : Math.min(data.rawTotal, unallocatedClientPayment);
+  const initialPending = Math.max(0, data.rawTotal - initialReceived);
+  const initialStatus = initialPending === 0 && initialReceived > 0
+    ? PaymentStatus.PAID
+    : (initialReceived > 0 ? PaymentStatus.PARTIAL : PaymentStatus.PENDING);
+
   const invoice = await prisma.invoice.create({
     data: {
       invoiceNo,
+      invoiceType: data.invoiceType ?? (initialStatus === PaymentStatus.PAID ? InvoiceType.TAX : InvoiceType.PROFORMA),
       issueDate: new Date(data.issueDate),
-      dueDate: new Date(data.dueDate),
+      dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
       paymentMode: data.paymentMode,
       rawAmount: data.rawAmount,
       gstRate: data.gstRate,
       gstAmount: data.gstAmount,
       rawTotal: data.rawTotal,
-      paymentReceived: 0,
-      paymentPending: data.rawTotal,
-      status: PaymentStatus.PENDING,
+      paymentReceived: initialReceived,
+      paymentPending: initialPending,
+      status: initialStatus,
       gstNo: data.gstNo,
-      clientId: data.clientId,
+      description: data.description,
+      hsnSac: data.hsnSac,
+      placeOfSupply: data.placeOfSupply,
+      quantity: data.quantity ?? 1,
+      clientId: client.id,
       branchId: client.branchId,
       accountManagerId: client.salesPersonId,
     },
@@ -81,6 +118,22 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
       payments: true,
     },
   });
+
+  if (initialReceived > 0) {
+    const paymentId = generatePaymentId();
+    await prisma.payment.create({
+      data: {
+        paymentId,
+        amount: initialReceived,
+        paymentMode: data.paymentMode,
+        status: TransactionStatus.SUCCESS,
+        clientId: client.id,
+        invoiceId: invoice.id,
+        recordedById: user.userId,
+        remarks: "Payment collected upon client registration / invoice generation",
+      },
+    });
+  }
 
   return { success: true, statusCode: 201, data: invoice };
 }
@@ -112,7 +165,13 @@ export async function getPaymentsService(user: AuthenticatedUser) {
 export async function addPaymentService(user: AuthenticatedUser, invoiceId: string, data: CreatePaymentInput) {
   return await prisma.$transaction(async (tx) => {
     const invoice = await tx.invoice.findFirst({
-      where: { id: invoiceId, isDeleted: false },
+      where: {
+        OR: [
+          { id: invoiceId },
+          { invoiceNo: invoiceId },
+        ],
+        isDeleted: false,
+      },
       include: { client: true },
     });
 
@@ -175,7 +234,11 @@ export async function addPaymentService(user: AuthenticatedUser, invoiceId: stri
     if (newStatus !== updatedInvoice.status) {
       finalInvoice = await tx.invoice.update({
         where: { id: invoice.id },
-        data: { status: newStatus },
+        data: {
+          status: newStatus,
+          // Business rule: when fully paid, automatically upgrade to Tax Invoice
+          ...(newStatus === PaymentStatus.PAID ? { invoiceType: InvoiceType.TAX } : {}),
+        },
         include: {
           payments: { where: { isDeleted: false } },
           client: { select: { name: true, companyName: true } },
@@ -189,6 +252,24 @@ export async function addPaymentService(user: AuthenticatedUser, invoiceId: stri
           client: { select: { name: true, companyName: true } },
         },
       }) || updatedInvoice;
+    }
+
+    // 4. Atomically sync Client and ClientScheme balances across dashboards
+    if (invoice.clientId) {
+      await tx.client.update({
+        where: { id: invoice.clientId },
+        data: {
+          paymentReceived: { increment: data.amount },
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.clientScheme.updateMany({
+        where: { clientId: invoice.clientId },
+        data: {
+          receivedAmount: { increment: data.amount },
+        },
+      });
     }
 
     return {

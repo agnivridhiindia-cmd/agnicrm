@@ -54,7 +54,7 @@ export async function getAgreementsService(user: AuthenticatedUser) {
   return { success: true, statusCode: 200, count: agreements.length, data: agreements };
 }
 
-export async function getAgreementByIdService(agreementId: string) {
+export async function getAgreementByIdService(user: AuthenticatedUser, agreementId: string) {
   const agreement = await prisma.agreement.findFirst({
     where: {
       isDeleted: false,
@@ -76,6 +76,41 @@ export async function getAgreementByIdService(agreementId: string) {
       statusCode: 404,
       message: `Agreement "${agreementId}" not found.`,
     };
+  }
+
+  // Authorization check to prevent IDOR
+  if (user.role === "CLIENT") {
+    if (agreement.client?.email?.toLowerCase() !== user.email?.toLowerCase()) {
+      return {
+        success: false,
+        statusCode: 403,
+        message: "Forbidden: You are not authorized to view this agreement.",
+      };
+    }
+  } else if (user.role === "SALES_PERSON") {
+    if (agreement.client?.salesPersonId && agreement.client.salesPersonId !== user.userId) {
+      return {
+        success: false,
+        statusCode: 403,
+        message: "Forbidden: You are not assigned to this client's agreement.",
+      };
+    }
+  } else if (user.role === "BRANCH_MANAGER" || user.role === "MANAGER") {
+    let targetBranchId = user.branchId;
+    if (!targetBranchId) {
+      const dbUser = await prisma.user.findFirst({
+        where: { id: user.userId, isDeleted: false },
+        select: { branchId: true },
+      });
+      targetBranchId = dbUser?.branchId || undefined;
+    }
+    if (targetBranchId && agreement.client?.branchId && agreement.client.branchId !== targetBranchId) {
+      return {
+        success: false,
+        statusCode: 403,
+        message: "Forbidden: This agreement belongs to another branch.",
+      };
+    }
   }
 
   return { success: true, statusCode: 200, data: agreement };

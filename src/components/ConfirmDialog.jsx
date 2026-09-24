@@ -26,19 +26,18 @@ export default function ConfirmDialog({
       <div className="confirm-dialog-actions">
         <button
           type="button"
-          className="manager-btn-secondary"
+          className="confirm-dialog-btn confirm-dialog-btn-cancel manager-btn-secondary"
           onClick={onCancel}
-          style={{ minWidth: 100, justifyContent: "center" }}
         >
           {cancelLabel}
         </button>
         <button
           type="button"
-          className="manager-btn-danger"
+          className="confirm-dialog-btn confirm-dialog-btn-delete manager-btn-danger"
           onClick={onConfirm}
-          style={{ minWidth: 120, justifyContent: "center", padding: "10px 18px", fontSize: 13 }}
         >
-          {confirmLabel}
+          <Icon name="trash" size={14} />
+          <span>{confirmLabel}</span>
         </button>
       </div>
     </div>

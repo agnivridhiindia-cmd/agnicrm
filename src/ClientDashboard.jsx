@@ -301,6 +301,12 @@ export default function Dashboard({ onSignOut, userEmail }) {
     }
 
     fetchMyProfileFromDB();
+
+    // Re-fetch when admin updates milestones on any scheme
+    window.addEventListener("agni_clients_updated", fetchMyProfileFromDB);
+    return () => {
+      window.removeEventListener("agni_clients_updated", fetchMyProfileFromDB);
+    };
   }, [userEmail]);
 
   const activeSalesClient = React.useMemo(() => {
@@ -1101,16 +1107,31 @@ export default function Dashboard({ onSignOut, userEmail }) {
       completedSteps: dbProfile?.completedSteps || ["CRM Creation"],
     };
 
-    // Build synthetic sibling records for each additional enrolled plan
-    // so each secondary service gets the correct tracker from localStorage
-    const siblingClients = activePlansList.slice(1).map((plan) => ({
-      email: targetEmail,
-      company: clientInfo.companyName,
-      scheme: plan.name,
-      serviceName: plan.name,
-      // Secondary plans start at CRM Creation; actual progress comes from localStorage
-      completedSteps: ["CRM Creation", "Agreement", "Reports"],
-    }));
+    // Build synthetic sibling records for each additional enrolled plan.
+    // Secondary schemes START at 60% (3/5 steps) by business rule.
+    // If admin has explicitly advanced beyond the default, use the DB value.
+    const SECONDARY_DEFAULT_STEPS = ["CRM Creation", "Agreement", "Reports"];
+    const siblingClients = activePlansList.slice(1).map((plan) => {
+      // Find the matching DB service record by scheme name
+      const dbService = (dbProfile?.allServices || []).find(
+        (s) => s.schemeName && plan.name &&
+          s.schemeName.toLowerCase().trim() === plan.name.toLowerCase().trim()
+      );
+      // Use DB steps only if admin has advanced beyond the 3-step default
+      const dbSteps = dbService?.completedSteps;
+      const resolvedSteps = (Array.isArray(dbSteps) && dbSteps.length > SECONDARY_DEFAULT_STEPS.length)
+        ? dbSteps
+        : SECONDARY_DEFAULT_STEPS;
+      return {
+        email: targetEmail,
+        company: clientInfo.companyName,
+        scheme: plan.name,
+        serviceName: plan.name,
+        completedSteps: resolvedSteps,
+        progressPercent: dbService?.progressPercent,
+        applicationStatus: dbService?.applicationStatus,
+      };
+    });
 
     return getClientAllSchemeTrackers(primaryClient, siblingClients);
   }, [userEmail, activePlansList, dbProfile, clientInfo, trackerSyncTick]);
@@ -1126,17 +1147,32 @@ export default function Dashboard({ onSignOut, userEmail }) {
       return matched.tracker;
     }
     const targetEmail = userEmail || localStorage.getItem("agni_user_email") || "";
-    // Build the correct client object so getSchemeCompletedStages reads admin-saved localStorage stages
-    const isPrimary = isClientPrimaryScheme({ email: targetEmail, scheme: activePipelineScheme }, activePipelineScheme);
+    // Find DB record for this scheme (primary or secondary) from allServices
+    const dbService = (dbProfile?.allServices || []).find(
+      (s) => s.schemeName && activePipelineScheme &&
+        s.schemeName.toLowerCase().trim() === activePipelineScheme.toLowerCase().trim()
+    );
+    const isPrimary = dbService?.isPrimary !== false &&
+      isClientPrimaryScheme({ email: targetEmail, scheme: activePipelineScheme }, activePipelineScheme);
+
+    // Secondary schemes start at 60% by default; use DB only when admin advances further
+    const SECONDARY_DEFAULT_STEPS = ["CRM Creation", "Agreement", "Reports"];
+    const dbSteps = dbService?.completedSteps;
+    const dbStepsResolved = (!isPrimary && Array.isArray(dbSteps) && dbSteps.length > SECONDARY_DEFAULT_STEPS.length)
+      ? dbSteps
+      : (!isPrimary ? SECONDARY_DEFAULT_STEPS : null);
+    const resolvedSteps = isPrimary
+      ? (dbProfile?.completedSteps || ["CRM Creation"])
+      : (dbStepsResolved || SECONDARY_DEFAULT_STEPS);
+
     const clientObj = {
       email: targetEmail,
       company: clientInfo.companyName,
       scheme: activePipelineScheme,
       serviceName: activePipelineScheme,
-      completedSteps: isPrimary ? (dbProfile?.completedSteps || ["CRM Creation"]) : ["CRM Creation", "Agreement", "Reports"],
+      completedSteps: resolvedSteps,
     };
-    const defaultSteps = isPrimary ? (dbProfile?.completedSteps || ["CRM Creation"]) : ["CRM Creation", "Agreement", "Reports"];
-    const steps = getSchemeCompletedStages(clientObj, activePipelineScheme, defaultSteps);
+    const steps = getSchemeCompletedStages(clientObj, activePipelineScheme, resolvedSteps);
     return getTrackerState({ scheme: activePipelineScheme }, steps);
   }, [allSchemeTrackers, activePipelineScheme, userEmail, activePlansList, dbProfile, clientInfo, trackerSyncTick]);
 

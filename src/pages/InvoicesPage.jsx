@@ -130,7 +130,6 @@ export default function InvoicesPage({ userEmail }) {
                   const docType = String(inv.type || inv.documentType || inv.invoiceType || "");
                   const isProforma = docType.toLowerCase().includes("proforma") || docType.toLowerCase().includes("performa") || docType.toLowerCase().includes("pro forma");
                   const isPaid = !isProforma || (inv.status || "").toLowerCase() === "paid";
-                  const showPayNow = !isPaid && isProforma;
                   const rate = Number(inv.rate || inv.pitchedAmount || inv.amount || 0);
                   const gst = Number(inv.gstPercent) !== undefined ? Number(inv.gstPercent) : 18;
                   const total = inv.totalAmount ? Number(inv.totalAmount) : (rate * (1 + gst / 100));
@@ -176,10 +175,9 @@ export default function InvoicesPage({ userEmail }) {
                           <button
                             type="button"
                             className="cd-table-action-btn"
-                            style={showPayNow ? { background: '#1877f2', color: '#fff', borderColor: '#1877f2', fontWeight: 600 } : {}}
                             onClick={() => setSelectedInvoice({ ...inv, isPaid, formattedTotal, isProforma })}
                           >
-                            {showPayNow ? "Pay Now" : "Inspect"}
+                            Inspect
                           </button>
                         </div>
                       </td>
@@ -248,13 +246,18 @@ export default function InvoicesPage({ userEmail }) {
               </button>
 
               {!selectedInvoice.isPaid && selectedInvoice.isProforma && (
-                <button
-                  type="button"
-                  className="cd-submit-btn"
-                  onClick={() => handlePayNow(selectedInvoice)}
-                >
-                  Pay {selectedInvoice.formattedTotal} Online
-                </button>
+                <div style={{
+                  padding: "12px 16px",
+                  borderRadius: 8,
+                  background: "rgba(245, 158, 11, 0.08)",
+                  border: "1px solid rgba(245, 158, 11, 0.25)",
+                  color: "#d97706",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  textAlign: "center",
+                }}>
+                  <strong>Notice:</strong> This is a Proforma Invoice issued to notify you of pending payment. Settle pending dues via the Payments section or with your sales officer.
+                </div>
               )}
             </div>
           </section>

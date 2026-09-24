@@ -1,7 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware";
-import { loginUser, getUserProfile, getUsersService, refreshAccessTokenService } from "../services/auth.service";
+import {
+  loginUser,
+  getUserProfile,
+  getUsersService,
+  refreshAccessTokenService,
+  changePasswordService,
+} from "../services/auth.service";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -10,6 +16,14 @@ const loginSchema = z.object({
 
 const refreshSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token required"),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(1, "New password is required"),
+  confirmPassword: z.string().optional(),
+  email: z.string().optional(),
+  role: z.string().optional(),
 });
 
 export async function login(req: Request, res: Response, next: NextFunction) {
@@ -57,3 +71,25 @@ export async function getUsers(req: Request, res: Response, next: NextFunction) 
     next(error);
   }
 }
+
+export async function changePassword(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { currentPassword, newPassword, confirmPassword, email, role } = changePasswordSchema.parse(req.body);
+    const userId = req.user?.userId;
+    const userEmail = req.user?.email || email;
+
+    const result = await changePasswordService({
+      userId,
+      email: userEmail,
+      role,
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    });
+
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+

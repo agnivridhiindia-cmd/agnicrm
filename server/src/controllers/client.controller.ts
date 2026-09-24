@@ -10,6 +10,8 @@ import {
   updateClientStatusService,
   updateDocumentStatusService,
   verifyClientDocumentService,
+  deleteClientService,
+  updateClientService,
 } from "../services/client.service";
 
 const createClientSchema = z.object({
@@ -147,3 +149,42 @@ export async function verifyClientDocument(req: AuthenticatedRequest, res: Respo
     next(error);
   }
 }
+
+export async function deleteClient(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const clientId = req.params.id as string;
+    const result = await deleteClientService(clientId);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+const updateClientSchema = z.object({
+  name: z.string().optional(),
+  companyName: z.string().optional(),
+  contactPerson: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  serviceType: z.nativeEnum(ServiceType).optional(),
+  serviceName: z.string().optional(),
+  totalPayment: z.number().optional(),
+  paymentReceived: z.number().optional(),
+  completedSteps: z.array(z.string()).optional(),
+  applicationStatus: z.string().optional(),
+  progressPercent: z.number().optional(),
+  adminNotes: z.string().optional(),
+});
+
+export async function updateClient(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const clientId = req.params.id as string;
+    const data = updateClientSchema.parse(req.body);
+    const result = await updateClientService(clientId, data);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+

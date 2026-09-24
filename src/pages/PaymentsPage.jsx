@@ -361,16 +361,20 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
       updateClientMetrics("agni_sales_clients");
       updateClientMetrics("agni_branch_clients");
 
-      // 3. Optional API sync
-      apiFetch(`/invoices/${pay.relatedInvoice || 'dummy'}/payments`, {
-        method: "POST",
-        body: JSON.stringify({
-          amount: Number(pay.amount || 0),
-          paymentMode: "ONLINE",
-          remarks: "Client portal payment demand settlement",
-        })
-      }).catch(() => {});
+      // 3. API sync if invoice is linked
+      const invId = pay.relatedInvoiceId || pay.invoiceId || pay.relatedInvoice;
+      if (invId && invId !== "dummy") {
+        apiFetch(`/invoices/${invId}/payments`, {
+          method: "POST",
+          body: {
+            amount: Number(pay.amount || 0),
+            paymentMode: "ONLINE",
+            remarks: "Client portal payment demand settlement",
+          }
+        }).catch((e) => console.warn("API payment error:", e));
+      }
 
+      window.dispatchEvent(new Event("agni_invoices_updated"));
       window.dispatchEvent(new Event("agni_payments_updated"));
       window.dispatchEvent(new Event("agni_clients_updated"));
       window.dispatchEvent(new Event("storage"));

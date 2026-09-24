@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getClients, createClient, onboardClientProfile, getMyProfile, updateClientStatus, updateDocumentStatus, verifyClientDocument } from "../controllers/client.controller";
+import { getClients, createClient, onboardClientProfile, getMyProfile, updateClientStatus, updateDocumentStatus, verifyClientDocument, deleteClient, updateClient } from "../controllers/client.controller";
 import { authenticateJWT, authorizeRoles } from "../middlewares/auth.middleware";
 import { Role } from "@prisma/client";
 
@@ -20,10 +20,20 @@ router.patch(
   authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON),
   updateDocumentStatus
 );
+router.patch(
+  "/:id",
+  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER),
+  updateClient
+);
 router.post(
   "/:id/documents",
   authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON),
   verifyClientDocument
+);
+router.delete(
+  "/:id",
+  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER),
+  deleteClient
 );
 router.post(
   "/",

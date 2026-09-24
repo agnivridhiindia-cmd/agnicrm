@@ -45,7 +45,7 @@ export async function getAgreements(req: AuthenticatedRequest, res: Response, ne
 export async function getAgreementById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const agreementId = req.params.id as string;
-    const result = await getAgreementByIdService(agreementId);
+    const result = await getAgreementByIdService(req.user!, agreementId);
     return res.status(result.statusCode).json(result);
   } catch (error) {
     next(error);

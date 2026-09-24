@@ -42,6 +42,26 @@ export function authenticateJWT(
   }
 }
 
+export function optionalAuthenticateJWT(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const authHeader = req.headers.authorization;
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    try {
+      const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthenticatedUser;
+      req.user = decoded;
+    } catch (error) {
+      // Ignored in optional authentication
+    }
+  }
+
+  next();
+}
+
 export function authorizeRoles(...allowedRoles: Role[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {

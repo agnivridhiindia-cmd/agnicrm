@@ -1650,24 +1650,47 @@ form {
 .role-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 6px 15px;
   height: 42px;
   border-radius: 14px;
   background: rgba(99, 102, 241, 0.1);
   border: 1px solid rgba(99, 102, 241, 0.25);
   color: #4f46e5;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 750;
   letter-spacing: 0.2px;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
   white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+  user-select: none;
+}
+
+.role-badge:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.14);
+}
+
+.role-badge:active {
+  transform: translateY(0);
 }
 
 .dashboard-dark .role-badge {
   background: rgba(99, 102, 241, 0.18);
   border-color: rgba(129, 140, 248, 0.35);
   color: #a5b4fc;
+}
+
+.dashboard-dark .role-badge:hover {
+  background: rgba(99, 102, 241, 0.28);
+  border-color: rgba(129, 140, 248, 0.55);
+  color: #c7d2fe;
 }
 
 .search-field {
@@ -2911,29 +2934,39 @@ form {
   padding: 12px 6px 6px;
 }
 
+/* Modal container sizing for confirm deletion dialogs */
+.modal-content:has(.confirm-dialog-enhanced),
+.confirm-dialog-modal {
+  width: min(450px, 94%) !important;
+  max-width: 450px !important;
+  padding: 30px 26px !important;
+  border-radius: 22px !important;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(244, 63, 94, 0.12) !important;
+}
+
 .confirm-dialog-icon {
-  width: 60px;
-  height: 60px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: rgba(244, 63, 94, 0.12);
   border: 1px solid rgba(244, 63, 94, 0.28);
   color: #f43f5e;
-  box-shadow: 0 0 20px rgba(244, 63, 94, 0.2);
+  box-shadow: 0 0 24px rgba(244, 63, 94, 0.22);
   animation: pulse 2s infinite;
 }
 
 .confirm-dialog-content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-width: 420px;
+  gap: 8px;
+  max-width: 400px;
 }
 
 .confirm-dialog-title {
   margin: 0;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
   color: inherit;
   letter-spacing: -0.3px;
@@ -2941,16 +2974,17 @@ form {
 
 .confirm-dialog-message {
   margin: 0;
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
   color: inherit;
+  line-height: 1.5;
 }
 
 .confirm-dialog-warning {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: 12.5px;
   color: #94a3b8;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .confirm-dialog-actions {
@@ -2958,8 +2992,104 @@ form {
   justify-content: center;
   align-items: center;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 10px;
   width: 100%;
+}
+
+/* Confirm Dialog Action Buttons */
+.confirm-dialog-btn,
+.confirm-dialog-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.confirm-dialog-btn-cancel,
+.confirm-dialog-actions .manager-btn-secondary,
+.confirm-dialog-actions button:first-child:not(.confirm-dialog-btn-delete):not(.manager-btn-danger) {
+  min-width: 110px;
+  padding: 10px 20px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #475569;
+}
+
+.confirm-dialog-btn-cancel:hover,
+.confirm-dialog-actions .manager-btn-secondary:hover,
+.confirm-dialog-actions button:first-child:not(.confirm-dialog-btn-delete):not(.manager-btn-danger):hover {
+  background: rgba(148, 163, 184, 0.22);
+  color: #1e293b;
+  border-color: rgba(148, 163, 184, 0.45);
+  transform: translateY(-1px);
+}
+
+.confirm-dialog-btn-delete,
+.confirm-dialog-actions .manager-btn-danger,
+.confirm-dialog-actions button:last-child {
+  min-width: 135px;
+  padding: 10px 22px;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  border: 1px solid #e11d48;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+}
+
+.confirm-dialog-btn-delete:hover,
+.confirm-dialog-actions .manager-btn-danger:hover,
+.confirm-dialog-actions button:last-child:hover {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  border-color: #be123c;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.5);
+  transform: translateY(-1px);
+}
+
+.confirm-dialog-btn:active,
+.confirm-dialog-actions button:active {
+  transform: translateY(0);
+}
+
+/* Dark mode confirm dialog */
+.dashboard-dark .modal-content:has(.confirm-dialog-enhanced),
+.dashboard-dark .confirm-dialog-modal {
+  background: #151226 !important;
+  border: 1px solid rgba(244, 63, 94, 0.22) !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(244, 63, 94, 0.16) !important;
+}
+
+.dashboard-dark .confirm-dialog-title {
+  color: #f8fafc;
+}
+
+.dashboard-dark .confirm-dialog-message {
+  color: #cbd5e1;
+}
+
+.dashboard-dark .confirm-dialog-warning {
+  color: #94a3b8;
+}
+
+.dashboard-dark .confirm-dialog-btn-cancel,
+.dashboard-dark .confirm-dialog-actions .manager-btn-secondary,
+.dashboard-dark .confirm-dialog-actions button:first-child:not(.confirm-dialog-btn-delete):not(.manager-btn-danger) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+}
+
+.dashboard-dark .confirm-dialog-btn-cancel:hover,
+.dashboard-dark .confirm-dialog-actions .manager-btn-secondary:hover,
+.dashboard-dark .confirm-dialog-actions button:first-child:not(.confirm-dialog-btn-delete):not(.manager-btn-danger):hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .confirm-dialog p {
@@ -6293,7 +6423,9 @@ form {
   }
 
   .role-badge {
-    display: none;
+    height: 38px;
+    padding: 4px 10px;
+    font-size: 11px;
   }
 
   .clients-table {

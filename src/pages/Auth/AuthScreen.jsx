@@ -97,17 +97,24 @@ export default function AuthScreen({ onLogin }) {
       localStorage.setItem("agni_remember_email", targetEmail);
     }
 
+    let isNetworkError = false;
+    let response;
     try {
-      const response = await apiFetch("/auth/login", {
+      response = await apiFetch("/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: targetEmail, password: targetPassword }),
       });
+    } catch (networkErr) {
+      isNetworkError = true;
+    }
 
-      const data = await response.json();
-
+    if (!isNetworkError && response) {
+      const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) {
-        throw new Error(data.message || "Invalid email or password.");
+        setIsLoading(false);
+        setErrorMsg(data.message || "Invalid email or password.");
+        return;
       }
 
       const rawRole = data.user?.role;
@@ -119,25 +126,22 @@ export default function AuthScreen({ onLogin }) {
 
       setIsLoading(false);
       onLogin(data.user.email, mappedRole, data.token);
-    } catch (err) {
-      console.warn("Backend API call failed, attempting fallback login:", err);
-
-      if (targetEmail && (MOCK_USERS[targetEmail] || isApprovedClientInStorage(targetEmail))) {
-        const fallbackRole = MOCK_USERS[targetEmail] || "Client";
-        localStorage.setItem("agni_user_email", targetEmail);
-        localStorage.setItem("agni_user_role", fallbackRole);
-        setIsLoading(false);
-        onLogin(targetEmail, fallbackRole);
-        return;
-      }
-
-      setIsLoading(false);
-      setErrorMsg(
-        err.message && err.message !== "Failed to fetch"
-          ? err.message
-          : "Invalid email or password."
-      );
+      return;
     }
+
+    // Only if backend server is completely unreachable (network offline), allow mock user login
+    console.warn("Backend API unreachable, checking mock user demo login...");
+    if (targetEmail && MOCK_USERS[targetEmail]) {
+      const fallbackRole = MOCK_USERS[targetEmail];
+      localStorage.setItem("agni_user_email", targetEmail);
+      localStorage.setItem("agni_user_role", fallbackRole);
+      setIsLoading(false);
+      onLogin(targetEmail, fallbackRole);
+      return;
+    }
+
+    setIsLoading(false);
+    setErrorMsg("Network error: Unable to reach Agni CRM API server.");
   }
 
   const isApprovedClientInStorage = (targetEmail) => {

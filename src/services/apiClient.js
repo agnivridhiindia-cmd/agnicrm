@@ -30,13 +30,17 @@ export async function apiFetch(endpoint, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  // Handle JSON body automatically if body is a non-FormData object
+  // Handle JSON body automatically if body is a non-FormData object or JSON string
   let body = options.body;
   if (body && typeof body === "object" && !(body instanceof FormData) && !(body instanceof Blob)) {
     if (!headers["Content-Type"] && !headers["content-type"]) {
       headers["Content-Type"] = "application/json";
     }
     body = JSON.stringify(body);
+  } else if (typeof body === "string" && (body.trim().startsWith("{") || body.trim().startsWith("["))) {
+    if (!headers["Content-Type"] && !headers["content-type"]) {
+      headers["Content-Type"] = "application/json";
+    }
   }
 
   const fetchOptions = {

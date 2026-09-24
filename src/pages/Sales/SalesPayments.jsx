@@ -614,15 +614,17 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
       window.dispatchEvent(new Event("agni_payments_updated"));
       window.dispatchEvent(new Event("agni_clients_updated"));
 
+      window.dispatchEvent(new Event("agni_invoices_updated"));
+
       if (newReq.relatedInvoiceId || newReq.invoiceId) {
         try {
           await apiFetch(`/invoices/${newReq.relatedInvoiceId || newReq.invoiceId}/payments`, {
             method: "POST",
-            body: JSON.stringify({
+            body: {
               amount: Number(newReq.amount || 0),
               paymentMode: "ONLINE",
               remarks: "Payment request added",
-            })
+            }
           });
         } catch (e) {}
       }
@@ -675,6 +677,25 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         updateClientPaymentMetrics(targetPay.clientId || targetPay.clientEmail || targetPay.clientCompany, Number(targetPay.amount), "MARK_PAID");
       }
 
+      // Sync with backend invoice payment API if an invoice is linked
+      const invId = targetPay?.relatedInvoiceId || targetPay?.invoiceId || targetPay?.relatedInvoice;
+      if (invId && invId !== "dummy") {
+        try {
+          await apiFetch(`/invoices/${invId}/payments`, {
+            method: "POST",
+            body: {
+              amount: Number(targetPay.amount || 0),
+              paymentMode: targetPay.paymentMode || "ONLINE",
+              referenceNumber: targetPay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`,
+              remarks: "Settled by sales representative",
+            },
+          });
+        } catch (apiErr) {
+          console.warn("Could not sync invoice payment with API:", apiErr);
+        }
+      }
+
+      window.dispatchEvent(new Event("agni_invoices_updated"));
       window.dispatchEvent(new Event("agni_payments_updated"));
       window.dispatchEvent(new Event("agni_clients_updated"));
       window.dispatchEvent(new Event("storage"));

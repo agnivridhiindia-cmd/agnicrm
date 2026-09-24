@@ -350,8 +350,10 @@ export default function OwnerClientsPage({
                             className="owner-btn-danger"
                             type="button"
                             onClick={() => onDeleteClient(client)}
+                            title={`Delete ${client.name}`}
                           >
-                            Delete
+                            <Icon name="trash" size={13} />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>

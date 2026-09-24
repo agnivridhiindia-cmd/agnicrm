@@ -11,6 +11,7 @@ import requestRoutes from "./routes/request.routes";
 import agreementRoutes from "./routes/agreement.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import notificationRoutes from "./routes/notification.routes";
+import employeeRoutes from "./routes/employee.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -38,6 +39,15 @@ app.use(
   })
 );
 
+// Standard HTTP Security Headers
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  next();
+});
+
 app.use(express.json());
 
 // Request correlation ID and structured logger middleware
@@ -50,6 +60,7 @@ app.use("/api/v1/requests", requestRoutes);
 app.use("/api/v1/agreements", agreementRoutes);
 app.use("/api/v1/invoices", invoiceRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/employees", employeeRoutes);
 
 // Database-backed Health Check Handler
 const healthCheckHandler = async (req: express.Request, res: express.Response) => {

@@ -277,8 +277,30 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     const br = safeString(c.branch, "North Zone (Delhi)");
     const dt = c.startDate || c.onboarding || c.onboardingDate || c.createdAt || c.date || c.registrationDate || c.submissionDate || c.lastUpdated || c.updatedAt || c.serviceStart;
 
-    if (rec > 0) {
-      processCollection(rec, dt, sp, br, compName);
+    // Check if client has detailed payment transactions
+    const subPayments = Array.isArray(c.payments) && c.payments.length > 0
+      ? c.payments
+      : (Array.isArray(c.invoices) && c.invoices.some(inv => Array.isArray(inv.payments) && inv.payments.length > 0)
+        ? c.invoices.flatMap(inv => inv.payments || [])
+        : null);
+
+    let processedFromPayments = 0;
+    if (subPayments && subPayments.length > 0) {
+      subPayments.forEach((p) => {
+        const pGross = parseFloat(String(p.amount || 0).replace(/[^0-9.]/g, "")) || 0;
+        const pDate = p.paymentDate || p.createdAt || c.updatedAt || dt;
+        if (pGross > 0) {
+          processCollection(pGross, pDate, sp, br, compName);
+          processedFromPayments += pGross;
+        }
+      });
+    }
+
+    const remainingDirect = Math.max(0, rec - processedFromPayments);
+    if (remainingDirect > 0) {
+      // If remaining payment was made recently, c.updatedAt reflects the latest payment time
+      const paymentDate = c.updatedAt || c.lastPaymentDate || c.paymentDate || dt;
+      processCollection(remainingDirect, paymentDate, sp, br, compName);
     }
 
     if (pendingGross > 0 && c.paymentStatus !== "Paid") {
@@ -303,16 +325,41 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
   // 3. Process invoices from database props & localStorage
   (invoices || []).forEach((inv) => {
     if (!inv) return;
+    const invClientName = safeString(inv.company || inv.clientName || inv.client, "Invoice");
+    const invScheme = safeString(inv.scheme || inv.serviceName || inv.description, "Service");
+    const invDedupeKey = `${invClientName.toLowerCase().trim()}::${invScheme.toLowerCase().trim()}`;
+    
+    // Skip if already processed via the client entity above
+    if (seenDedupe.has(invDedupeKey)) return;
+    seenDedupe.add(invDedupeKey);
+
     const status = (inv.status || inv.paymentStatus || "").toLowerCase();
     const gross = parseFloat(String(inv.rawTotal || inv.totalAmount || inv.rawAmount || inv.amount || 0).replace(/[^0-9.]/g, "")) || 0;
     const sp = safeString(inv.accountManager || inv.salesPerson, "Account Manager");
     const br = safeString(inv.branch || inv.region, "West Zone (Mumbai)");
     const dt = inv.issueDate || inv.paidAt || inv.createdAt;
 
-    if (status === "paid") {
-      processCollection(gross, dt, sp, br, safeString(inv.company || inv.clientName, "Invoice"));
-    } else if (gross > 0) {
-      const netPending = Math.round(gross / 1.18);
+    const hasSubPayments = Array.isArray(inv.payments) && inv.payments.length > 0;
+    if (hasSubPayments) {
+      inv.payments.forEach((p) => {
+        const pGross = parseFloat(String(p.amount || 0).replace(/[^0-9.]/g, "")) || 0;
+        const pDate = p.paymentDate || p.createdAt || dt;
+        if (pGross > 0) {
+          processCollection(pGross, pDate, sp, br, invClientName);
+        }
+      });
+    } else {
+      const recAmt = parseFloat(String(inv.paymentReceived || 0).replace(/[^0-9.]/g, "")) || (status === "paid" ? gross : 0);
+      if (recAmt > 0) {
+        processCollection(recAmt, inv.paidAt || inv.updatedAt || dt, sp, br, invClientName);
+      }
+    }
+
+    const recTotal = parseFloat(String(inv.paymentReceived || 0).replace(/[^0-9.]/g, "")) || (status === "paid" ? gross : 0);
+    const pendingGross = parseFloat(String(inv.paymentPending || 0).replace(/[^0-9.]/g, "")) || Math.max(0, gross - recTotal);
+
+    if (pendingGross > 0 && status !== "paid") {
+      const netPending = Math.round(pendingGross / 1.18);
       overallPendingNetTotal += netPending;
       processPending(netPending, dt);
 
@@ -322,10 +369,10 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
         salesPerson: sp,
         branch: br,
         totalDeal: gross,
-        paidGross: 0,
-        pendingGross: gross,
+        paidGross: recTotal,
+        pendingGross: pendingGross,
         pendingNet: netPending,
-        isTokenPaid: false,
+        isTokenPaid: recTotal > 0,
       });
     }
   });

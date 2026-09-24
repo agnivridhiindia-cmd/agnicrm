@@ -328,9 +328,9 @@ export function generateInvoiceHTML(invoice) {
 
     <div class="note-box">
       ${isProforma ?
-        'Note: This is a Proforma Invoice issued for estimation and documentation purposes only. It is not a demand for payment and is subject to change at the time of final Tax Invoice.' :
-        'Note: This is an official Tax Invoice issued by Agnivridhi India. Payment due within 15 days of issuance.'
-      }
+      'Note: This is a Proforma Invoice issued for estimation and documentation purposes only. It is not a demand for payment and is subject to change at the time of final Tax Invoice.' :
+      'Note: This is an official Tax Invoice issued by Agnivridhi India. Payment due within 15 days of issuance.'
+    }
     </div>
 
     <div class="footer-text">
@@ -415,7 +415,7 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
             docData = { ...docData, ...parsedDoc };
           }
         }
-      } catch (err) {}
+      } catch (err) { }
 
       const clientNameVal = docData.companyName || client.company || client.companyName || client.name || "";
       const contactPersonVal = docData.representativeName || client.contactPerson || client.representativeName || client.name || "";
@@ -498,6 +498,7 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
       return;
     }
 
+    // Business rule: Proforma = pending/partial payment; Tax Invoice = fully paid
     const isProforma = (formData.type || "").toLowerCase().includes("proforma") || (formData.type || "").toLowerCase().includes("performa");
     const initialStatus = !isProforma ? "Paid" : (formData.status || "Pending");
 
@@ -562,7 +563,7 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
               <option value="Tax Invoice">Tax Invoice</option>
             </select>
             <small style={{ display: "block", color: "#667085", fontSize: 11.5, marginTop: 4, lineHeight: 1.3 }}>
-              Proforma: enter full client details if not selecting existing client. Tax: existing client required.
+              📋 <strong>Proforma</strong>: For pending/partial payment (estimate). <strong>Tax Invoice</strong>: For fully paid clients only.
             </small>
           </div>
 
@@ -1100,50 +1101,6 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
     return userInvoices;
   }, [invoices, activeTab, currentUserEmail, currentSalesName, userRole, salesClientsList]);
 
-  const addInvoice = async (newInvoiceData) => {
-    // We create the invoice via the API if the user hits the actual submit, but right now this addInvoice might just be generating a document, let's keep it optimistic if needed or call API.
-    // For now, since they might generate Proforma or Tax invoices directly, we simulate the add for now, or call the API.
-    // Ideally call API:
-    try {
-      const matchedClient = salesClientsList.find(
-        (c) =>
-          String(c.id) === String(newInvoiceData.selectedClientId) ||
-          String(c.email) === String(newInvoiceData.selectedClientId)
-      );
-
-      const clientId = matchedClient?.id || newInvoiceData.selectedClientId;
-
-      const res = await apiFetch("/invoices", {
-        method: "POST",
-        body: JSON.stringify({
-          clientId: clientId,
-          issueDate: new Date().toISOString(),
-          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          paymentMode: "ONLINE", // Example
-          rawAmount: newInvoiceData.amount || 0,
-          gstRate: newInvoiceData.gstPercent || 18,
-          gstAmount: (newInvoiceData.amount || 0) * ((newInvoiceData.gstPercent || 18) / 100),
-          rawTotal: newInvoiceData.totalAmount || 0,
-          gstNo: newInvoiceData.gstNumber,
-        })
-      });
-      if (res.ok) {
-        refreshInvoices();
-        setNotification(`Invoice created successfully.`);
-        setTimeout(() => setNotification(""), 4200);
-        setShowCreateModal(false);
-      } else {
-        const err = await res.json();
-        setNotification(`Error: ${err.message}`);
-        setTimeout(() => setNotification(""), 4200);
-      }
-    } catch(err) {
-      console.error(err);
-      setNotification(`Failed to create invoice.`);
-      setTimeout(() => setNotification(""), 4200);
-    }
-  };
-
   const downloadInvoice = (invoice) => {
     const htmlContent = generateInvoiceHTML(invoice);
 
@@ -1169,6 +1126,103 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
 
     setNotification(`Invoice ${invoice.id} document ready for print/download.`);
     setTimeout(() => setNotification(""), 4200);
+  };
+
+  const addInvoice = async (newInvoiceData) => {
+    const isProformaType = (newInvoiceData.type || "").toLowerCase().includes("proforma") ||
+      (newInvoiceData.type || "").toLowerCase().includes("performa");
+    const invoiceType = isProformaType ? "PROFORMA" : "TAX";
+
+    // Resolve actual DB client by UUID or email
+    const matchedClient = salesClientsList.find(
+      (c) =>
+        String(c.id) === String(newInvoiceData.selectedClientId) ||
+        String(c.email) === String(newInvoiceData.selectedClientId)
+    );
+    const clientId = matchedClient?.id || newInvoiceData.selectedClientId || "";
+
+    // ── PROFORMA without a DB client selected ──────────────────────────────
+    // User typed client details manually → generate PDF locally, no API needed.
+    // This is valid for Proforma (estimate) invoices.
+    if (isProformaType && !clientId) {
+      const localId = `PI-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, "0")}`;
+      const localInvoice = { ...newInvoiceData, id: localId, type: "Proforma Invoice" };
+      downloadInvoice(localInvoice);
+      setNotification(`Proforma Invoice ${localId} generated. Select a client to also save it to the database.`);
+      setTimeout(() => setNotification(""), 5000);
+      setShowCreateModal(false);
+      return;
+    }
+
+    // ── TAX Invoice or Proforma with DB client → save via API ──────────────
+    if (!clientId) {
+      setNotification("Please select a client from the dropdown to create a Tax Invoice.");
+      setTimeout(() => setNotification(""), 5000);
+      return;
+    }
+
+    try {
+      const rawAmount = Number(newInvoiceData.taxableAmount) || 0;
+      const gstAmount = Number(newInvoiceData.totalGst) || 0;
+      const rawTotal = Number(newInvoiceData.totalAmount) || (rawAmount + gstAmount);
+      const gstRate = Number(newInvoiceData.gstPercent || 18) / 100;
+
+      const payload = {
+        clientId,
+        invoiceType,
+        issueDate: newInvoiceData.issueDate
+          ? new Date(newInvoiceData.issueDate).toISOString()
+          : new Date().toISOString(),
+        ...(newInvoiceData.dueDate
+          ? { dueDate: new Date(newInvoiceData.dueDate).toISOString() }
+          : {}),
+        paymentMode: "ONLINE",
+        rawAmount,
+        gstRate,
+        gstAmount,
+        rawTotal,
+        gstNo: newInvoiceData.gstin || undefined,
+        description: newInvoiceData.description || undefined,
+        hsnSac: newInvoiceData.hsnSac || undefined,
+        placeOfSupply: newInvoiceData.placeOfSupply || undefined,
+        quantity: Number(newInvoiceData.quantity) || 1,
+      };
+
+      console.log("📄 Invoice payload:", payload);
+
+      const res = await apiFetch("/invoices", {
+        method: "POST",
+        body: payload, // Pass as object — apiFetch will JSON.stringify + set Content-Type: application/json
+      });
+
+      if (res.ok) {
+        const savedInvoice = await res.json();
+        // Auto-download PDF after saving
+        const invoiceForPdf = {
+          ...newInvoiceData,
+          id: savedInvoice?.invoiceNo || `${invoiceType === "TAX" ? "INV" : "PI"}-${Date.now()}`,
+          type: invoiceType === "TAX" ? "Tax Invoice" : "Proforma Invoice",
+        };
+        downloadInvoice(invoiceForPdf);
+        refreshInvoices();
+        setNotification(`${invoiceType === "TAX" ? "Tax Invoice" : "Proforma Invoice"} created and saved.`);
+        setTimeout(() => setNotification(""), 4200);
+        setShowCreateModal(false);
+      } else {
+        const err = await res.json();
+        console.error("Invoice API error:", err);
+        let errorMsg = err.message || "Unknown error";
+        if (Array.isArray(err.errors) && err.errors.length > 0) {
+          errorMsg = err.errors.map(e => `${e.field}: ${e.message}`).join("; ");
+        }
+        setNotification(`Error: ${errorMsg}`);
+        setTimeout(() => setNotification(""), 8000);
+      }
+    } catch (err) {
+      console.error(err);
+      setNotification(`Failed to create invoice: ${err.message}`);
+      setTimeout(() => setNotification(""), 4200);
+    }
   };
 
   return (
@@ -1205,8 +1259,8 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
             tab === "All Invoices"
               ? invoices.length
               : tab === "Proforma Invoices"
-              ? invoices.filter((i) => (i.type || "").toLowerCase().includes("proforma")).length
-              : invoices.filter((i) => (i.type || "").toLowerCase().includes("tax")).length;
+                ? invoices.filter((i) => (i.type || "").toLowerCase().includes("proforma")).length
+                : invoices.filter((i) => (i.type || "").toLowerCase().includes("tax")).length;
 
           return (
             <button

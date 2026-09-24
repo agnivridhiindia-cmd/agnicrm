@@ -58,18 +58,33 @@ export default function ManagerRevenuePage({
           }
         }
 
-        // Apply Time Horizon Filter
-        const dtStr = c.paymentDate || c.createdAt || c.startDate;
-        const dt = parseDate(dtStr);
-        if (revenueRange === "daily" && !isSameDay(dt, today)) return;
-        if (revenueRange === "weekly" && !isSameWeek(dt, today)) return;
-        if (revenueRange === "monthly" && !isSameMonth(dt, today)) return;
+        // Apply Time Horizon Filter and calculate received
+        const subPayments = Array.isArray(c.payments) && c.payments.length > 0
+          ? c.payments
+          : (Array.isArray(c.invoices) && c.invoices.some(inv => Array.isArray(inv.payments) && inv.payments.length > 0)
+            ? c.invoices.flatMap(inv => inv.payments || [])
+            : null);
 
-        const r = parseRevenueValue(c.paymentReceived);
-        const p = parseRevenueValue(c.paymentPending);
-        
-        rec += r;
-        pend += p;
+        if (subPayments && subPayments.length > 0) {
+          subPayments.forEach((sp) => {
+            const spDt = parseDate(sp.paymentDate || sp.createdAt || c.updatedAt);
+            if (revenueRange === "daily" && !isSameDay(spDt, today)) return;
+            if (revenueRange === "weekly" && !isSameWeek(spDt, today)) return;
+            if (revenueRange === "monthly" && !isSameMonth(spDt, today)) return;
+            rec += parseRevenueValue(sp.amount);
+          });
+        } else {
+          const dtStr = c.updatedAt || c.lastPaymentDate || c.paymentDate || c.createdAt || c.startDate;
+          const dt = parseDate(dtStr);
+          const inRange = (revenueRange === "daily" && isSameDay(dt, today)) ||
+            (revenueRange === "weekly" && isSameWeek(dt, today)) ||
+            (revenueRange === "monthly" && isSameMonth(dt, today));
+          if (inRange) {
+            rec += parseRevenueValue(c.paymentReceived);
+          }
+        }
+
+        pend += parseRevenueValue(c.paymentPending);
       });
     }
 

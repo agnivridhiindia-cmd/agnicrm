@@ -17,6 +17,12 @@ export function clearClientLocalStorage() {
         key.startsWith("agni_client_doc_submitted_") ||
         key.startsWith("agni_client_eligible_schemes_") ||
         key.startsWith("agni_client_") ||
+        key.startsWith("agni_invoices") ||
+        key.startsWith("agni_sales_invoices") ||
+        key.startsWith("agni_sales_payments") ||
+        key.startsWith("agni_payment_demands") ||
+        key.startsWith("agni_payment_") ||
+        key.startsWith("agni_client_requests") ||
         key === "agni_sales_clients" ||
         key === "agni_branch_clients" ||
         key === "agni_clients" ||
@@ -29,5 +35,7 @@ export function clearClientLocalStorage() {
 
   keysToRemove.forEach((key) => localStorage.removeItem(key));
   window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+  window.dispatchEvent(new Event("agni_invoices_updated"));
+  window.dispatchEvent(new Event("agni_payments_updated"));
   window.dispatchEvent(new Event("storage"));
 }

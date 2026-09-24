@@ -17,7 +17,10 @@ import {
   canCompleteStage,
   getTrackerStages,
   normalizeCompletedStages,
-  isPaymentDemandOrSettlement
+  isPaymentDemandOrSettlement,
+  saveSchemeCompletedStages,
+  getSchemeCompletedStages,
+  isClientPrimaryScheme,
 } from "../../utils/schemeTracker";
 import {
   sanitizeClientRecord,
@@ -169,7 +172,7 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   };
 
   // Live Fetch Clients from PostgreSQL Backend API
-  const { clients: apiClients, refreshClients } = useApiClients();
+  const { clients: apiClients, refreshClients, setClients } = useApiClients();
 
   const clients = useMemo(() => {
     return apiClients.map((c) => {
@@ -281,7 +284,7 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   }, [branchClients]);
 
   // Handle direct quick interactive point toggle on client card
-  const handleQuickStepToggle = (client, stepName, nextCompletedSteps, newPercent) => {
+  const handleQuickStepToggle = async (client, stepName, nextCompletedSteps, newPercent) => {
     const schemeToUse = client.scheme || "PMEGP";
     const tracker = getTrackerState({ ...client, scheme: schemeToUse, completedSteps: nextCompletedSteps });
     const activeStageName = tracker.completedStages.length > 0
@@ -297,38 +300,45 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
 
     saveSchemeCompletedStages(client, schemeToUse, tracker.completedStages);
 
-    setClients((prev) =>
-      prev.map((c) => {
-        if (c.id === client.id || (c.email && client.email && c.email.toLowerCase() === client.email.toLowerCase())) {
-          return {
-            ...c,
-            completedSteps: tracker.completedStages,
-            applicationStatus: activeStageName,
-            progress: tracker.progressPercent,
-            lastUpdated: nowStr,
-            history: [historyEntry, ...(c.history || [])],
-          };
-        }
-        return c;
-      })
-    );
-
-
+    if (setClients) {
+      setClients((prev) =>
+        prev.map((c) => {
+          if (c.id === client.id || (c.email && client.email && c.email.toLowerCase() === client.email.toLowerCase())) {
+            return {
+              ...c,
+              completedSteps: tracker.completedStages,
+              applicationStatus: activeStageName,
+              progress: tracker.progressPercent,
+              progressPercent: tracker.progressPercent,
+              lastUpdated: nowStr,
+              history: [historyEntry, ...(c.history || [])],
+            };
+          }
+          return c;
+        })
+      );
+    }
 
     // Sync to backend DB if token available
     if (client.id && typeof client.id === "string" && client.id.length > 10) {
-      apiClient.patch(`/clients/${client.id}/status`, {
-        completedSteps: tracker.completedStages,
-        applicationStatus: activeStageName,
-        progressPercent: tracker.progressPercent,
-      }).catch((err) => console.warn("Failed to sync client status to backend:", err));
+      try {
+        await apiClient.patch(`/clients/${client.id}/status`, {
+          completedSteps: tracker.completedStages,
+          applicationStatus: activeStageName,
+          progressPercent: tracker.progressPercent,
+        });
+        if (refreshClients) refreshClients();
+        window.dispatchEvent(new Event("agni_clients_updated"));
+      } catch (err) {
+        console.warn("Failed to sync client status to backend:", err);
+      }
     }
 
     showToast(`✓ Updated ${client.name} to "${activeStageName}" (${tracker.progressPercent}% — ${tracker.completedStages.length}/${tracker.totalStages} points completed)`);
   };
 
   // Advance client CRM activity tracker upon agreement creation/dispatch
-  const handleClientAgreementAdvance = (client, milestoneName, isComplete) => {
+  const handleClientAgreementAdvance = async (client, milestoneName, isComplete) => {
     if (!client) return;
     const stages = getTrackerStages(client.scheme);
     const currentCompleted = client.completedSteps || ["CRM Creation"];
@@ -355,21 +365,38 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
         : `Agreement draft initialized and prepared for ${client.name}.`,
     };
 
-    setClients((prev) =>
-      prev.map((c) => {
-        if (c.id === client.id || (c.email && client.email && c.email.toLowerCase() === client.email.toLowerCase())) {
-          return {
-            ...c,
-            completedSteps: tracker.completedStages,
-            applicationStatus: isComplete && tracker.completedStages.includes("Agreement") ? "Agreement" : c.applicationStatus,
-            progress: tracker.progressPercent,
-            lastUpdated: nowStr,
-            history: [historyEntry, ...(c.history || [])],
-          };
-        }
-        return c;
-      })
-    );
+    if (setClients) {
+      setClients((prev) =>
+        prev.map((c) => {
+          if (c.id === client.id || (c.email && client.email && c.email.toLowerCase() === client.email.toLowerCase())) {
+            return {
+              ...c,
+              completedSteps: tracker.completedStages,
+              applicationStatus: isComplete && tracker.completedStages.includes("Agreement") ? "Agreement" : c.applicationStatus,
+              progress: tracker.progressPercent,
+              progressPercent: tracker.progressPercent,
+              lastUpdated: nowStr,
+              history: [historyEntry, ...(c.history || [])],
+            };
+          }
+          return c;
+        })
+      );
+    }
+
+    if (client.id && typeof client.id === "string" && client.id.length > 10) {
+      try {
+        await apiClient.patch(`/clients/${client.id}/status`, {
+          completedSteps: tracker.completedStages,
+          applicationStatus: isComplete && tracker.completedStages.includes("Agreement") ? "Agreement" : client.applicationStatus,
+          progressPercent: tracker.progressPercent,
+        });
+        if (refreshClients) refreshClients();
+        window.dispatchEvent(new Event("agni_clients_updated"));
+      } catch (err) {
+        console.warn("Failed to sync agreement status to backend:", err);
+      }
+    }
 
     window.dispatchEvent(new Event("storage"));
   };
@@ -399,13 +426,12 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   };
 
   // Save Application Status Update
-  const handleSaveStatusUpdate = (e, overrideData) => {
+  const handleSaveStatusUpdate = async (e, overrideData) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!updatingClient) return;
 
     const targetScheme = overrideData?.schemeName || statusFormData.schemeName || updatingClient.scheme || "PMEGP";
-    const isPrimary = targetScheme.toLowerCase().includes("pmegp") || targetScheme.toLowerCase() === (updatingClient.primaryScheme || updatingClient.scheme || "PMEGP").toLowerCase();
-    const newCompletedSteps = overrideData?.completedSteps || statusFormData.completedSteps || (isPrimary ? ["CRM Creation"] : ["CRM Creation", "Agreement", "Reports"]);
+    const newCompletedSteps = overrideData?.completedSteps || statusFormData.completedSteps || ["CRM Creation"];
     const newStatus = overrideData?.status || statusFormData.status || "CRM Creation";
     const newProgress = overrideData?.progress !== undefined ? Number(overrideData.progress) : Number(statusFormData.progress || 20);
     const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
@@ -427,29 +453,35 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
       return doc;
     });
 
-    setClients((prev) =>
-      prev.map((c) => {
-        if (c.id === updatingClient.id || (c.email && updatingClient.email && c.email.toLowerCase() === updatingClient.email.toLowerCase())) {
-          return {
-            ...c,
-            ...(isPrimary ? { completedSteps: newCompletedSteps, progress: newProgress, applicationStatus: newStatus } : {}),
-            lastUpdated: nowStr,
-            adminNotes: (overrideData?.notes || statusFormData.notes) || c.adminNotes,
-            documents: updatedDocuments,
-            history: [historyEntry, ...(c.history || [])],
-          };
-        }
-        return c;
-      })
-    );
+    if (setClients) {
+      setClients((prev) =>
+        prev.map((c) => {
+          if (c.id === updatingClient.id || (c.email && updatingClient.email && c.email.toLowerCase() === updatingClient.email.toLowerCase())) {
+            return {
+              ...c,
+              completedSteps: newCompletedSteps,
+              progress: newProgress,
+              progressPercent: newProgress,
+              applicationStatus: newStatus,
+              lastUpdated: nowStr,
+              adminNotes: (overrideData?.notes || statusFormData.notes) || c.adminNotes,
+              documents: updatedDocuments,
+              history: [historyEntry, ...(c.history || [])],
+            };
+          }
+          return c;
+        })
+      );
+    }
 
     // Also update selectedClientForDossier if open
     if (selectedClientForDossier && selectedClientForDossier.id === updatingClient.id) {
       setSelectedClientForDossier((prev) => ({
         ...prev,
         applicationStatus: newStatus,
-        ...(isPrimary ? { completedSteps: newCompletedSteps } : {}),
+        completedSteps: newCompletedSteps,
         progress: newProgress,
+        progressPercent: newProgress,
         lastUpdated: nowStr,
         adminNotes: (overrideData?.notes || statusFormData.notes) || prev.adminNotes,
         documents: updatedDocuments,
@@ -457,18 +489,20 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
       }));
     }
 
-
-
     // Sync to backend DB if token available
     if (updatingClient.id && typeof updatingClient.id === "string" && updatingClient.id.length > 10) {
-      const backendSteps = isPrimary ? newCompletedSteps : (updatingClient.completedSteps || ["CRM Creation"]);
-
-      apiClient.patch(`/clients/${updatingClient.id}/status`, {
-        completedSteps: backendSteps,
-        applicationStatus: newStatus,
-        progressPercent: newProgress,
-        adminNotes: (overrideData?.notes || statusFormData.notes) || undefined,
-      }).catch((err) => console.warn("Failed to sync client status to backend:", err));
+      try {
+        await apiClient.patch(`/clients/${updatingClient.id}/status`, {
+          completedSteps: newCompletedSteps,
+          applicationStatus: newStatus,
+          progressPercent: newProgress,
+          adminNotes: (overrideData?.notes || statusFormData.notes) || undefined,
+        });
+        if (refreshClients) refreshClients();
+        window.dispatchEvent(new Event("agni_clients_updated"));
+      } catch (err) {
+        console.error("Failed to sync client status to backend:", err);
+      }
     }
 
     showToast(`✓ Application ${updatingClient.appId} (${updatingClient.name}) saved for ${targetScheme}: "${newStatus}" (${newProgress}%).`);

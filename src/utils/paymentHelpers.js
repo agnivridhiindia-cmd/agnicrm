@@ -173,23 +173,31 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
       const repName = c.salesRep || c.assignedSalesPerson || c.salesPerson || c.owner || "Sales Executive";
       const companyName = c.company || c.companyName || c.name || "Client Entity";
 
-      // If client has payment history entries
-      if (Array.isArray(c.paymentsHistory) && c.paymentsHistory.length > 0) {
-        c.paymentsHistory.forEach((p) => {
+      // Check for detailed payment transactions in payments, paymentsHistory, or invoices.payments
+      const subPayments = Array.isArray(c.payments) && c.payments.length > 0
+        ? c.payments
+        : (Array.isArray(c.paymentsHistory) && c.paymentsHistory.length > 0
+          ? c.paymentsHistory
+          : (Array.isArray(c.invoices) && c.invoices.some(inv => Array.isArray(inv.payments) && inv.payments.length > 0)
+            ? c.invoices.flatMap(inv => inv.payments || [])
+            : null));
+
+      if (subPayments && subPayments.length > 0) {
+        subPayments.forEach((p) => {
           if (!p) return;
           const st = (p.status || "").toLowerCase();
           if (st !== "failed" && st !== "cancelled") {
             const amt = p.amount || p.paidAmount || 0;
-            const dt = p.date || p.createdAt || p.paymentDate || c.startDate;
+            const dt = p.paymentDate || p.date || p.createdAt || c.updatedAt || c.startDate;
             const pRep = p.salesPerson || p.salesRep || repName;
-            addPaymentEntry(amt, dt, pRep, companyName, p.id ? `cl-pay-${p.id}` : "");
+            addPaymentEntry(amt, dt, pRep, companyName, p.id || p.paymentId ? `cl-pay-${p.id || p.paymentId}` : "");
           }
         });
       } else {
         // Fallback to paymentReceived or totalPayment if completed
         const rec = parseRevenueValue(c.paymentReceived || (c.paymentStatus === "Paid" ? c.totalPayment || c.amount : 0));
         if (rec > 0) {
-          const dt = c.paymentDate || c.createdAt || c.startDate || c.assignedAt;
+          const dt = c.updatedAt || c.lastPaymentDate || c.paymentDate || c.createdAt || c.startDate || c.assignedAt;
           addPaymentEntry(rec, dt, repName, companyName, c.id ? `cl-rec-${c.id}` : "");
         }
       }

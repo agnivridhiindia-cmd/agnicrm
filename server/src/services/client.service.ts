@@ -55,12 +55,29 @@ export interface UpdateClientStatusInput {
   adminNotes?: string;
 }
 
+export interface UpdateClientInput {
+  name?: string;
+  companyName?: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  serviceType?: ServiceType;
+  serviceName?: string;
+  totalPayment?: number;
+  paymentReceived?: number;
+  completedSteps?: string[];
+  applicationStatus?: string;
+  progressPercent?: number;
+  adminNotes?: string;
+}
+
 export async function getClientsService(user: AuthenticatedUser) {
   let whereClause: any = { isDeleted: false };
 
   if (user.role === "SALES_PERSON") {
     whereClause.salesPersonId = user.userId;
-  } else if (user.role === "BRANCH_MANAGER" || user.role === "ADMIN" || user.role === "MANAGER") {
+  } else if (user.role === "BRANCH_MANAGER" || user.role === "MANAGER") {
+    // Branch managers and managers see only their branch
     let targetBranchId = user.branchId;
     if (!targetBranchId) {
       const dbUser = await prisma.user.findFirst({
@@ -76,7 +93,11 @@ export async function getClientsService(user: AuthenticatedUser) {
     whereClause.serviceType = ServiceType.IT;
   } else if (user.role === "MARKETING") {
     whereClause.serviceType = ServiceType.MARKETING;
+  } else if (user.role === "CLIENT") {
+    whereClause.email = { equals: user.email, mode: "insensitive" };
   }
+  // ADMIN, OWNER roles: no extra filter — see all clients.
+  // Frontend AdminDashboard.jsx handles branch filtering by the admin's selected branch.
 
   const clients = await prisma.client.findMany({
     where: whereClause,
@@ -84,6 +105,7 @@ export async function getClientsService(user: AuthenticatedUser) {
       branch: true,
       salesPerson: { select: { id: true, fullName: true, email: true } },
       invoices: { where: { isDeleted: false }, include: { payments: { where: { isDeleted: false } } } },
+      payments: { where: { isDeleted: false } },
       documents: { where: { isDeleted: false } },
       schemes: { where: { isDeleted: false } },
     },
@@ -114,6 +136,14 @@ export async function getClientsService(user: AuthenticatedUser) {
       steps = ["CRM Creation", "Agreement", "Reports"];
     }
 
+    // Accurate calculation of totalPayment, paymentReceived, and paymentPending across invoices and payments
+    const totalPayNum = Number(c.totalPayment || 0);
+    const invoicePaymentsSum = (c.invoices || []).reduce((sum, inv) => sum + Number(inv.paymentReceived || 0), 0);
+    const directPaymentsSum = (c.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const payReceivedNum = Math.max(Number(c.paymentReceived || 0), invoicePaymentsSum, directPaymentsSum);
+    const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
+    const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
+
     return {
       ...c,
       companyName: compName,
@@ -122,6 +152,10 @@ export async function getClientsService(user: AuthenticatedUser) {
       applicationStatus: appStatus,
       progressPercent: progress,
       completedSteps: steps,
+      totalPayment: totalPayNum,
+      paymentReceived: payReceivedNum,
+      paymentPending: payPendingNum,
+      paymentStatus: isPaid ? "Paid" : (payReceivedNum > 0 ? "Partial" : "Pending"),
     };
   });
 
@@ -426,6 +460,11 @@ export async function getMyProfileService(user: AuthenticatedUser) {
           status: c.approvalStatus === "ACTIVE" ? "Active" : "Pending",
           enrollmentDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Recently Approved",
           detail: `Approved scheme (${c.serviceName}) active in client profile.`,
+          // Milestone progress — used by client portal milestone tracker
+          completedSteps: c.completedSteps || ["CRM Creation"],
+          progressPercent: c.progressPercent ?? 20,
+          applicationStatus: c.applicationStatus || "CRM Creation",
+          isPrimary: (c as any).isPrimary !== false,
         };
       }),
     },
@@ -443,10 +482,66 @@ export async function updateClientStatusService(clientId: string, data: UpdateCl
     },
   });
 
+  // Also sync primary ClientScheme record
+  await prisma.clientScheme.updateMany({
+    where: { clientId: clientId, isDeleted: false },
+    data: {
+      completedSteps: data.completedSteps,
+      applicationStatus: data.applicationStatus,
+      progressPercent: data.progressPercent,
+    },
+  });
+
   return {
     success: true,
     statusCode: 200,
     message: "Client status updated successfully.",
+    data: updatedClient,
+  };
+}
+
+export async function updateClientService(clientId: string, data: UpdateClientInput) {
+  const updateData: any = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.companyName !== undefined) updateData.companyName = data.companyName;
+  if (data.contactPerson !== undefined) updateData.contactPerson = data.contactPerson;
+  if (data.email !== undefined) updateData.email = data.email;
+  if (data.phone !== undefined) updateData.phone = data.phone;
+  if (data.serviceType !== undefined) updateData.serviceType = data.serviceType;
+  if (data.serviceName !== undefined) updateData.serviceName = data.serviceName;
+  if (data.totalPayment !== undefined) updateData.totalPayment = data.totalPayment;
+  if (data.paymentReceived !== undefined) updateData.paymentReceived = data.paymentReceived;
+  if (data.completedSteps !== undefined) updateData.completedSteps = data.completedSteps;
+  if (data.applicationStatus !== undefined) updateData.applicationStatus = data.applicationStatus;
+  if (data.progressPercent !== undefined) updateData.progressPercent = data.progressPercent;
+  if (data.adminNotes !== undefined) updateData.adminNotes = data.adminNotes;
+
+  const updatedClient = await prisma.client.update({
+    where: { id: clientId },
+    data: updateData,
+  });
+
+  // Sync associated primary ClientScheme record
+  const schemeUpdate: any = {};
+  if (data.completedSteps !== undefined) schemeUpdate.completedSteps = data.completedSteps;
+  if (data.applicationStatus !== undefined) schemeUpdate.applicationStatus = data.applicationStatus;
+  if (data.progressPercent !== undefined) schemeUpdate.progressPercent = data.progressPercent;
+  if (data.serviceName !== undefined) schemeUpdate.serviceName = data.serviceName;
+  if (data.serviceType !== undefined) schemeUpdate.serviceType = data.serviceType;
+  if (data.totalPayment !== undefined) schemeUpdate.pitchedAmount = data.totalPayment;
+  if (data.paymentReceived !== undefined) schemeUpdate.receivedAmount = data.paymentReceived;
+
+  if (Object.keys(schemeUpdate).length > 0) {
+    await prisma.clientScheme.updateMany({
+      where: { clientId: clientId, isDeleted: false },
+      data: schemeUpdate,
+    });
+  }
+
+  return {
+    success: true,
+    statusCode: 200,
+    message: "Client updated successfully.",
     data: updatedClient,
   };
 }
@@ -507,6 +602,22 @@ export async function deleteClientService(clientId: string) {
       deletedAt: new Date(),
     },
   });
+
+  if (updated?.email) {
+    const remaining = await prisma.client.count({
+      where: { email: updated.email, isDeleted: false },
+    });
+
+    if (remaining === 0) {
+      await prisma.user.updateMany({
+        where: { email: updated.email, role: "CLIENT" },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+      });
+    }
+  }
 
   return {
     success: true,

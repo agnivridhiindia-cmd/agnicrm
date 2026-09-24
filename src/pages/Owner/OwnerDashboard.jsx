@@ -6,6 +6,7 @@ import HeaderSearch from "../../components/dashboard/HeaderSearch";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
+import SimpleModal from "../../components/SimpleModal";
 import EditForm from "../../components/EditForm";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import ActivityTracker from "../../components/ActivityTracker";
@@ -178,10 +179,17 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 const itemKey = c.id ? String(c.id) : `${String(dbComp).toLowerCase().trim()}::${String(canonicalScheme).toLowerCase().trim()}`;
                 const dbSpRaw = typeof c.salesPerson === "string" ? c.salesPerson : (c.salesPerson?.fullName || c.salesPerson?.name || c.assignedSalesPerson || c.owner || "Mia Rose");
                 const explicitTotal = parseFloat(String(c.invoices?.[0]?.rawTotal || c.totalPayment || c.amount || 0).replace(/[^0-9.]/g, "")) || 0;
-                const recAmt = parseFloat(String(c.invoices?.[0]?.paymentReceived || c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+                const clientRec = parseFloat(String(c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+                const invRec = (c.invoices || []).reduce((sum, inv) => sum + (parseFloat(String(inv.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0), 0);
+                const directRec = (c.payments || []).reduce((sum, p) => sum + (parseFloat(String(p.amount || 0).replace(/[^0-9.]/g, "")) || 0), 0);
+                const rawRec = Math.max(clientRec, invRec, directRec);
+
                 const isSec = c.isPrimary === false || c.processType === "secondary" || c.serviceType === "More Services" || (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
-                const rawAmt = (!isSec && explicitTotal === 0) ? 118000 : (explicitTotal > 0 ? explicitTotal : (recAmt > 0 ? Math.round(recAmt / 1.18) : 0));
-                const finalRecAmt = (!isSec && recAmt === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? rawAmt : recAmt;
+                const rawAmt = (!isSec && explicitTotal === 0) ? 118000 : (explicitTotal > 0 ? explicitTotal : (rawRec > 0 ? Math.round(rawRec / 1.18) : 0));
+                const isPaid = c.paymentStatus === "Paid" || c.paymentStatus === "PAID" || (rawAmt > 0 && rawRec >= rawAmt) || (c.invoices && c.invoices.some(inv => inv.status === "PAID" || inv.status === "Paid"));
+                const finalRecAmt = isPaid ? Math.max(rawAmt, rawRec) : rawRec;
+                const finalPending = Math.max(0, rawAmt - finalRecAmt);
+                const finalStatus = isPaid || (finalPending <= 0 && finalRecAmt > 0) ? "Paid" : (finalRecAmt > 0 ? "Partial" : "Pending");
                 const clientDate = c.createdAt ? String(c.createdAt).split("T")[0] : (c.startDate || "2026-09-08");
 
                 dedupeMap.set(itemKey, {
@@ -197,8 +205,9 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                   salesPerson: dbSpRaw,
                   branch: c.branch?.name || c.branch || "West Zone (Mumbai)",
                   totalPayment: rawAmt,
-                  paymentReceived: recAmt,
-                  paymentStatus: c.invoices?.[0]?.status || (recAmt >= rawAmt ? "Paid" : (recAmt > 0 ? "Partial" : "Pending")),
+                  paymentReceived: finalRecAmt,
+                  paymentPending: finalPending,
+                  paymentStatus: finalStatus,
                   applicationStatus: c.applicationStatus || c.stage || "CRM Creation",
                   progressPercent: c.progressPercent || 20,
                   completedSteps: c.completedSteps || ["CRM Creation"],
@@ -218,6 +227,11 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
 
     fetchDBOwnerClients();
 
+    // Re-fetch when other dashboards update client milestones
+    window.addEventListener("agni_clients_updated", fetchDBOwnerClients);
+    return () => {
+      window.removeEventListener("agni_clients_updated", fetchDBOwnerClients);
+    };
   }, []);
 
   const [employeesList, setEmployeesList] = useState(() => sortByRoleRanking(initialOwnerEmployees));
@@ -263,7 +277,41 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     }
     fetchDBOwnerEmployees();
   }, []);
-  const [invoices] = useState(initialInvoices);
+
+  const [invoices, setInvoices] = useState(initialInvoices);
+
+  // Fetch live invoices from backend PostgreSQL DB on mount
+  useEffect(() => {
+    async function fetchDBOwnerInvoices() {
+      try {
+        const response = await apiFetch("/invoices");
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
+            setInvoices(resData.data.map((inv) => ({
+              ...inv,
+              id: inv.invoiceNo || inv.id,
+              company: inv.client?.companyName || inv.client?.name || inv.company || "Client",
+              clientName: inv.client?.name || inv.clientName || "Client",
+              status: inv.status === "PAID" ? "Paid" : (inv.status === "PARTIAL" ? "Partial" : "Pending"),
+              rawTotal: Number(inv.rawTotal || 0),
+              paymentReceived: Number(inv.paymentReceived || 0),
+              branch: inv.branch?.name || inv.branch || "Pan-India",
+              accountManager: inv.accountManager?.fullName || inv.accountManager || "Account Manager",
+            })));
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch DB invoices for Owner Dashboard:", err);
+      }
+    }
+    fetchDBOwnerInvoices();
+    window.addEventListener("agni_invoices_updated", fetchDBOwnerInvoices);
+    return () => {
+      window.removeEventListener("agni_invoices_updated", fetchDBOwnerInvoices);
+    };
+  }, []);
+
   const [requestsList, setRequestsList] = useState(initialRequests);
 
   // Filter & deep linking states
@@ -288,7 +336,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     setSelectedClient(client);
   };
 
-  const handleUpdateClientTracker = (clientId, nextCompletedSteps, newPercent) => {
+  const handleUpdateClientTracker = async (clientId, nextCompletedSteps, newPercent) => {
     const client = clients.find((c) => c.id === clientId);
     if (!client) return;
     const clientScheme = client.scheme || client.serviceName || client.serviceType || "PMEGP";
@@ -305,12 +353,55 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       progress: tracker.progressPercent,
     };
 
+    // Optimistic UI update
     setClients((prev) =>
       prev.map((c) => (c.id === clientId ? updatedClient : c))
     );
-
     setSelectedClient((prev) => (prev && prev.id === clientId ? updatedClient : prev));
-    showToast(`✓ Updated ${client.name} tracker to "${activeStageName}" (${tracker.progressPercent}% - ${tracker.completedStages.length}/${tracker.totalStages} points)`);
+    showToast(`✓ Updated ${client.name} tracker to "${activeStageName}" (${tracker.progressPercent}%)`);
+
+    // Persist to PostgreSQL database
+    try {
+      await apiFetch(`/clients/${clientId}/status`, {
+        method: "PATCH",
+        body: {
+          completedSteps: tracker.completedStages,
+          applicationStatus: activeStageName,
+          progressPercent: tracker.progressPercent,
+        },
+      });
+    } catch (err) {
+      console.warn("Could not persist milestone tracker update to DB:", err);
+    }
+
+    // Sync across localStorage caches for offline/cross-dashboard consistency
+    try {
+      ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const nextList = list.map((item) =>
+              (item.id === clientId || (item.email && client.email && item.email.toLowerCase() === client.email.toLowerCase()))
+                ? {
+                    ...item,
+                    completedSteps: tracker.completedStages,
+                    applicationStatus: activeStageName,
+                    progressPercent: tracker.progressPercent,
+                    progress: tracker.progressPercent,
+                    stage: activeStageName,
+                  }
+                : item
+            );
+            localStorage.setItem(key, JSON.stringify(nextList));
+          }
+        }
+      });
+    } catch (e) {}
+
+    // Broadcast update event to all active dashboards (Sales, Manager, Branch Manager, Admin, Client Portal)
+    window.dispatchEvent(new Event("agni_clients_updated"));
+    window.dispatchEvent(new Event("storage"));
   };
 
   const handleOpenEditClient = (client) => {
@@ -367,6 +458,25 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       item: employee,
       message: `Delete ${employee.name} permanently?`,
     });
+  };
+
+  const handleEmployeeCreated = (newEmp) => {
+    // Add newly created employee to the list immediately (optimistic update)
+    const formattedEmp = {
+      id: newEmp.id,
+      name: newEmp.fullName,
+      fullName: newEmp.fullName,
+      email: newEmp.email,
+      phone: newEmp.phone || "N/A",
+      role: newEmp.role,
+      rawRole: newEmp.role,
+      branch: newEmp.branch?.name || "—",
+      branchId: newEmp.branch?.id,
+      region: newEmp.region || "",
+      status: newEmp.status || "Active",
+    };
+    setEmployeesList((prev) => sortByRoleRanking([formattedEmp, ...prev]));
+    showToast(`✓ Employee "${newEmp.fullName}" created successfully!`);
   };
 
   // Request actions
@@ -436,10 +546,11 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     }));
   };
 
-  const saveEditItem = () => {
+  const saveEditItem = async () => {
     if (!editModal) return;
 
     if (editModal.type === "client") {
+      const clientId = editModal.item.id;
       const scheme = editModal.values.serviceName || editModal.values.scheme || editModal.values.serviceType || editModal.scheme || "PMEGP";
       const tracker = getTrackerState(
         {
@@ -453,9 +564,23 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         ? tracker.completedStages[tracker.completedStages.length - 1]
         : tracker.currentStage || "CRM Creation";
 
+      const totalPay = parseFloat(String(editModal.values.totalPayment || 0).replace(/[^0-9.]/g, "")) || 0;
+      const recPay = parseFloat(String(editModal.values.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+      const isPaid = recPay >= totalPay && totalPay > 0;
+
       const updatedClient = {
         ...editModal.item,
         ...editModal.values,
+        name: editModal.values.name || editModal.values.company || editModal.item.name,
+        company: editModal.values.company || editModal.values.name || editModal.item.company,
+        email: editModal.values.email || editModal.item.email,
+        phone: editModal.values.phone || editModal.item.phone,
+        serviceName: scheme,
+        scheme: scheme,
+        totalPayment: totalPay,
+        paymentReceived: recPay,
+        paymentPending: Math.max(0, totalPay - recPay),
+        paymentStatus: isPaid ? "Paid" : (recPay > 0 ? "Partial" : "Pending"),
         completedSteps: tracker.completedStages,
         applicationStatus: activeStageName,
         progressPercent: tracker.progressPercent,
@@ -463,10 +588,60 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       };
 
       setClients((prev) =>
-        prev.map((item) => (item.id === editModal.item.id ? updatedClient : item))
+        prev.map((item) => (item.id === clientId ? updatedClient : item))
       );
-      setSelectedClient((prev) => (prev && prev.id === editModal.item.id ? updatedClient : prev));
-      showToast(`✓ Saved updates & tracker for client "${editModal.values.name || editModal.item.name}"`);
+      setSelectedClient((prev) => (prev && prev.id === clientId ? updatedClient : prev));
+      setEditModal(null);
+      showToast(`✓ Saved updates & tracker for client "${updatedClient.name}"`);
+
+      // Persist to PostgreSQL database
+      try {
+        await apiFetch(`/clients/${clientId}`, {
+          method: "PATCH",
+          body: {
+            name: updatedClient.name,
+            companyName: updatedClient.company,
+            contactPerson: updatedClient.name,
+            email: updatedClient.email,
+            phone: updatedClient.phone,
+            serviceName: scheme,
+            totalPayment: totalPay,
+            paymentReceived: recPay,
+            completedSteps: tracker.completedStages,
+            applicationStatus: activeStageName,
+            progressPercent: tracker.progressPercent,
+          },
+        });
+      } catch (err) {
+        console.warn("Could not save client edit to DB:", err);
+      }
+
+      // Sync across localStorage caches for offline/cross-dashboard consistency
+      try {
+        ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const nextList = list.map((item) =>
+                (item.id === clientId || (item.email && updatedClient.email && item.email.toLowerCase() === updatedClient.email.toLowerCase()))
+                  ? {
+                      ...item,
+                      ...updatedClient,
+                      stage: activeStageName,
+                    }
+                  : item
+              );
+              localStorage.setItem(key, JSON.stringify(nextList));
+            }
+          }
+        });
+      } catch (e) {}
+
+      // Broadcast update event across all dashboards
+      window.dispatchEvent(new Event("agni_clients_updated"));
+      window.dispatchEvent(new Event("storage"));
+      return;
     } else if (editModal.type === "employee") {
       setEmployeesList((prev) =>
         prev.map((item) =>
@@ -474,20 +649,66 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         )
       );
       showToast(`Saved updates for employee "${editModal.values.name || editModal.item.name}"`);
+      setEditModal(null);
     }
-    setEditModal(null);
   };
 
   // Confirm Dialog Handlers
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!confirmModal) return;
 
     if (confirmModal.type === "client") {
-      setClients((prev) => prev.filter((item) => item.id !== confirmModal.item.id));
+      const clientId = confirmModal.item.id;
+      setClients((prev) => prev.filter((item) => item.id !== clientId));
       showToast(`Client "${confirmModal.item.name}" removed successfully.`);
+
+      try {
+        await apiFetch(`/clients/${clientId}`, {
+          method: "DELETE",
+        });
+      } catch (err) {
+        console.warn("Could not delete client from DB:", err);
+      }
+
+      // Remove from localStorage caches
+      try {
+        ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const nextList = list.filter((item) => item.id !== clientId && item.email !== confirmModal.item.email);
+              localStorage.setItem(key, JSON.stringify(nextList));
+            }
+          }
+        });
+      } catch (e) {}
+
+      window.dispatchEvent(new Event("agni_clients_updated"));
+      window.dispatchEvent(new Event("storage"));
     } else if (confirmModal.type === "employee") {
-      setEmployeesList((prev) => prev.filter((item) => item.id !== confirmModal.item.id));
-      showToast(`Employee "${confirmModal.item.name}" removed successfully.`);
+      const empId = confirmModal.item.id;
+      const empName = confirmModal.item.name || confirmModal.item.fullName;
+      
+      setEmployeesList((prev) => prev.filter((item) => item.id !== empId));
+      showToast(`Soft-deleting "${empName}" and archiving records...`);
+
+      try {
+        const res = await apiFetch(`/employees/${empId}`, {
+          method: "DELETE",
+          body: { reason: "Soft-deleted by Owner from Workforce Directory" },
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`✓ ${data.message || `Employee "${empName}" soft-deleted successfully.`}`);
+          window.dispatchEvent(new Event("agni_employees_updated"));
+        } else {
+          showToast(`⚠️ ${data.message || "Failed to soft-delete employee."}`);
+        }
+      } catch (err) {
+        console.error("Error soft-deleting employee:", err);
+        showToast("⚠️ Network error while deleting employee.");
+      }
     }
 
     setConfirmModal(null);
@@ -710,9 +931,12 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 onOpenEditEmployee={handleOpenEditEmployee}
                 onDeleteEmployee={handleDeleteEmployee}
                 onOpenClientInfo={handleOpenClientInfo}
+                onEmployeeCreated={handleEmployeeCreated}
+                dark={dark}
               />
             }
           />
+
           <Route
             path="team"
             element={
@@ -725,6 +949,8 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 onOpenEditEmployee={handleOpenEditEmployee}
                 onDeleteEmployee={handleDeleteEmployee}
                 onOpenClientInfo={handleOpenClientInfo}
+                onEmployeeCreated={handleEmployeeCreated}
+                dark={dark}
               />
             }
           />
@@ -740,9 +966,12 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 onOpenEditEmployee={handleOpenEditEmployee}
                 onDeleteEmployee={handleDeleteEmployee}
                 onOpenClientInfo={handleOpenClientInfo}
+                onEmployeeCreated={handleEmployeeCreated}
+                dark={dark}
               />
             }
           />
+
           <Route
             path="revenue"
             element={
@@ -963,13 +1192,15 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         )}
 
         {confirmModal && (
-          <Modal title="Confirm delete" onClose={() => setConfirmModal(null)}>
+          <SimpleModal onClose={() => setConfirmModal(null)} showCloseButton={false}>
             <ConfirmDialog
+              title={confirmModal.type === "employee" ? "Delete Team Member?" : "Delete Client Account?"}
               message={confirmModal.message}
+              confirmLabel={confirmModal.type === "employee" ? "Delete Member" : "Delete Client"}
               onCancel={() => setConfirmModal(null)}
               onConfirm={confirmDelete}
             />
-          </Modal>
+          </SimpleModal>
         )}
 
         <OwnerClientInfoModal

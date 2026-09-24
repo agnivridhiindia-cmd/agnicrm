@@ -134,12 +134,18 @@ export function useSalesClients(salesPersonName, onClientAdded) {
 
   const quotaMetrics = useMemo(() => {
     const totalRealized = clients.reduce((sum, c) => {
-      const rawRec = Math.max(
+      // Gross received = max of client.paymentReceived vs total invoice payments received
+      const invoicePayments = (c.invoices || []).reduce((s, inv) => s + Number(inv.paymentReceived || 0), 0);
+      const grossRec = Math.max(
         Number(c.paymentReceived || 0),
-        Number(c.invoices?.[0]?.paymentReceived || 0),
-        Number(c.totalPayment || 0)
+        invoicePayments,
       );
-      const netRec = Math.round(rawRec / 1.18);
+
+      if (grossRec <= 0) return sum;
+
+      // Formula: Net Revenue = Math.round(Gross Received / 1.18)
+      // Same as revenueCalculator.js — strips GST from gross payment
+      const netRec = Math.round(grossRec / 1.18);
       return sum + netRec;
     }, 0);
 

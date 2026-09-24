@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../Icon";
+import { apiFetch } from "../../services/apiClient";
 
 export default function UserProfileMenu({
   user = {},
@@ -52,27 +53,62 @@ export default function UserProfileMenu({
   const [showConfirm, setShowConfirm] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
-  const handlePasswordSubmit = (e) => {
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     if (!currentPassword) {
       setPasswordError("Please enter your current password.");
       return;
     }
-    if (newPassword.length < 8) {
-      setPasswordError("New password must be at least 8 characters long.");
+    if (!newPassword) {
+      setPasswordError("Please enter a new password.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError("New password and confirm password do not match.");
+      setPasswordError("New password and retype password do not match.");
       return;
     }
 
+    setPasswordLoading(true);
     setPasswordError("");
-    setPasswordModalOpen(false);
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    showToast("Password updated successfully.");
+
+    try {
+      const storedEmail = localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email");
+      const activeEmail = user?.email || storedEmail;
+
+      const response = await apiFetch("/auth/change-password", {
+        method: "POST",
+        body: {
+          currentPassword,
+          newPassword,
+          confirmPassword,
+          email: activeEmail,
+          role: role,
+        },
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.success) {
+        setPasswordError(data.message || "Failed to update password. Please check your current password.");
+        setPasswordLoading(false);
+        return;
+      }
+
+      // Success
+      setPasswordModalOpen(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordError("");
+      setPasswordLoading(false);
+      showToast("✓ Password changed successfully! You can now use your new password to log in.");
+    } catch (err) {
+      console.error("Change password error:", err);
+      setPasswordError(err.message || "Failed to connect to server. Please try again.");
+      setPasswordLoading(false);
+    }
   };
 
   // Compute password strength
@@ -92,29 +128,17 @@ export default function UserProfileMenu({
   const strength = getPasswordStrength();
 
   return (
-    <div className="user-profile-menu-container" ref={menuRef} style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 10 }}>
-      {/* Profile Trigger Button */}
+    <div className="user-profile-menu-container" ref={menuRef} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      {/* Role Pill Badge Menu Trigger */}
       <button
         type="button"
-        className="profile user-profile-avatar-btn"
+        className="role-badge"
         onClick={() => setDropdownOpen((prev) => !prev)}
-        style={{
-          background: avatarColor,
-          cursor: "pointer",
-          position: "relative",
-        }}
         aria-label="User Profile Menu"
         aria-expanded={dropdownOpen}
       >
-        <span>{initials}</span>
+        <span>{roleBadge || role || "Profile"}</span>
       </button>
-
-      {/* Role Pill Badge */}
-      {roleBadge && (
-        <span className="role-badge" onClick={() => setDropdownOpen((prev) => !prev)} style={{ cursor: "pointer" }}>
-          {roleBadge}
-        </span>
-      )}
 
       {/* DROPDOWN MENU */}
       {dropdownOpen && (
@@ -210,6 +234,10 @@ export default function UserProfileMenu({
               className="user-profile-menu-item"
               onClick={() => {
                 setDropdownOpen(false);
+                setPasswordError("");
+                setCurrentPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
                 setPasswordModalOpen(true);
               }}
               style={{
@@ -699,7 +727,7 @@ export default function UserProfileMenu({
                       type={showNew ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Minimum 8 characters"
+                      placeholder="Enter new password"
                       className="admin-form-input"
                       required
                     />
@@ -717,7 +745,7 @@ export default function UserProfileMenu({
                     <div style={{ marginTop: 6 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, marginBottom: 4 }}>
                         <span style={{ color: "#64748b" }}>Strength: <strong style={{ color: strength.color }}>{strength.label}</strong></span>
-                        <span style={{ color: "#94a3b8" }}>{newPassword.length >= 8 ? "✓ Length OK" : "Min 8 chars"}</span>
+                        <span style={{ color: strength.color }}>● {strength.label}</span>
                       </div>
                       <div style={{ height: 4, width: "100%", background: "rgba(0,0,0,0.06)", borderRadius: 99, overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${strength.score}%`, background: strength.color, transition: "all 0.25s ease" }} />
@@ -726,15 +754,15 @@ export default function UserProfileMenu({
                   )}
                 </div>
 
-                {/* Confirm New Password */}
+                {/* Retype Password */}
                 <div>
-                  <label className="admin-form-label" style={{ marginBottom: 5 }}>Confirm New Password</label>
+                  <label className="admin-form-label" style={{ marginBottom: 5 }}>Retype Password</label>
                   <div style={{ position: "relative" }}>
                     <input
                       type={showConfirm ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-type new password"
+                      placeholder="Retype new password"
                       className="admin-form-input"
                       required
                     />
@@ -753,7 +781,11 @@ export default function UserProfileMenu({
                   <button
                     type="button"
                     className="admin-btn-secondary"
-                    onClick={() => setPasswordModalOpen(false)}
+                    onClick={() => {
+                      setPasswordModalOpen(false);
+                      setPasswordError("");
+                    }}
+                    disabled={passwordLoading}
                   >
                     Cancel
                   </button>
@@ -761,8 +793,9 @@ export default function UserProfileMenu({
                     type="submit"
                     className="admin-btn-primary"
                     style={{ padding: "8px 20px" }}
+                    disabled={passwordLoading}
                   >
-                    Update Password
+                    {passwordLoading ? "Updating Password..." : "Update Password"}
                   </button>
                 </div>
               </form>
