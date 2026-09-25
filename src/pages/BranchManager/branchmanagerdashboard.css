@@ -711,12 +711,161 @@
   background: rgba(30, 41, 59, 0.75);
 }
 
+.dashboard-dark .manager-tabs-strip {
+  background: rgba(18, 24, 44, 0.75);
+  border-color: rgba(140, 95, 248, 0.22);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.dashboard-dark .manager-tab-btn {
+  color: #94a3b8;
+}
+
+.dashboard-dark .manager-tab-btn:hover:not(.active) {
+  color: #c4b5fd;
+  background: rgba(140, 95, 248, 0.16);
+}
+
+.dashboard-dark .manager-tab-btn.active {
+  background: linear-gradient(135deg, #9d71ff 0%, #7c44ff 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 18px rgba(124, 68, 255, 0.45);
+}
+
+.dashboard-dark .manager-tab-btn:not(.active) .manager-tab-count {
+  background: rgba(140, 95, 248, 0.22);
+  color: #c4b5fd;
+}
+
+.dashboard-dark .manager-alert-banner {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
 /* --------------------------------------------------------------------------
    10. Branch Manager Requests & Approvals Styling
-   -------------------------------------------------------------------------- */
+   /* Action Buttons & Navigation Tabs */
+.manager-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 12px;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  background: linear-gradient(135deg, #8c5ff8 0%, #6d3bf5 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(109, 59, 245, 0.35);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.manager-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(109, 59, 245, 0.48);
+  filter: brightness(1.06);
+}
+
+.manager-btn-primary:active {
+  transform: translateY(0);
+}
+
 .bm-req-header-btn {
   padding: 10px 22px !important;
   font-size: 13.5px !important;
+}
+
+/* Tabs Navigation Strip */
+.manager-tabs-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(140, 95, 248, 0.16);
+  box-shadow: 0 4px 20px -2px rgba(140, 95, 248, 0.08);
+  margin: 4px 0 22px;
+  flex-wrap: wrap;
+}
+
+.manager-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  line-height: 1;
+}
+
+.manager-tab-btn:hover:not(.active) {
+  color: #7c3aed;
+  background: rgba(140, 95, 248, 0.08);
+  transform: translateY(-1px);
+}
+
+.manager-tab-btn.active {
+  background: linear-gradient(135deg, #8c5ff8 0%, #6d3bf5 100%);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(109, 59, 245, 0.35);
+  transform: translateY(-1px);
+}
+
+.manager-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.manager-tab-btn.active .manager-tab-count {
+  background: rgba(255, 255, 255, 0.26);
+  color: #ffffff;
+}
+
+.manager-tab-btn:not(.active) .manager-tab-count {
+  background: rgba(140, 95, 248, 0.12);
+  color: #7c3aed;
+}
+
+/* Alert Notification Banner */
+.manager-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #059669;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  animation: fadeIn 0.2s ease;
 }
 
 .bm-req-kpi-owner {
