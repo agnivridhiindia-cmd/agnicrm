@@ -438,11 +438,16 @@ export async function getMyProfileService(user: AuthenticatedUser) {
     return acc + amt;
   }, 0);
 
+  const resolvedEligibleSchemes = clients.find(
+    (c) => c.eligibleSchemes && Array.isArray(c.eligibleSchemes) && (c.eligibleSchemes as any).length > 0
+  )?.eligibleSchemes || client.eligibleSchemes || [];
+
   return {
     success: true,
     statusCode: 200,
     data: {
       ...client,
+      eligibleSchemes: resolvedEligibleSchemes,
       computedTotalLoan: totalLoan,
       documentStatus: effectiveDocStatus,
       approvalStatus: effectiveApprovalStatus,
@@ -624,6 +629,38 @@ export async function deleteClientService(clientId: string) {
     statusCode: 200,
     message: "Client soft deleted successfully.",
     data: updated,
+  };
+}
+
+export async function updateClientEligibleSchemesService(clientId: string, schemes: any) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+  });
+
+  if (!client) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: "Client not found.",
+    };
+  }
+
+  // Update across all client records sharing this email (primary and secondary)
+  await prisma.client.updateMany({
+    where: {
+      email: { equals: client.email, mode: "insensitive" },
+      isDeleted: false,
+    },
+    data: {
+      eligibleSchemes: schemes,
+    },
+  });
+
+  return {
+    success: true,
+    statusCode: 200,
+    message: "Eligible schemes updated successfully.",
+    data: schemes,
   };
 }
 

@@ -23,6 +23,8 @@ export function clearClientLocalStorage() {
         key.startsWith("agni_payment_demands") ||
         key.startsWith("agni_payment_") ||
         key.startsWith("agni_client_requests") ||
+        key.startsWith("agni_crm_agreements") ||
+        key.startsWith("agni_doc_temp_") ||
         key === "agni_sales_clients" ||
         key === "agni_branch_clients" ||
         key === "agni_clients" ||

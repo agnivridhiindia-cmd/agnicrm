@@ -12,6 +12,7 @@ import {
   verifyClientDocumentService,
   deleteClientService,
   updateClientService,
+  updateClientEligibleSchemesService,
 } from "../services/client.service";
 
 const createClientSchema = z.object({
@@ -186,5 +187,17 @@ export async function updateClient(req: AuthenticatedRequest, res: Response, nex
     next(error);
   }
 }
+
+export async function updateClientEligibleSchemes(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const clientId = req.params.id as string;
+    const schemes = req.body.eligibleSchemes !== undefined ? req.body.eligibleSchemes : req.body;
+    const result = await updateClientEligibleSchemesService(clientId, schemes);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 

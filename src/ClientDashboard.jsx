@@ -335,6 +335,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     const rawReq = dbProfile?.fundingRequirement || activeSalesClient?.fundingRequirement || activeSalesClient?.requiredAmount || clientStoredData?.fundingRequirement;
     const reqNum = rawReq && !isNaN(Number(rawReq)) && Number(rawReq) >= 100000 ? Number(rawReq) : 2500000;
     return {
+      eligibleSchemes: dbProfile?.eligibleSchemes || activeSalesClient?.eligibleSchemes || [],
       companyName: resolvedCompName,
       representativeName: dbProfile?.representativeName || dbProfile?.contactPerson || activeSalesClient?.contactPerson || activeSalesClient?.name || clientStoredData?.representativeName || "Client Representative",
       phone: dbProfile?.contactNumber || dbProfile?.phone || activeSalesClient?.phone || clientStoredData?.contactNumber || "+91 98765 43210",

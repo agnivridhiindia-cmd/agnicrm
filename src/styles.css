@@ -2202,7 +2202,7 @@ form {
 .revenue-summary-card {
   display: flex;
   flex-direction: column;
-  justifyContent: space-between;
+  justify-content: space-between;
   gap: 14px;
   min-height: 168px;
   padding: 20px 22px;

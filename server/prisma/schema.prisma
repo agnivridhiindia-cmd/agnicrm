@@ -179,6 +179,7 @@ model Client {
   applicationStatus String          @default("CRM Creation")
   progressPercent   Int             @default(0)
   completedSteps    Json?           // Array of completed stage names
+  eligibleSchemes   Json?           // Array of eligible scheme recommendations with client visibility
   slaTier           String          @default("Standard Retainer")
   isDirectCreated   Boolean         @default(false)
   adminNotes        String?

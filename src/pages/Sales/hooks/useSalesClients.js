@@ -72,6 +72,7 @@ export function useSalesClients(salesPersonName, onClientAdded) {
                 isPrimary: c.isPrimary !== undefined ? c.isPrimary : !isSec,
                 createdAt: c.createdAt,
                 invoices: c.invoices || [],
+                eligibleSchemes: c.eligibleSchemes || [],
               });
             });
 
@@ -298,6 +299,15 @@ export function useSalesClients(salesPersonName, onClientAdded) {
           }
         });
       } catch (e) { }
+    }
+
+    if (clientId) {
+      apiFetch(`/clients/${clientId}/eligible-schemes`, {
+        method: "PATCH",
+        body: { eligibleSchemes: updatedSchemes },
+      }).catch((err) => {
+        console.warn("Failed to persist eligible schemes to backend:", err);
+      });
     }
 
     window.dispatchEvent(new Event("storage"));

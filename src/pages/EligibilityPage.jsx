@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { mockEligibleSchemes } from "../mockData/mockEligibleSchemes";
+import { apiFetch } from "../services/apiClient";
 
 function cleanDescription(desc) {
   if (!desc) return "";
@@ -8,6 +9,9 @@ function cleanDescription(desc) {
 
 function readStoredSchemes(userEmail, clientInfo) {
   try {
+    if (clientInfo?.eligibleSchemes && Array.isArray(clientInfo.eligibleSchemes) && clientInfo.eligibleSchemes.length > 0) {
+      return clientInfo.eligibleSchemes;
+    }
     if (userEmail) {
       const dedicated = localStorage.getItem(`agni_client_eligible_schemes_${userEmail.toLowerCase().trim()}`);
       if (dedicated) {
@@ -46,15 +50,43 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
   const [schemesList, setSchemesList] = useState(() => readStoredSchemes(userEmail, clientInfo));
 
   useEffect(() => {
-    function syncSchemes() {
-      setSchemesList(readStoredSchemes(userEmail, clientInfo));
+    let isMounted = true;
+
+    async function syncSchemes() {
+      // 1. Check local cache or clientInfo first
+      const stored = readStoredSchemes(userEmail, clientInfo);
+      if (stored && stored.length > 0 && isMounted) {
+        setSchemesList(stored);
+      }
+
+      // 2. Fetch latest saved state from Neon DB via API
+      try {
+        const res = await apiFetch("/clients/my-profile");
+        if (res.ok) {
+          const resData = await res.json();
+          const dbSchemes = resData.data?.eligibleSchemes;
+          if (Array.isArray(dbSchemes) && isMounted) {
+            setSchemesList(dbSchemes);
+            if (userEmail) {
+              try {
+                localStorage.setItem(`agni_client_eligible_schemes_${userEmail.toLowerCase().trim()}`, JSON.stringify(dbSchemes));
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (err) {
+        // Fallback silently to existing local schemes
+      }
     }
 
     syncSchemes();
     window.addEventListener("storage", syncSchemes);
-    const interval = setInterval(syncSchemes, 1500);
+    window.addEventListener("agni_clients_updated", syncSchemes);
+    const interval = setInterval(syncSchemes, 3000);
     return () => {
+      isMounted = false;
       window.removeEventListener("storage", syncSchemes);
+      window.removeEventListener("agni_clients_updated", syncSchemes);
       clearInterval(interval);
     };
   }, [userEmail, clientInfo]);
