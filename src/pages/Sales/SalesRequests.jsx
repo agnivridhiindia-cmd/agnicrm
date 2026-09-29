@@ -30,16 +30,22 @@ export default function SalesRequests() {
         if (data.success && Array.isArray(data.data)) {
           const mapped = data.data.map((r) => {
             const pendingData = r.requestType === "NEW_SERVICE" && r.requestedChanges ? r.requestedChanges : null;
-            const clientName = r.client?.companyName || r.client?.name || pendingData?.companyName || pendingData?.name || "Client Account";
+            const clientName = r.client?.companyName || r.client?.name || pendingData?.companyName || pendingData?.name || (r.targetEntityType === "EMPLOYEE" ? `Employee #${r.targetEntityId}` : "Client Account");
             return {
               id: r.requestCode || r.id,
               clientName,
               companyName: clientName,
-              requestType: r.requestType === "NEW_SERVICE" ? "Client Create" : r.requestType,
+              requestType: r.requestType === "NEW_SERVICE" ? "Client Create" : r.requestType === "DELETE_CLIENT" ? "Delete Client" : r.requestType === "TRANSFER_CLIENT" ? "Transfer Client" : r.requestType === "EDIT_CLIENT" ? "Edit Client" : r.requestType,
               status: r.status === "PENDING" ? "Pending" : r.status === "APPROVED" ? "Approved" : r.status === "REJECTED" ? "Rejected" : "Pending",
-              category: r.requestType === "NEW_SERVICE" ? "Manager Approval: Client Create" : r.requestType,
+              category: r.requestType === "NEW_SERVICE" ? "Manager Approval: Client Create" : r.requestType === "DELETE_CLIENT" ? "Manager Approval: Client Delete" : r.requestType === "TRANSFER_CLIENT" ? "Manager Approval: Client Transfer" : r.requestType === "EDIT_CLIENT" ? "Manager Approval: Client Edit" : r.requestType,
               decisionDate: r.decisionDate ? new Date(r.decisionDate).toISOString().split("T")[0] : "",
               managerRemarks: r.managerRemarks || "",
+              reason: r.reason || "",
+              currentStage: r.currentStage,
+              approvalChain: r.approvalChain,
+              currentChainIndex: r.currentChainIndex,
+              auditHistory: r.auditHistory,
+              requestedChanges: Array.isArray(r.requestedChanges) ? r.requestedChanges : [],
               raw: r,
             };
           });
@@ -83,12 +89,14 @@ export default function SalesRequests() {
 
     const handleSync = () => fetchRequests();
     window.addEventListener("storage", handleSync);
+    window.addEventListener("agni_requests_updated", handleSync);
     window.addEventListener("agni_pending_updated", handleSync);
     window.addEventListener("agni_clients_updated", handleSync);
-    const interval = setInterval(handleSync, 5000);
+    const interval = setInterval(handleSync, 60000);
 
     return () => {
       window.removeEventListener("storage", handleSync);
+      window.removeEventListener("agni_requests_updated", handleSync);
       window.removeEventListener("agni_pending_updated", handleSync);
       window.removeEventListener("agni_clients_updated", handleSync);
       clearInterval(interval);

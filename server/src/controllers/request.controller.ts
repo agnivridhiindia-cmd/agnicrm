@@ -9,14 +9,15 @@ import {
 } from "../services/request.service";
 
 const createRequestSchema = z.object({
-  clientId: z.string().min(1, "Client ID required"),
-  requestType: z.nativeEnum(RequestType),
-  requestedChanges: z.array(z.object({
-    field: z.string(),
-    oldValue: z.any(),
-    newValue: z.any(),
-  })).optional(),
-  reason: z.string().min(5, "Reason must be at least 5 characters"),
+  clientId: z.string().optional(),
+  targetEntityId: z.string().optional(),
+  targetEntityType: z.enum(["CLIENT", "EMPLOYEE"]).optional(),
+  requestType: z.union([
+    z.nativeEnum(RequestType),
+    z.string().min(1),
+  ]),
+  requestedChanges: z.any().optional(),
+  reason: z.string().min(3, "Reason must be at least 3 characters"),
 });
 
 const decideRequestSchema = z.object({

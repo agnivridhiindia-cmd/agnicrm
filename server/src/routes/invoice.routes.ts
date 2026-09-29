@@ -18,15 +18,15 @@ router.post(
 router.post(
   "/:id/payments",
   authenticateJWT,
-  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON),
+  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON, Role.CLIENT),
   addPayment
 );
 
-// Global payment route (staff access only)
+// Global payment route (scoped to client records for Role.CLIENT, staff sees their respective scope)
 router.get(
   "/payments/all",
   authenticateJWT,
-  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON),
+  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON, Role.CLIENT),
   getPayments
 );
 

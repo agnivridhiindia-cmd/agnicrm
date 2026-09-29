@@ -12,6 +12,8 @@ export default function OwnerRequestDecisionModal({
   if (!selectedRequest) return null;
 
   const statusClass = (selectedRequest.status || "pending").toLowerCase();
+  const isDeletion = selectedRequest.requestType?.toLowerCase().includes("delete");
+  const isTransfer = selectedRequest.requestType?.toLowerCase().includes("transfer");
 
   return (
     <SimpleModal onClose={onClose}>
@@ -33,6 +35,51 @@ export default function OwnerRequestDecisionModal({
       </div>
 
       <div style={{ display: "grid", gap: 16 }}>
+        {/* Hierarchy Approval Pipeline */}
+        {selectedRequest.approvalChain && selectedRequest.approvalChain.length > 0 && (
+          <div
+            className="owner-modal-card"
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              background: "rgba(99, 102, 241, 0.08)",
+              border: "1px dashed rgba(99, 102, 241, 0.4)",
+            }}
+          >
+            <span className="owner-modal-card-label" style={{ color: "#818cf8", fontWeight: 700 }}>
+              Hierarchy Approval Pipeline (Final Authorization Authority)
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap", fontSize: 12 }}>
+              <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(99, 102, 241, 0.2)", color: "#a5b4fc", fontWeight: 600 }}>
+                1. Initiator (Submitted)
+              </span>
+              <span style={{ color: "#64748b" }}>→</span>
+              {selectedRequest.approvalChain.map((role, idx) => {
+                const isPassed = (selectedRequest.currentChainIndex || 0) > idx || selectedRequest.status === "Approved";
+                const isCurrent = (selectedRequest.currentChainIndex || 0) === idx && selectedRequest.status !== "Approved";
+                const roleLabel = role === "MANAGER" ? "Sales Manager" : role === "BRANCH_MANAGER" ? "Branch Manager" : "Owner (Final)";
+                return (
+                  <React.Fragment key={role}>
+                    <span
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: 6,
+                        background: isPassed ? "rgba(16, 185, 129, 0.16)" : isCurrent ? "rgba(245, 158, 11, 0.2)" : "rgba(148, 163, 184, 0.1)",
+                        color: isPassed ? "#10b981" : isCurrent ? "#f59e0b" : "#94a3b8",
+                        fontWeight: 600,
+                        border: isCurrent ? "1px solid #f59e0b" : "none",
+                      }}
+                    >
+                      {idx + 2}. {roleLabel} {isPassed ? "✓" : isCurrent ? "(Reviewing)" : ""}
+                    </span>
+                    {idx < selectedRequest.approvalChain.length - 1 && <span style={{ color: "#64748b" }}>→</span>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Meta info grid */}
         <div className="owner-modal-info-grid">
           <div className="owner-modal-card">
@@ -114,13 +161,21 @@ export default function OwnerRequestDecisionModal({
               <button
                 type="button"
                 className="owner-btn-primary"
-                style={{ background: "linear-gradient(135deg, #10b981 0%, #059669 100%)" }}
+                style={{
+                  background: isDeletion
+                    ? "linear-gradient(135deg, #e11d48 0%, #be123c 100%)"
+                    : "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                }}
                 onClick={() => {
                   onApprove(selectedRequest.id, remarksInput);
                   onClose();
                 }}
               >
-                ✓ Approve Request
+                {isDeletion
+                  ? "Authorize & Execute Deletion"
+                  : isTransfer
+                  ? "Authorize & Execute Transfer"
+                  : "✓ Authorize & Apply Changes"}
               </button>
               <button
                 type="button"

@@ -75,7 +75,7 @@
   display: flex;
   justifyContent: space-between;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 20px;
   width: 100%;
   margin-bottom: 20px;

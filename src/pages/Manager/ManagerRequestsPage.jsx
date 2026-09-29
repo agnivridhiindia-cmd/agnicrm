@@ -5,6 +5,7 @@ export default function ManagerRequestsPage({
   branchTeamNames = [],
   managedRegion = "East Zone",
   branchTeam = [],
+  clients = [],
 }) {
   return (
     <section style={{ animation: "fadeIn 0.25s ease-out" }}>
@@ -12,6 +13,7 @@ export default function ManagerRequestsPage({
         branchTeamNames={branchTeamNames}
         managedRegion={managedRegion}
         branchTeam={branchTeam}
+        clients={clients}
       />
     </section>
   );

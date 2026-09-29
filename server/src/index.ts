@@ -12,6 +12,7 @@ import agreementRoutes from "./routes/agreement.routes";
 import invoiceRoutes from "./routes/invoice.routes";
 import notificationRoutes from "./routes/notification.routes";
 import employeeRoutes from "./routes/employee.routes";
+import eventRoutes from "./routes/event.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -63,6 +64,7 @@ app.use("/api/v1/agreements", agreementRoutes);
 app.use("/api/v1/invoices", invoiceRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/employees", employeeRoutes);
+app.use("/api/v1/events", eventRoutes);
 
 // Database-backed Health Check Handler
 const healthCheckHandler = async (req: express.Request, res: express.Response) => {
@@ -106,9 +108,10 @@ app.get("/health", healthCheckHandler);
 app.use(errorHandler);
 
 app.listen(PORT, "0.0.0.0", () => {
-  logger.info(`🚀 Agni CRM Backend API running on http://localhost:${PORT}`, {
+  logger.info(`🚀 Agni CRM Backend API running on http://localhost:${PORT} (pool: 20 conn)`, {
     environment: ENV.NODE_ENV,
     port: PORT,
     allowedOrigins: ENV.ALLOWED_ORIGINS,
   });
 });
+

@@ -36,6 +36,10 @@ enum Stage {
 enum RequestType {
   EDIT_CLIENT
   DELETE_CLIENT
+  TRANSFER_CLIENT
+  EDIT_EMPLOYEE
+  TRANSFER_EMPLOYEE
+  DELETE_EMPLOYEE
   NEW_SERVICE
   BUDGET_INCREASE
 }
@@ -130,13 +134,20 @@ model User {
   reportingManager   User?     @relation("ManagerTeam", fields: [reportingManagerId], references: [id])
   teamMembers        User[]    @relation("ManagerTeam")
 
+  originBranchId     String?
+  initialManagerId   String?
+
   salesClients       Client[]  @relation("SalesPersonClients")
+  createdClients     Client[]  @relation("ClientOriginator")
+  lastHandledClients Client[]  @relation("ClientLastRep")
+  deletedClients     Client[]  @relation("ClientDeletedBy")
   accountInvoices    Invoice[] @relation("AccountManagerInvoices")
   submittedRequests  Request[] @relation("RequesterRequests")
   reviewedRequests   Request[] @relation("ReviewerRequests")
   activityLogs       ActivityLog[]
   notifications      Notification[]
   recordedPayments   Payment[] @relation("UserPayments")
+  employeeTransferLogs EmployeeTransferLog[]
 
   @@index([branchId])
   @@index([role])
@@ -180,6 +191,7 @@ model Client {
   progressPercent   Int             @default(0)
   completedSteps    Json?           // Array of completed stage names
   eligibleSchemes   Json?           // Array of eligible scheme recommendations with client visibility
+  dueDate           DateTime?       // Service Due Date / Renewal Date set by Salesperson
   slaTier           String          @default("Standard Retainer")
   isDirectCreated   Boolean         @default(false)
   adminNotes        String?
@@ -210,31 +222,73 @@ model Client {
   eightyGCertNumber  String?         // 80G Certificate Number
   darpanId           String?         // DARPAN Unique ID
 
-  isDeleted          Boolean         @default(false)
-  deletedAt          DateTime?
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  isDeleted             Boolean         @default(false)
+  deletedAt             DateTime?
+  deleteReason          String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
-  branchId          String?
-  branch            Branch?         @relation(fields: [branchId], references: [id])
+  branchId              String?
+  branch                Branch?         @relation(fields: [branchId], references: [id])
 
-  salesPersonId     String?
-  salesPerson       User?           @relation("SalesPersonClients", fields: [salesPersonId], references: [id])
+  salesPersonId         String?
+  salesPerson           User?           @relation("SalesPersonClients", fields: [salesPersonId], references: [id])
 
-  invoices          Invoice[]
-  payments          Payment[]
-  documents         ClientDocument[]
-  requests          Request[]
-  agreements        Agreement[]
-  schemes           ClientScheme[]
+  originalSalesPersonId String?
+  originalSalesPerson   User?           @relation("ClientOriginator", fields: [originalSalesPersonId], references: [id])
+
+  lastSalesPersonId     String?
+  lastSalesPerson       User?           @relation("ClientLastRep", fields: [lastSalesPersonId], references: [id])
+
+  deletedById           String?
+  deletedByUser         User?           @relation("ClientDeletedBy", fields: [deletedById], references: [id])
+
+  invoices              Invoice[]
+  payments              Payment[]
+  documents             ClientDocument[]
+  requests              Request[]
+  agreements            Agreement[]
+  schemes               ClientScheme[]
+  transferLogs          ClientTransferLog[]
 
   @@index([branchId, stage])
   @@index([salesPersonId])
+  @@index([originalSalesPersonId])
   @@index([email])
   @@index([approvalStatus])
   @@index([documentStatus])
   @@index([isDeleted])
   @@map("clients")
+}
+
+model ClientTransferLog {
+  id                      String    @id @default(uuid())
+  clientId                String
+  client                  Client    @relation(fields: [clientId], references: [id])
+  fromSalesPersonId       String?
+  toSalesPersonId         String?
+  fromBranchId            String?
+  toBranchId              String?
+  collectedBeforeTransfer Decimal   @default(0) @db.Decimal(14, 2)
+  pendingAtTransfer       Decimal   @default(0) @db.Decimal(14, 2)
+  reason                  String?
+  transferredAt           DateTime  @default(now())
+
+  @@map("client_transfer_logs")
+}
+
+model EmployeeTransferLog {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  fromBranchId  String?
+  toBranchId    String?
+  fromManagerId String?
+  toManagerId   String?
+  reason        String?
+  transferredAt DateTime  @default(now())
+
+  @@map("employee_transfer_logs")
 }
 
 model ClientScheme {
@@ -344,12 +398,40 @@ model Request {
   reviewerId       String?
   reviewer         User?         @relation("ReviewerRequests", fields: [reviewerId], references: [id])
 
+  // --- Additive Hierarchical Workflow Fields ---
+  targetEntityType  String?       @default("CLIENT") // "CLIENT" | "EMPLOYEE"
+  targetEntityId    String?       // ID of client or employee being modified
+  currentStage      String?       @default("PENDING_SALES_MANAGER") // PENDING_SALES_MANAGER | PENDING_BRANCH_MANAGER | PENDING_OWNER | APPLIED | REJECTED
+  approvalChain     Json?         // Array of roles: ["MANAGER", "BRANCH_MANAGER", "OWNER"]
+  currentChainIndex Int           @default(0)
+
+  // Dedicated audit history relationship
+  auditHistory      RequestAudit[]
+
   @@index([clientId])
   @@index([requesterId])
   @@index([reviewerId])
   @@index([status])
-  @@index([isDeleted])
+  @@index([currentStage])
+  @@index([targetEntityType, targetEntityId])
   @@map("requests")
+}
+
+model RequestAudit {
+  id        String   @id @default(uuid())
+  requestId String
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  action    String   // "SUBMITTED" | "APPROVED" | "REJECTED" | "APPLIED"
+  actorId   String
+  actorName String
+  actorRole String   // "SALES_PERSON" | "MANAGER" | "BRANCH_MANAGER" | "OWNER"
+  stage     String   // e.g. "PENDING_BRANCH_MANAGER"
+  remarks   String?
+  createdAt DateTime @default(now())
+
+  @@index([requestId])
+  @@index([actorId])
+  @@map("request_audits")
 }
 
 model Agreement {

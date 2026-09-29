@@ -7,7 +7,6 @@ import MoreServicesPage from "./pages/MoreServicesPage";
 import EligibilityPage from "./pages/EligibilityPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import PaymentsPage from "./pages/PaymentsPage";
-import { CircularProgressChart } from "./components/charts";
 import { getTrackerState, getSchemeCompletedStages, getClientAllSchemeTrackers, getClientCompositeKey, isClientPrimaryScheme, isPaymentDemandOrSettlement, getCanonicalSchemeName } from "./utils/schemeTracker";
 import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord } from "./utils/branchHelper";
 
@@ -622,11 +621,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
     return {
       managerName: mgrStr,
-      managerRole: `Sales Manager (${branchDetails?.branchName || "North Zone (Delhi)"})`,
+      managerRole: "Sales Manager",
       managerInitials: mgrInitials || "AS",
       managerPhone: "+91 98111 22335",
       salesRepName: repStr,
-      salesRepRole: "Assigned Sales Representative (CRM Creator)",
+      salesRepRole: "Sales Representative",
       salesRepInitials: repInitials || "RG",
       branchName: branchDetails?.branchName || "North Zone (Delhi)",
     };
@@ -929,7 +928,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     window.addEventListener("agni_scheme_updated", syncClientPlans);
     window.addEventListener("agni_clients_updated", syncClientPlans);
     window.addEventListener("agni_payments_updated", syncClientPlans);
-    const interval = setInterval(syncClientPlans, 1000);
+    const interval = setInterval(syncClientPlans, 30000);
     return () => {
       window.removeEventListener("storage", syncClientPlans);
       window.removeEventListener("agni_scheme_updated", syncClientPlans);
@@ -1078,20 +1077,27 @@ export default function Dashboard({ onSignOut, userEmail }) {
         allReqs.push(pendingReq);
         localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
         setPendingRequests((prev) => [...prev, pendingReq]);
+
+        // Post to backend database so Reps and Managers receive the request across devices
+        apiFetch("/requests", {
+          method: "POST",
+          body: {
+            clientId: dbProfile?.id,
+            requestType: "NEW_SERVICE",
+            reason: `Client self-enrollment for ${pendingReq.schemeName} (${pendingReq.cover})`,
+            requestedChanges: pendingReq,
+          },
+        }).then(() => {
+          window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+          window.dispatchEvent(new CustomEvent("agni_pending_updated"));
+        }).catch((err) => {
+          console.warn("Could not post scheme request to backend API:", err);
+        });
       }
     } catch (e) {
       console.warn("Could not save scheme application request:", e);
     }
   }, [userEmail, dbProfile, clientInfo, dedicatedTeam]);
-
-  const executiveMetrics = React.useMemo(() => {
-    return [
-      { label: "Required Amount", value: formattedTotalLoan, icon: "shield", color: "#4e7cff", bg: "rgba(78, 124, 255, 0.12)" },
-      { label: "Active Services", value: `${activePlansList.length} Plan${activePlansList.length > 1 ? "s" : ""}`, icon: "briefcase", color: "#9a74e9", bg: "rgba(154, 116, 233, 0.12)" },
-      { label: "Compliance Score", value: "94%", icon: "file", color: "#44bfb0", bg: "rgba(68, 191, 176, 0.12)" },
-      { label: "Next Renewal", value: "14 Jun 2027", icon: "clock", color: "#f2aa38", bg: "rgba(242, 170, 56, 0.12)" },
-    ];
-  }, [formattedTotalLoan, activePlansList]);
 
   const [selectedPipelineSchemeName, setSelectedPipelineSchemeName] = React.useState(null);
 
@@ -1178,6 +1184,47 @@ export default function Dashboard({ onSignOut, userEmail }) {
   }, [allSchemeTrackers, activePipelineScheme, userEmail, activePlansList, dbProfile, clientInfo, trackerSyncTick]);
 
   const clientProgressPercent = clientTracker.progressPercent;
+
+  const formattedRenewalDate = React.useMemo(() => {
+    const rawDate = dbProfile?.dueDate || activeSalesClient?.dueDate;
+    if (rawDate) {
+      try {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+        }
+      } catch (e) { }
+      if (typeof rawDate === "string" && rawDate.trim()) return rawDate;
+    }
+    try {
+      const emailKey = (userEmail || "").trim().toLowerCase();
+      const localDue = localStorage.getItem(`agni_client_due_date_${emailKey}`);
+      if (localDue) {
+        const d = new Date(localDue);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+        }
+      }
+    } catch (e) { }
+    return "14 Jun 2027";
+  }, [dbProfile?.dueDate, activeSalesClient?.dueDate, userEmail]);
+
+  const executiveMetrics = React.useMemo(() => {
+    return [
+      { label: "Required Amount", value: formattedTotalLoan, icon: "shield", color: "#4e7cff", bg: "rgba(78, 124, 255, 0.12)" },
+      { label: "Active Services", value: `${activePlansList.length} Plan${activePlansList.length > 1 ? "s" : ""}`, icon: "briefcase", color: "#9a74e9", bg: "rgba(154, 116, 233, 0.12)" },
+      { label: "Scheme Progress", value: `${clientProgressPercent}%`, icon: "chart", color: "#44bfb0", bg: "rgba(68, 191, 176, 0.12)" },
+      { label: "Next Renewal", value: formattedRenewalDate, icon: "clock", color: "#f2aa38", bg: "rgba(242, 170, 56, 0.12)" },
+    ];
+  }, [formattedTotalLoan, activePlansList, clientProgressPercent, formattedRenewalDate]);
   const filteredSchemes = activePlansList.filter((s) => !isPaymentDemandOrSettlement(s));
 
   // Auto notification listener for Pipeline Stage / Progress Updates
@@ -1704,9 +1751,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
                       <span className="cd-kicker">APPLICATION STATUS</span>
                       <h2>Active Service Pipeline ({clientTracker.schemeName})</h2>
                     </div>
-                    <div className="cd-tracker-ring-wrap">
-                      <CircularProgressChart progress={clientProgressPercent} />
-                    </div>
                   </div>
 
                   {allSchemeTrackers.length > 1 && (
@@ -1744,6 +1788,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                       completedSteps={clientTracker.completedStages}
                       progress={clientTracker.progressPercent}
                       interactive={false}
+                      showMeter={false}
                     />
                   </div>
                 </section>
@@ -1843,10 +1888,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
                 {/* Account Manager & Sales Lead Contact Widget */}
                 <section className="cd-section-card cd-manager-section">
-                  <div className="cd-section-head" style={{ marginBottom: 16 }}>
+                  <div className="cd-section-head" style={{ marginBottom: 14 }}>
                     <div>
-                      <span className="cd-kicker">YOUR DEDICATED TEAM</span>
-                      <h2 style={{ fontSize: 20 }}>Account Leadership</h2>
+                      <span className="cd-kicker">Single Point of Contact</span>
+                      <h2 style={{ fontSize: 20 }}>SPOC</h2>
                     </div>
                   </div>
 
@@ -1861,22 +1906,23 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
                     <div className="cd-sales-rep-chip">
                       <div className="cd-sales-avatar-sm">{dedicatedTeam.salesRepInitials}</div>
-                      <div>
-                        <strong>{dedicatedTeam.salesRepName}</strong>
-                        <small>{dedicatedTeam.salesRepRole}</small>
+                      <div className="cd-manager-details">
+                        <h3>{dedicatedTeam.salesRepName}</h3>
+                        <p className="cd-sales-role">{dedicatedTeam.salesRepRole}</p>
                       </div>
                     </div>
 
                     <div className="cd-manager-actions">
-                      <a href={`tel:${dedicatedTeam.managerPhone}`} className="cd-call-btn">
-                        <DashboardIcon name="phone" size={14} /> Call Sales Manager
+                      <a href={`tel:${dedicatedTeam.managerPhone}`} className="cd-call-btn" title="Call Sales Manager">
+                        <DashboardIcon name="phone" size={13} /> Call Manager
                       </a>
                       <button
                         type="button"
                         className="cd-email-btn"
                         onClick={() => setNewRequestOpen(true)}
+                        title="Contact Sales Representative"
                       >
-                        Contact Representative
+                        <DashboardIcon name="arrow" size={13} /> Contact Rep
                       </button>
                     </div>
                   </div>
@@ -2314,6 +2360,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                   completedSteps={inspectCompletedSteps}
                   progress={inspectTrackerState.progressPercent}
                   interactive={false}
+                  showMeter={false}
                 />
               </div>
 

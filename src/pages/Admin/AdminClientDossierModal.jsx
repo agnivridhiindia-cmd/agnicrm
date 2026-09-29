@@ -3,6 +3,7 @@ import Icon from "../../components/Icon";
 import ActivityTracker from "../../components/ActivityTracker";
 import { stageBadgeColors, formatCurrency } from "./mockAdminData";
 import { getTrackerState, getProcessTypeForScheme, getProcessTypeLabel, getClientAllSchemeTrackers, isClientPrimaryScheme, getSchemeCompletedStages } from "../../utils/schemeTracker";
+import { downloadClientDossierPDF, downloadClientStatementPDF } from "../../utils/exportHelpers";
 import "./AdminDashboard.css";
 
 export default function AdminClientDossierModal({
@@ -280,28 +281,55 @@ export default function AdminClientDossierModal({
           <div
             style={{
               display: "flex",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
               gap: 12,
               paddingTop: 10,
               borderTop: "1px solid rgba(154, 116, 233, 0.15)",
             }}
           >
-            <button className="admin-btn-secondary" type="button" onClick={onClose} style={{ padding: "10px 20px" }}>
-              Close Dossier
-            </button>
-            {onOpenStatusUpdate && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button
-                className="admin-btn-primary"
+                className="admin-btn-secondary"
                 type="button"
-                style={{ padding: "10px 24px" }}
-                onClick={() => {
-                  onOpenStatusUpdate(selectedClientForDossier);
-                }}
+                style={{ padding: "8px 14px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
+                title="Download printable executive A4 dossier PDF"
+                onClick={() => downloadClientDossierPDF(selectedClientForDossier)}
               >
-                <Icon name="check" size={16} />
-                <span>Update Status</span>
+                <span>📄</span>
+                <span>Download Dossier (PDF)</span>
               </button>
-            )}
+              <button
+                className="admin-btn-secondary"
+                type="button"
+                style={{ padding: "8px 14px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
+                title="Download financial account statement and ledger PDF"
+                onClick={() => downloadClientStatementPDF(selectedClientForDossier)}
+              >
+                <span>📊</span>
+                <span>Statement (PDF)</span>
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button className="admin-btn-secondary" type="button" onClick={onClose} style={{ padding: "10px 20px" }}>
+                Close Dossier
+              </button>
+              {onOpenStatusUpdate && (
+                <button
+                  className="admin-btn-primary"
+                  type="button"
+                  style={{ padding: "10px 24px" }}
+                  onClick={() => {
+                    onOpenStatusUpdate(selectedClientForDossier);
+                  }}
+                >
+                  <Icon name="check" size={16} />
+                  <span>Update Status</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

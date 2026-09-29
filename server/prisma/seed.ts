@@ -230,6 +230,7 @@ async function main() {
     sales: [
       { email: "rohan.sales@agni.com", name: "Rohan Gupta", phone: "+91 98111 22336" },
       { email: "kavya.sales@agni.com", name: "Kavya Sharma", phone: "+91 98111 22337" },
+      { email: "arjun.sales@agni.com", name: "Arjun Hegde", phone: "+91 98440 33447" },
     ],
     it: [
       { email: "aarav.it@agni.com", name: "Aarav Mehta (IT Lead)", phone: "+91 98111 22338" },
@@ -251,7 +252,6 @@ async function main() {
     bm: { email: "suresh.bm@agni.com", name: "Suresh Reddy", phone: "+91 98440 33445" },
     sm: { email: "karthik.sm@agni.com", name: "Karthik Iyer", phone: "+91 98440 33446" },
     sales: [
-      { email: "arjun.sales@agni.com", name: "Arjun Hegde", phone: "+91 98440 33447" },
       { email: "deepa.sales@agni.com", name: "Deepa Rao", phone: "+91 98440 33448" },
     ],
     it: [

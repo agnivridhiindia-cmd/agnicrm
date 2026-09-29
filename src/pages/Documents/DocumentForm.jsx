@@ -3,7 +3,114 @@ import { apiFetch } from "../../services/apiClient";
 import Brand from "../../components/Brand";
 import Icon from "../../components/Icon";
 
-export default function DocumentForm({ email, onComplete }) {
+// ── Official Document Format Rules & Constraints ─────────────────────────────
+const CONSTRAINTS = {
+  panNumber: {
+    clean: (v) => (v || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10),
+    validate: (v) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v || ""),
+    hint: "5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)",
+    error: "Invalid PAN format. Must be 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F).",
+    placeholder: "e.g. ABCDE1234F",
+    pattern: "[A-Z]{5}[0-9]{4}[A-Z]{1}",
+    maxLength: 10,
+  },
+  companyPan: {
+    clean: (v) => (v || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10),
+    validate: (v) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v || ""),
+    hint: "Corporate PAN: 5 letters, 4 digits, 1 letter (e.g. AAACB1234C)",
+    error: "Invalid Company PAN. Must be 5 letters, 4 digits, and 1 letter (e.g. AAACB1234C).",
+    placeholder: "e.g. AAACB1234C",
+    pattern: "[A-Z]{5}[0-9]{4}[A-Z]{1}",
+    maxLength: 10,
+  },
+  aadharNumber: {
+    clean: (v) => {
+      const digits = (v || "").replace(/\D/g, "").slice(0, 12);
+      return digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+    },
+    validate: (v) => {
+      const raw = (v || "").replace(/\s/g, "");
+      return /^[2-9]{1}[0-9]{11}$/.test(raw);
+    },
+    hint: "12-digit Aadhaar UID without 0 or 1 prefix (e.g. 2345 6789 0123)",
+    error: "Invalid Aadhar number. Must be exactly 12 digits (e.g. 2345 6789 0123).",
+    placeholder: "e.g. 2345 6789 0123",
+    pattern: "[2-9]{1}[0-9]{3}\\s?[0-9]{4}\\s?[0-9]{4}",
+    maxLength: 14,
+  },
+  msmeNumber: {
+    clean: (v) => (v || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 19),
+    validate: (v) => /^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{5,8}$/.test((v || "").trim().toUpperCase()),
+    hint: "Official Udyam format: UDYAM-XX-00-0000000 (e.g. UDYAM-MH-01-0012345)",
+    error: "Invalid MSME format. Must follow UDYAM-XX-00-0000000 (e.g. UDYAM-MH-01-0012345).",
+    placeholder: "e.g. UDYAM-MH-01-0012345",
+    pattern: "^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{5,8}$",
+    maxLength: 19,
+  },
+  gstNumber: {
+    clean: (v) => (v || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 15),
+    validate: (v) => {
+      if (!v || !v.trim()) return true;
+      return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v.trim().toUpperCase());
+    },
+    hint: "15-character GSTIN (e.g. 27ABCDE1234F1Z5) — Optional",
+    error: "Invalid GSTIN format. Must be 15 alphanumeric characters (e.g. 27ABCDE1234F1Z5).",
+    placeholder: "e.g. 27ABCDE1234F1Z5 (Optional)",
+    pattern: "[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}",
+    maxLength: 15,
+  },
+  tanNumber: {
+    clean: (v) => (v || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 10),
+    validate: (v) => /^[A-Z]{4}[0-9]{5}[A-Z]{1}$/.test(v || ""),
+    hint: "10-character TAN: 4 letters, 5 digits, 1 letter (e.g. MUMB12345A)",
+    error: "Invalid TAN format. Must be 4 letters, 5 digits, and 1 letter (e.g. MUMB12345A).",
+    placeholder: "e.g. MUMB12345A",
+    pattern: "[A-Z]{4}[0-9]{5}[A-Z]{1}",
+    maxLength: 10,
+  },
+  cinNumber: {
+    clean: (v) => (v || "").replace(/[^a-zA-Z0-9-]/g, "").toUpperCase().slice(0, 21),
+    validate: (v, isLlp) => {
+      if (!v) return false;
+      const val = v.trim().toUpperCase();
+      if (isLlp) {
+        return /^[A-Z]{3}-[0-9]{4}$|^[A-Z0-9]{7,8}$/.test(val);
+      }
+      return /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/.test(val);
+    },
+    hint: (isLlp) => isLlp ? "LLPIN registration number (e.g. AAA-1234)" : "21-character CIN starting with L or U (e.g. U74999MH2021PTC123456)",
+    error: (isLlp) => isLlp ? "Invalid LLPIN. Format: AAA-1234 or 8 alphanumeric characters." : "Invalid CIN. Must be 21 characters starting with L/U (e.g. U74999MH2021PTC123456).",
+    placeholder: (isLlp) => isLlp ? "e.g. AAA-1234" : "e.g. U74999MH2021PTC123456",
+    maxLength: 21,
+  },
+  twelveARegNumber: {
+    clean: (v) => (v || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 25),
+    validate: (v) => (v || "").trim().length >= 4,
+    hint: "Income Tax Sec 12A registration number (e.g. 12A-XXXX-YYYY)",
+    error: "12A Registration number must be at least 4 characters.",
+    placeholder: "e.g. 12A-XXXX-YYYY",
+    maxLength: 25,
+  },
+  eightyGCertNumber: {
+    clean: (v) => (v || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 25),
+    validate: (v) => (v || "").trim().length >= 4,
+    hint: "Income Tax Sec 80G certificate number (e.g. 80G-XXXX-YYYY)",
+    error: "80G Certificate number must be at least 4 characters.",
+    placeholder: "e.g. 80G-XXXX-YYYY",
+    maxLength: 25,
+  },
+  darpanId: {
+    clean: (v) => (v || "").toUpperCase().replace(/[^A-Z0-9/]/g, "").slice(0, 20),
+    validate: (v) => /^[A-Z]{2}\/[0-9]{4}\/[0-9]{4,8}$/.test((v || "").trim()),
+    hint: "NITI Aayog DARPAN ID: STATE/YEAR/NUMBER (e.g. MH/2021/0123456)",
+    error: "Invalid DARPAN ID. Must follow STATE/YEAR/NUMBER format (e.g. MH/2021/0123456).",
+    placeholder: "e.g. MH/2021/0123456",
+    pattern: "^[A-Z]{2}/[0-9]{4}/[0-9]{4,8}$",
+    maxLength: 20,
+  },
+};
+
+export default function DocumentForm({ email, onComplete, onSignOut }) {
   const emailKey = email || "default";
 
   const [documentData, setDocumentData] = useState(() => {
@@ -34,6 +141,10 @@ export default function DocumentForm({ email, onComplete }) {
         darpanId: "",
       };
   });
+
+  const [touched, setTouched] = useState({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [formErrors, setFormErrors] = useState([]);
 
   useEffect(() => {
     localStorage.setItem(`agni_doc_temp_${emailKey}`, JSON.stringify(documentData));
@@ -93,8 +204,94 @@ export default function DocumentForm({ email, onComplete }) {
     setDocumentData((current) => ({ ...current, [field]: value }));
   }
 
+  function updateConstrainedField(field, rawValue) {
+    const rule = CONSTRAINTS[field];
+    const cleaned = rule ? rule.clean(rawValue) : rawValue;
+    setDocumentData((current) => ({ ...current, [field]: cleaned }));
+  }
+
+  function handleBlur(field) {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  }
+
+  const isNewCompany = String(documentData.companyAge) === "0";
+  const isCorporateEntity = ["Pvt Ltd", "OPC", "LLP", "Section 8 Company"].includes(documentData.businessType);
+  const isNgo = documentData.businessType === "NGO";
+  const isLlp = documentData.businessType === "LLP";
+
+  // Cross-check PAN and GSTIN
+  const activePan = isCorporateEntity ? documentData.companyPan : documentData.panNumber;
+  const gstEntered = (documentData.gstNumber || "").trim();
+  const gstPanMismatch = Boolean(
+    gstEntered.length === 15 &&
+    activePan &&
+    activePan.length === 10 &&
+    gstEntered.slice(2, 12).toUpperCase() !== activePan.toUpperCase()
+  );
+
   async function submit(event) {
     event.preventDefault();
+    setSubmitAttempted(true);
+
+    // Determine required document fields for the active entity type
+    const activeDocChecks = isNgo
+      ? [
+          { field: "panNumber", label: "NGO PAN Number", required: true },
+          { field: "twelveARegNumber", label: "12A Registration Number", required: true },
+          { field: "eightyGCertNumber", label: "80G Certificate Number", required: true },
+          { field: "darpanId", label: "DARPAN Unique ID", required: true },
+        ]
+      : isCorporateEntity
+      ? [
+          { field: "companyPan", label: "Company PAN", required: true },
+          { field: "tanNumber", label: "TAN Number", required: true },
+          { field: "cinNumber", label: isLlp ? "LLPIN" : "Corporate Identity Number (CIN)", required: true },
+          { field: "gstNumber", label: "GST Number", required: false },
+        ]
+      : [
+          { field: "panNumber", label: "PAN Number", required: true },
+          { field: "aadharNumber", label: "Aadhar Number", required: true },
+          { field: "msmeNumber", label: "MSME / Udyam Number", required: true },
+          { field: "gstNumber", label: "GST Number", required: false },
+        ];
+
+    const errors = [];
+    const newTouched = { ...touched };
+
+    activeDocChecks.forEach((item) => {
+      newTouched[item.field] = true;
+      const rule = CONSTRAINTS[item.field];
+      const val = (documentData[item.field] || "").trim();
+
+      if (item.required && !val) {
+        errors.push(`${item.label} is mandatory.`);
+        return;
+      }
+
+      if (val && rule) {
+        const isValid = item.field === "cinNumber" ? rule.validate(val, isLlp) : rule.validate(val);
+        if (!isValid) {
+          const err = typeof rule.error === "function" ? rule.error(isLlp) : rule.error;
+          errors.push(`${item.label}: ${err}`);
+        }
+      }
+    });
+
+    setTouched(newTouched);
+
+    if (errors.length > 0) {
+      setFormErrors(errors);
+      setTimeout(() => {
+        const firstErrEl = document.querySelector(".input-error, input:invalid");
+        if (firstErrEl) {
+          firstErrEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          firstErrEl.focus();
+        }
+      }, 50);
+      return;
+    }
+
+    setFormErrors([]);
 
     const payload = {
       companyName: documentData.companyName,
@@ -141,11 +338,6 @@ export default function DocumentForm({ email, onComplete }) {
     localStorage.setItem(`agni_client_doc_submitted_${emailKey.toLowerCase()}`, "true");
     localStorage.removeItem(`agni_doc_temp_${emailKey}`);
 
-    // Update the localStorage client cache with the submitted doc data.
-    // IMPORTANT: Only UPDATE existing records — never create new ones here.
-    // PostgreSQL has the authoritative client record. The localStorage list is
-    // only a read-through cache. If the client isn't found in localStorage,
-    // it will appear after the next DB fetch in useSalesClients.
     try {
       ["agni_sales_clients", "agni_branch_clients"].forEach((storageKey) => {
         let list = [];
@@ -163,10 +355,8 @@ export default function DocumentForm({ email, onComplete }) {
         );
 
         if (idx >= 0) {
-          // UPDATE existing — preserve all ownership fields from the existing record
           list[idx] = {
             ...list[idx],
-            // Only update the fields the client filled in the document form
             company: documentData.companyName || list[idx].company,
             companyName: documentData.companyName || list[idx].companyName,
             name: documentData.companyName || list[idx].name,
@@ -183,7 +373,6 @@ export default function DocumentForm({ email, onComplete }) {
             fundingPurpose: documentData.fundingPurpose || list[idx].fundingPurpose,
             companyDescription: documentData.companyDescription || list[idx].companyDescription,
             documentData: documentData,
-            // ── Preserve ownership fields exactly — never overwrite ─────────
             owner: list[idx].owner,
             ownerEmail: list[idx].ownerEmail,
             salesPerson: list[idx].salesPerson,
@@ -199,8 +388,6 @@ export default function DocumentForm({ email, onComplete }) {
           };
           localStorage.setItem(storageKey, JSON.stringify(list));
         }
-        // If idx < 0: client not in localStorage yet — skip. PostgreSQL has the
-        // record and useSalesClients will fetch it from DB on next load.
       });
       window.dispatchEvent(new Event("storage"));
       window.dispatchEvent(new Event("agni_clients_updated"));
@@ -208,15 +395,76 @@ export default function DocumentForm({ email, onComplete }) {
       console.warn("Could not sync DocumentForm data to sales client storage:", e);
     }
 
-
     if (typeof onComplete === "function") {
       onComplete(documentData);
     }
   }
 
-  const isNewCompany = String(documentData.companyAge) === "0";
-  const isCorporateEntity = ["Pvt Ltd", "OPC", "LLP", "Section 8 Company"].includes(documentData.businessType);
-  const isNgo = documentData.businessType === "NGO";
+  function renderDocumentField({ field, label, required = true }) {
+    const rule = CONSTRAINTS[field];
+    const value = documentData[field] || "";
+    const isFieldTouched = touched[field] || submitAttempted;
+
+    let isValid = false;
+    let errorText = "";
+    let hintText = "";
+    let placeholder = "";
+    let maxLength = 50;
+
+    if (rule) {
+      isValid = field === "cinNumber" ? rule.validate(value, isLlp) : rule.validate(value);
+      errorText = typeof rule.error === "function" ? rule.error(isLlp) : rule.error;
+      hintText = typeof rule.hint === "function" ? rule.hint(isLlp) : rule.hint;
+      placeholder = typeof rule.placeholder === "function" ? rule.placeholder(isLlp) : rule.placeholder;
+      maxLength = rule.maxLength || 50;
+    }
+
+    const hasError = isFieldTouched && !isValid && (required || value.length > 0);
+    const showValid = Boolean(value) && isValid;
+
+    return (
+      <label className="field-label" key={field}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>
+            {label} {required ? <span className="req-star">*</span> : <span className="opt-tag">(Optional)</span>}
+          </span>
+          {showValid && (
+            <span className="field-valid-badge">
+              ✓ Verified Format
+            </span>
+          )}
+        </div>
+        <div style={{ position: "relative" }}>
+          <input
+            name={field}
+            value={value}
+            onChange={(e) => updateConstrainedField(field, e.target.value)}
+            onBlur={() => handleBlur(field)}
+            placeholder={placeholder}
+            maxLength={maxLength}
+            required={required}
+            spellCheck="false"
+            autoComplete="off"
+            className={hasError ? "input-error" : showValid ? "input-valid" : ""}
+            style={{
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              fontWeight: value ? "600" : "normal",
+              letterSpacing: field === "aadharNumber" ? "1.5px" : "0.5px",
+            }}
+          />
+        </div>
+        {hasError ? (
+          <span className="field-error-msg">
+            ⚠ {errorText}
+          </span>
+        ) : (
+          <span className="field-hint">
+            {hintText}
+          </span>
+        )}
+      </label>
+    );
+  }
 
   return (
     <main className="auth-page doc-form-page">
@@ -244,11 +492,57 @@ export default function DocumentForm({ email, onComplete }) {
 
         <div className="auth-panel doc-form-panel">
           <div className="form-intro">
-            <p className="eyebrow">WELCOME TO AGNI CRM</p>
-            <h2 id="document-form-title">Profile & Document Verification</h2>
-            <p>
-              Signed in as: <strong>{email}</strong>
-            </p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
+              <div>
+                <p className="eyebrow">WELCOME TO AGNI CRM</p>
+                <h2 id="document-form-title">Profile & Document Verification</h2>
+                <p style={{ margin: "4px 0 0" }}>
+                  Signed in as: <strong>{email}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                id="doc-form-signout-btn"
+                onClick={() => {
+                  if (onSignOut) {
+                    onSignOut();
+                  } else {
+                    localStorage.removeItem("agni_user_email");
+                    localStorage.removeItem("agni_user_role");
+                    localStorage.removeItem("agni_role");
+                    localStorage.removeItem("agni_user");
+                    localStorage.removeItem("agni_email");
+                    localStorage.removeItem("agni_token");
+                    window.location.href = "/auth";
+                  }
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 16px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  color: "#ef4444",
+                  background: "rgba(239, 68, 68, 0.08)",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.15)";
+                  e.currentTarget.style.borderColor = "#ef4444";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
+                  e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
+                }}
+              >
+                <Icon name="logout" size={15} />
+                Sign Out / Switch Account
+              </button>
+            </div>
           </div>
 
           <form onSubmit={submit} autoComplete="off" className="doc-form-grid">
@@ -266,6 +560,8 @@ export default function DocumentForm({ email, onComplete }) {
                   value={documentData.companyName}
                   onChange={(e) => updateField("companyName", e.target.value)}
                   placeholder="e.g. Bright Retail Pvt Ltd"
+                  minLength={2}
+                  maxLength={100}
                   required
                 />
               </label>
@@ -348,8 +644,12 @@ export default function DocumentForm({ email, onComplete }) {
                     value={documentData.annualTurnover}
                     onChange={(e) => updateField("annualTurnover", e.target.value)}
                     placeholder="e.g. 5000000"
+                    min="1"
                     required={!isNewCompany}
                   />
+                  <span className="field-hint">
+                    Total revenue reported in the last financial year
+                  </span>
                 </label>
               )}
 
@@ -361,8 +661,12 @@ export default function DocumentForm({ email, onComplete }) {
                   value={documentData.fundingRequirement}
                   onChange={(e) => updateField("fundingRequirement", e.target.value)}
                   placeholder="e.g. 2500000"
+                  min="1000"
                   required
                 />
+                <span className="field-hint">
+                  Target grant, subsidy, or capital loan required
+                </span>
               </label>
             </div>
 
@@ -375,156 +679,60 @@ export default function DocumentForm({ email, onComplete }) {
             {isNgo ? (
               <>
                 <div className="form-row-2col">
-                  <label className="field-label">
-                    NGO PAN Number <span className="req-star">*</span>
-                    <input
-                      name="panNumber"
-                      value={documentData.panNumber || ""}
-                      onChange={(e) => updateField("panNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. ABCDE1234F"
-                      maxLength={10}
-                      required={isNgo}
-                    />
-                  </label>
-
-                  <label className="field-label">
-                    12A Registration Number <span className="req-star">*</span>
-                    <input
-                      name="twelveARegNumber"
-                      value={documentData.twelveARegNumber || ""}
-                      onChange={(e) => updateField("twelveARegNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. 12A-XXXX-YYYY"
-                      required={isNgo}
-                    />
-                  </label>
+                  {renderDocumentField({ field: "panNumber", label: "NGO PAN Number", required: true })}
+                  {renderDocumentField({ field: "twelveARegNumber", label: "12A Registration Number", required: true })}
                 </div>
 
                 <div className="form-row-2col">
-                  <label className="field-label">
-                    80G Certificate Number <span className="req-star">*</span>
-                    <input
-                      name="eightyGCertNumber"
-                      value={documentData.eightyGCertNumber || ""}
-                      onChange={(e) => updateField("eightyGCertNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. 80G-XXXX-YYYY"
-                      required={isNgo}
-                    />
-                  </label>
-
-                  <label className="field-label">
-                    DARPAN Unique ID <span className="req-star">*</span>
-                    <input
-                      name="darpanId"
-                      value={documentData.darpanId || ""}
-                      onChange={(e) => updateField("darpanId", e.target.value.toUpperCase())}
-                      placeholder="e.g. MH/2021/0123456"
-                      required={isNgo}
-                    />
-                  </label>
+                  {renderDocumentField({ field: "eightyGCertNumber", label: "80G Certificate Number", required: true })}
+                  {renderDocumentField({ field: "darpanId", label: "DARPAN Unique ID", required: true })}
                 </div>
               </>
             ) : isCorporateEntity ? (
               <>
                 <div className="form-row-2col">
-                  <label className="field-label">
-                    Company PAN <span className="req-star">*</span>
-                    <input
-                      name="companyPan"
-                      value={documentData.companyPan || ""}
-                      onChange={(e) => updateField("companyPan", e.target.value.toUpperCase())}
-                      placeholder="e.g. AAACB1234C"
-                      maxLength={10}
-                      required={isCorporateEntity}
-                    />
-                  </label>
-
-                  <label className="field-label">
-                    TAN (Tax Deduction Number) <span className="req-star">*</span>
-                    <input
-                      name="tanNumber"
-                      value={documentData.tanNumber || ""}
-                      onChange={(e) => updateField("tanNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. MUMB12345A"
-                      maxLength={10}
-                      required={isCorporateEntity}
-                    />
-                  </label>
+                  {renderDocumentField({ field: "companyPan", label: "Company PAN", required: true })}
+                  {renderDocumentField({ field: "tanNumber", label: "TAN (Tax Deduction Number)", required: true })}
                 </div>
 
                 <div className="form-row-2col">
-                  <label className="field-label">
-                    Corporate Identity Number (CIN) <span className="req-star">*</span>
-                    <input
-                      name="cinNumber"
-                      value={documentData.cinNumber || ""}
-                      onChange={(e) => updateField("cinNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. U74999MH2021PTC123456"
-                      maxLength={21}
-                      required={isCorporateEntity}
-                    />
-                  </label>
-
-                  <label className="field-label">
-                    GST Number <span className="opt-tag">(Optional)</span>
-                    <input
-                      name="gstNumber"
-                      value={documentData.gstNumber || ""}
-                      onChange={(e) => updateField("gstNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. 27ABCDE1234F1Z5 (Optional)"
-                    />
-                  </label>
+                  {renderDocumentField({
+                    field: "cinNumber",
+                    label: isLlp ? "LLPIN (LLP Registration)" : "Corporate Identity Number (CIN)",
+                    required: true,
+                  })}
+                  {renderDocumentField({ field: "gstNumber", label: "GST Number", required: false })}
                 </div>
+
+                {gstPanMismatch && (
+                  <div className="doc-cross-tip">
+                    <span>💡</span>
+                    <span>
+                      <strong>Notice:</strong> Characters 3-12 of GSTIN (<code>{gstEntered.slice(2, 12)}</code>) do not match your Company PAN (<code>{activePan}</code>).
+                    </span>
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <div className="form-row-2col">
-                  <label className="field-label">
-                    PAN Number <span className="req-star">*</span>
-                    <input
-                      name="panNumber"
-                      value={documentData.panNumber || ""}
-                      onChange={(e) => updateField("panNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. ABCDE1234F"
-                      maxLength={10}
-                      required={!isCorporateEntity}
-                    />
-                  </label>
-
-                  <label className="field-label">
-                    Aadhar Number <span className="req-star">*</span>
-                    <input
-                      name="aadharNumber"
-                      value={documentData.aadharNumber || ""}
-                      onChange={(e) => updateField("aadharNumber", e.target.value)}
-                      placeholder="e.g. 1234 5678 9012"
-                      maxLength={14}
-                      required={!isCorporateEntity}
-                    />
-                  </label>
+                  {renderDocumentField({ field: "panNumber", label: "PAN Number", required: true })}
+                  {renderDocumentField({ field: "aadharNumber", label: "Aadhar Number", required: true })}
                 </div>
 
                 <div className="form-row-2col">
-                  <label className="field-label">
-                    GST Number <span className="opt-tag">(Optional)</span>
-                    <input
-                      name="gstNumber"
-                      value={documentData.gstNumber || ""}
-                      onChange={(e) => updateField("gstNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. 27ABCDE1234F1Z5 (Optional)"
-                    />
-                  </label>
-
-                  <label className="field-label">
-                    MSME / Udyam Number <span className="req-star">*</span>
-                    <input
-                      name="msmeNumber"
-                      value={documentData.msmeNumber || ""}
-                      onChange={(e) => updateField("msmeNumber", e.target.value.toUpperCase())}
-                      placeholder="e.g. UDYAM-MH-01-0012345"
-                      required={!isCorporateEntity}
-                    />
-                  </label>
+                  {renderDocumentField({ field: "msmeNumber", label: "MSME / Udyam Number", required: true })}
+                  {renderDocumentField({ field: "gstNumber", label: "GST Number", required: false })}
                 </div>
+
+                {gstPanMismatch && (
+                  <div className="doc-cross-tip">
+                    <span>💡</span>
+                    <span>
+                      <strong>Notice:</strong> Characters 3-12 of GSTIN (<code>{gstEntered.slice(2, 12)}</code>) do not match your PAN (<code>{activePan}</code>).
+                    </span>
+                  </div>
+                )}
               </>
             )}
 
@@ -542,6 +750,7 @@ export default function DocumentForm({ email, onComplete }) {
                 value={documentData.companyDescription}
                 onChange={(e) => updateField("companyDescription", e.target.value)}
                 placeholder="Briefly describe your company's core products, services, and operational workflow..."
+                minLength={10}
                 required
               />
             </label>
@@ -554,9 +763,27 @@ export default function DocumentForm({ email, onComplete }) {
                 value={documentData.fundingPurpose}
                 onChange={(e) => updateField("fundingPurpose", e.target.value)}
                 placeholder="Specify how the required funding will be deployed (e.g. machinery acquisition, working capital expansion, plant setup)..."
+                minLength={10}
                 required
               />
             </label>
+
+            {formErrors.length > 0 && (
+              <div className="doc-form-alert" role="alert">
+                <h4>
+                  <Icon name="close" size={15} />
+                  Document Validation Constraints
+                </h4>
+                <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#7f1d1d" }}>
+                  Please correct the following document requirements before submitting:
+                </p>
+                <ul>
+                  {formErrors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <button className="primary-button" type="submit" style={{ marginTop: 12 }}>
               Submit Profile & Launch Dashboard

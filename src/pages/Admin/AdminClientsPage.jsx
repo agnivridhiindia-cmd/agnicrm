@@ -1,5 +1,6 @@
 import React from "react";
 import { ACTIVITY_STAGES, stageBadgeColors, formatCurrency, getTrackerState, getCanonicalSchemeName } from "./mockAdminData";
+import { exportClientsToCSV, downloadClientDossierPDF } from "../../utils/exportHelpers";
 import "./AdminDashboard.css";
 
 export default function AdminClientsPage({
@@ -40,7 +41,7 @@ export default function AdminClientsPage({
           ))}
         </div>
 
-        <div style={{ minWidth: 280 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 380 }}>
           <input
             type="text"
             className="admin-form-input"
@@ -48,6 +49,16 @@ export default function AdminClientsPage({
             value={clientSearch}
             onChange={(e) => setClientSearch(e.target.value)}
           />
+          <button
+            type="button"
+            className="admin-btn-secondary"
+            style={{ padding: "8px 14px", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
+            title="Export filtered clients to CSV spreadsheet"
+            onClick={() => exportClientsToCSV(filteredClients, `${selectedBranch}_Clients`)}
+          >
+            <span>📥</span>
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
@@ -145,6 +156,15 @@ export default function AdminClientsPage({
                         onClick={() => onOpenStatusUpdate(client)}
                       >
                         Update Status
+                      </button>
+                      <button
+                        className="admin-btn-secondary"
+                        type="button"
+                        style={{ padding: "6px 10px", fontSize: 12 }}
+                        title="Download Dossier PDF"
+                        onClick={() => downloadClientDossierPDF(client)}
+                      >
+                        📄 PDF
                       </button>
                       <button
                         className="admin-btn-secondary"

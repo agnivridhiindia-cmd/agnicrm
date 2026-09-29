@@ -74,6 +74,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
     pendingSchemeRequests,
     handleApproveSchemeRequest,
     handleDeclineSchemeRequest,
+    handleUpdateClientDueDate,
   } = useSalesClients(salesPersonName, (createdClient) => {
     showToast(
       `✓ Client registration for "${createdClient?.company || createdClient?.name || 'New Client'}" submitted to Sales Manager for approval!`
@@ -270,6 +271,12 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
                 onDeclineSchemeRequest={(reqId) => {
                   handleDeclineSchemeRequest(reqId);
                   showToast("Application request declined.");
+                }}
+                onUpdateDueDate={(newDueDate) => {
+                  if (selectedClient) {
+                    handleUpdateClientDueDate(selectedClient.id, newDueDate);
+                    showToast("✓ Service Due Date & Renewal updated! Synced to Client Dashboard.");
+                  }
                 }}
               />
             )}

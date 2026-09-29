@@ -13,6 +13,8 @@ import {
   deleteClientService,
   updateClientService,
   updateClientEligibleSchemesService,
+  updateClientDueDateService,
+  restoreClientService,
 } from "../services/client.service";
 
 const createClientSchema = z.object({
@@ -73,7 +75,9 @@ const updateDocumentStatusSchema = z.object({
 export async function getClients(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const user = req.user!;
-    const result = await getClientsService(user);
+    const deletedOnly = req.query.deletedOnly === "true";
+    const includeDeleted = req.query.includeDeleted === "true";
+    const result = await getClientsService(user, { deletedOnly, includeDeleted });
     return res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -154,7 +158,20 @@ export async function verifyClientDocument(req: AuthenticatedRequest, res: Respo
 export async function deleteClient(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const clientId = req.params.id as string;
-    const result = await deleteClientService(clientId);
+    const user = req.user;
+    const reason = req.body?.reason;
+    const result = await deleteClientService(clientId, user, reason);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function restoreClient(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const clientId = req.params.id as string;
+    const user = req.user!;
+    const result = await restoreClientService(clientId, user);
     return res.status(result.statusCode).json(result);
   } catch (error) {
     next(error);
@@ -198,6 +215,18 @@ export async function updateClientEligibleSchemes(req: AuthenticatedRequest, res
     next(error);
   }
 }
+
+export async function updateClientDueDate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const clientId = req.params.id as string;
+    const dueDate = req.body.dueDate !== undefined ? req.body.dueDate : null;
+    const result = await updateClientDueDateService(clientId, dueDate);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 
 

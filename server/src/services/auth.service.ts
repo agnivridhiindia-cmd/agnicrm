@@ -153,7 +153,25 @@ export interface GetUsersQuery {
   branchId?: string;
 }
 
+interface UsersCacheEntry {
+  timestamp: number;
+  data: any;
+}
+const usersCache = new Map<string, UsersCacheEntry>();
+const USERS_CACHE_TTL_MS = 15000; // 15 seconds
+
+export function invalidateUsersCache() {
+  usersCache.clear();
+}
+
 export async function getUsersService({ role, branchId }: GetUsersQuery) {
+  const cacheKey = `${role || ""}_${branchId || ""}`;
+  const now = Date.now();
+  const cached = usersCache.get(cacheKey);
+  if (cached && now - cached.timestamp < USERS_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   const whereClause: any = { isDeleted: false };
   if (role) {
     whereClause.role = String(role);
@@ -164,15 +182,25 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
     whereClause.branchId = String(branchId);
   }
 
-  const users = await prisma.user.findMany({
-    where: whereClause,
-    include: {
-      branch: true,
-      reportingManager: true,
-      salesClients: { where: { isDeleted: false } },
-    },
-    orderBy: { fullName: "asc" },
-  });
+  const [users, allBranches, allUsers] = await Promise.all([
+    prisma.user.findMany({
+      where: whereClause,
+      include: {
+        branch: true,
+        reportingManager: true,
+        salesClients: { where: { isDeleted: false } },
+        employeeTransferLogs: {
+          orderBy: { transferredAt: "desc" },
+        },
+      },
+      orderBy: { fullName: "asc" },
+    }),
+    prisma.branch.findMany(),
+    prisma.user.findMany({ select: { id: true, fullName: true, email: true } }),
+  ]);
+
+  const branchMap = new Map(allBranches.map((b) => [b.id, b]));
+  const userMap = new Map(allUsers.map((u) => [u.id, u]));
 
   const formattedUsers = users.map((u) => {
     let roleLabel: string = u.role;
@@ -187,6 +215,22 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
       ? "Devika Shah (Owner)"
       : null;
 
+    const originBranchName = u.originBranchId
+      ? branchMap.get(u.originBranchId)?.name || "Origin Branch"
+      : u.branch?.name || (u.region || "West Zone (Mumbai)");
+
+    const initialManagerName = u.initialManagerId
+      ? userMap.get(u.initialManagerId)?.fullName || null
+      : null;
+
+    const enrichedLogs = (u.employeeTransferLogs || []).map((log) => ({
+      ...log,
+      fromBranch: log.fromBranchId ? branchMap.get(log.fromBranchId)?.name || null : null,
+      toBranch: log.toBranchId ? branchMap.get(log.toBranchId)?.name || null : null,
+      fromManager: log.fromManagerId ? userMap.get(log.fromManagerId)?.fullName || null : null,
+      toManager: log.toManagerId ? userMap.get(log.toManagerId)?.fullName || null : null,
+    }));
+
     return {
       id: u.id,
       name: u.fullName,
@@ -197,6 +241,12 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
       rawRole: u.role,
       branch: u.branch ? u.branch.name : (u.region || "West Zone (Mumbai)"),
       branchId: u.branchId,
+      originBranchId: u.originBranchId,
+      originBranch: originBranchName,
+      initialManagerId: u.initialManagerId,
+      initialManager: initialManagerName,
+      isTransferred: Boolean(u.originBranchId && u.branchId && u.originBranchId !== u.branchId),
+      transferLogs: enrichedLogs,
       reportingManager: reportingManagerName,
       reportingManagerId: u.reportingManagerId,
       status: u.status || "Active",
@@ -225,11 +275,13 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
     return (a.fullName || a.name || "").localeCompare(b.fullName || b.name || "");
   });
 
-  return {
+  const result = {
     success: true,
     statusCode: 200,
     users: formattedUsers,
   };
+  usersCache.set(cacheKey, { timestamp: Date.now(), data: result });
+  return result;
 }
 
 export interface ChangePasswordParams {

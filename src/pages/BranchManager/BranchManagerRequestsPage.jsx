@@ -1,15 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Icon from "../../components/Icon";
 import BranchManagerCreateRequestModal from "./BranchManagerCreateRequestModal";
 import BranchManagerRequestModal from "./BranchManagerRequestModal";
 import { initialBranchSentRequests, initialManagerReceivedRequests } from "./mockBranchRequests";
 import { repairPendingClientCreations } from "../../utils/branchHelper";
+import { apiFetch } from "../../services/apiClient";
 
 export default function BranchManagerRequestsPage({
   employeesList = [],
   branchAdmins = [],
   branchIT = [],
   branchMarketing = [],
+  clients = [],
 }) {
   const [activeTab, setActiveTab] = useState("My Requests"); // "My Requests", "Manager Requests", "Decision History"
   const [sentRequests, setSentRequests] = useState(initialBranchSentRequests);
@@ -18,6 +20,22 @@ export default function BranchManagerRequestsPage({
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedIsManagerReq, setSelectedIsManagerReq] = useState(false);
   const [notification, setNotification] = useState("");
+
+  const [localClients, setLocalClients] = useState(clients || []);
+  useEffect(() => {
+    if (clients && clients.length > 0) {
+      setLocalClients(clients);
+    } else {
+      apiFetch("/clients")
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && Array.isArray(resData.data)) {
+            setLocalClients(resData.data);
+          }
+        })
+        .catch((err) => console.warn("Failed fetching clients fallback:", err));
+    }
+  }, [clients]);
 
   // Filter states for History tab
   const [statusFilter, setStatusFilter] = useState("All");
@@ -49,19 +67,150 @@ export default function BranchManagerRequestsPage({
           const nonCreation = prev.filter((r) => r.source !== "client_creation");
           return [...liveCreationsMap, ...nonCreation];
         });
+        apiFetch("/requests")
+          .then((r) => r.json())
+          .then((resData) => {
+            if (resData.success && Array.isArray(resData.data)) {
+              const liveApiRequests = resData.data.map((r) => {
+                const clientName = r.client?.companyName || r.client?.name || r.requestedChanges?.companyName || r.requestedChanges?.name || "Client Account";
+                return {
+                  id: r.requestCode || r.id,
+                  rawId: r.id,
+                  requesterName: r.requester?.fullName || "Regional Manager",
+                  requesterRole: r.requester?.role || "Manager",
+                  requesterBranch: r.client?.branch?.name || "Branch",
+                  targetName: clientName,
+                  targetRole: r.targetEntityType || "Client",
+                  department: "Sales",
+                  requestType: r.requestType === "DELETE_CLIENT"
+                    ? "Delete Client"
+                    : r.requestType === "TRANSFER_CLIENT"
+                    ? "Transfer Client"
+                    : r.requestType === "EDIT_CLIENT"
+                    ? "Edit Client"
+                    : r.requestType === "DELETE_EMPLOYEE"
+                    ? "Delete Staff"
+                    : r.requestType === "TRANSFER_EMPLOYEE"
+                    ? "Transfer Staff"
+                    : r.requestType === "EDIT_EMPLOYEE"
+                    ? "Edit Profile"
+                    : r.requestType,
+                  reason: r.reason,
+                  status: r.status === "PENDING" ? "Pending" : r.status === "APPROVED" ? "Approved" : "Rejected",
+                  createdAt: r.createdAt ? String(r.createdAt).split("T")[0] : "",
+                  currentStage: r.currentStage,
+                  approvalChain: r.approvalChain,
+                  currentChainIndex: r.currentChainIndex,
+                  requestedChanges: Array.isArray(r.requestedChanges) ? r.requestedChanges : [],
+                  auditHistory: r.auditHistory || [],
+                  raw: r,
+                };
+              });
+              setReceivedRequests((prev) => {
+                const nonApi = prev.filter((p) => !p.rawId);
+                return [...liveApiRequests, ...nonApi];
+              });
+            }
+          })
+          .catch(() => {});
       } catch (e) {}
     }
 
     loadLiveBranchRequests();
     window.addEventListener("storage", loadLiveBranchRequests);
+    window.addEventListener("agni_requests_updated", loadLiveBranchRequests);
     window.addEventListener("agni_pending_updated", loadLiveBranchRequests);
-    const interval = setInterval(loadLiveBranchRequests, 2000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      loadLiveBranchRequests();
+    }, 15000);
     return () => {
       window.removeEventListener("storage", loadLiveBranchRequests);
+      window.removeEventListener("agni_requests_updated", loadLiveBranchRequests);
       window.removeEventListener("agni_pending_updated", loadLiveBranchRequests);
       clearInterval(interval);
     };
   }, []);
+
+  const handleApproveManagerRequest = async (requestId, remarks = "") => {
+    try {
+      const targetReq = receivedRequests.find((r) => r.id === requestId || r.rawId === requestId);
+      const targetId = targetReq?.rawId || requestId;
+      if (targetReq?.rawId) {
+        const res = await apiFetch(`/requests/${targetId}/decision`, {
+          method: "PATCH",
+          body: { decision: "APPROVED", managerRemarks: remarks },
+        });
+        if (res.ok) {
+          setNotification("✓ Request approved and forwarded according to workflow hierarchy.");
+          window.dispatchEvent(new CustomEvent("agni_requests_updated"));
+          window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+          window.dispatchEvent(new CustomEvent("agni_employees_updated"));
+          setTimeout(() => setNotification(""), 4000);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          setNotification(`⚠️ ${err.message || "Failed to approve request."}`);
+        }
+      } else {
+        // Fallback for mock/local items
+        setReceivedRequests((prev) =>
+          prev.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  status: "Approved",
+                  decisionDate: new Date().toISOString().split("T")[0],
+                  managerRemarks: remarks || "Approved by Branch Manager.",
+                }
+              : r
+          )
+        );
+        setNotification(`Request ${requestId} has been Approved.`);
+        setTimeout(() => setNotification(""), 4500);
+      }
+    } catch (e) {
+      setNotification("⚠️ Network error while approving request.");
+    }
+  };
+
+  const handleRejectManagerRequest = async (requestId, remarks = "") => {
+    try {
+      const targetReq = receivedRequests.find((r) => r.id === requestId || r.rawId === requestId);
+      const targetId = targetReq?.rawId || requestId;
+      if (targetReq?.rawId) {
+        const res = await apiFetch(`/requests/${targetId}/decision`, {
+          method: "PATCH",
+          body: { decision: "REJECTED", managerRemarks: remarks },
+        });
+        if (res.ok) {
+          setNotification("✓ Request rejected.");
+          window.dispatchEvent(new CustomEvent("agni_requests_updated"));
+          setTimeout(() => setNotification(""), 4000);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          setNotification(`⚠️ ${err.message || "Failed to reject request."}`);
+        }
+      } else {
+        // Fallback for mock/local items
+        setReceivedRequests((prev) =>
+          prev.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  status: "Rejected",
+                  decisionDate: new Date().toISOString().split("T")[0],
+                  managerRemarks: remarks || "Rejected by Branch Manager.",
+                }
+              : r
+          )
+        );
+        setNotification(`Request ${requestId} has been Rejected.`);
+        setTimeout(() => setNotification(""), 4500);
+      }
+    } catch (e) {
+      setNotification("⚠️ Network error while rejecting request.");
+    }
+  };
 
   // KPIs
   const pendingSentCount = useMemo(
@@ -98,42 +247,50 @@ export default function BranchManagerRequestsPage({
     });
   }, [sentRequests, receivedRequests, statusFilter, deptFilter, searchQuery]);
 
-  // Handlers for Manager requests review
-  const handleApproveManagerRequest = (reqId, remarks) => {
-    setReceivedRequests((prev) =>
-      prev.map((r) =>
-        r.id === reqId
-          ? {
-              ...r,
-              status: "Approved",
-              decisionDate: new Date().toISOString().split("T")[0],
-              managerRemarks: remarks || "Approved by Branch Manager.",
-            }
-          : r
-      )
-    );
-    setNotification(`Request ${reqId} has been Approved.`);
-    setTimeout(() => setNotification(""), 4500);
-  };
+  const handleCreateSentRequest = async (newReq) => {
+    try {
+      let backendReqType = null;
+      let targetEntityType = "CLIENT";
+      if (newReq.requestType === "Delete Client") {
+        backendReqType = "DELETE_CLIENT";
+      } else if (newReq.requestType === "Transfer Client") {
+        backendReqType = "TRANSFER_CLIENT";
+      } else if (newReq.requestType === "Edit Client") {
+        backendReqType = "EDIT_CLIENT";
+      } else if (newReq.requestType === "Delete Staff") {
+        backendReqType = "DELETE_EMPLOYEE";
+        targetEntityType = "EMPLOYEE";
+      } else if (newReq.requestType === "Transfer Staff") {
+        backendReqType = "TRANSFER_EMPLOYEE";
+        targetEntityType = "EMPLOYEE";
+      } else if (newReq.requestType === "Edit Profile") {
+        backendReqType = "EDIT_EMPLOYEE";
+        targetEntityType = "EMPLOYEE";
+      }
 
-  const handleRejectManagerRequest = (reqId, remarks) => {
-    setReceivedRequests((prev) =>
-      prev.map((r) =>
-        r.id === reqId
-          ? {
-              ...r,
-              status: "Rejected",
-              decisionDate: new Date().toISOString().split("T")[0],
-              managerRemarks: remarks || "Rejected by Branch Manager.",
-            }
-          : r
-      )
-    );
-    setNotification(`Request ${reqId} has been Rejected.`);
-    setTimeout(() => setNotification(""), 4500);
-  };
-
-  const handleCreateSentRequest = (newReq) => {
+      if (backendReqType) {
+        const payload = {
+          requestType: backendReqType,
+          targetEntityType,
+          targetEntityId: targetEntityType === "EMPLOYEE" ? newReq.targetId : undefined,
+          clientId: targetEntityType === "CLIENT" ? newReq.targetId : undefined,
+          reason: newReq.reason,
+          requestedChanges: newReq.requestedChanges || {
+            destinationBranch: newReq.destinationBranch,
+            receivingManager: newReq.receivingManager,
+          },
+        };
+        const res = await apiFetch("/requests", {
+          method: "POST",
+          body: payload,
+        });
+        if (res.ok) {
+          window.dispatchEvent(new CustomEvent("agni_requests_updated"));
+        }
+      }
+    } catch (e) {
+      console.warn("Failed creating live backend request:", e);
+    }
     setSentRequests((prev) => [newReq, ...prev]);
     setNotification(`Governance request ${newReq.id} submitted to Owner successfully.`);
     setTimeout(() => setNotification(""), 4500);
@@ -580,6 +737,7 @@ export default function BranchManagerRequestsPage({
           branchAdmins={branchAdmins}
           branchIT={branchIT}
           branchMarketing={branchMarketing}
+          clients={localClients}
           onClose={() => setShowCreateModal(false)}
           onSubmit={handleCreateSentRequest}
         />

@@ -36,10 +36,20 @@ export function useSalesDashboard(userEmail) {
       } catch (e) {}
     }
 
+    const handleToast = (e) => {
+      if (e?.detail) {
+        showToast(e.detail);
+      }
+    };
+
     window.addEventListener("storage", syncNotifications);
-    const interval = setInterval(syncNotifications, 2000);
+    window.addEventListener("agni_notifications_updated", syncNotifications);
+    window.addEventListener("agni_toast_notification", handleToast);
+    const interval = setInterval(syncNotifications, 45000);
     return () => {
       window.removeEventListener("storage", syncNotifications);
+      window.removeEventListener("agni_notifications_updated", syncNotifications);
+      window.removeEventListener("agni_toast_notification", handleToast);
       clearInterval(interval);
     };
   }, []);

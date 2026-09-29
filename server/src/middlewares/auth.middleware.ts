@@ -20,15 +20,20 @@ export function authenticateJWT(
   next: NextFunction
 ) {
   const authHeader = req.headers.authorization;
+  let token: string | undefined;
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (typeof req.query.token === "string" && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (!token) {
     return res.status(401).json({
       success: false,
       message: "Access token missing or invalid.",
     });
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthenticatedUser;
@@ -48,9 +53,15 @@ export function optionalAuthenticateJWT(
   next: NextFunction
 ) {
   const authHeader = req.headers.authorization;
+  let token: string | undefined;
 
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
+    token = authHeader.split(" ")[1];
+  } else if (typeof req.query.token === "string" && req.query.token) {
+    token = req.query.token;
+  }
+
+  if (token) {
     try {
       const decoded = jwt.verify(token, ENV.JWT_SECRET) as AuthenticatedUser;
       req.user = decoded;

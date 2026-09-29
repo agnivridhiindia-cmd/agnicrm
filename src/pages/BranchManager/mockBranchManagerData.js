@@ -79,10 +79,10 @@ export const initialEmployeesList = [
   { id: 4, name: "Ananya Sen", email: "ananya.sm@agni.com", phone: "+91 91234 30300", role: "Sales Manager", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna" },
   { id: 5, name: "Rohan Gupta", email: "rohan.sales@agni.com", phone: "+91 91234 30301", role: "Senior Sales Representative", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
   { id: 6, name: "Kavya Sharma", email: "kavya.sales@agni.com", phone: "+91 91234 30302", role: "Sales Executive", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
+  { id: 8, name: "Arjun Hegde", email: "arjun.sales@agni.com", phone: "+91 91234 20201", role: "Senior Sales Officer", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
 
   // --- SOUTH ZONE (BENGALURU) - Suresh Reddy ---
   { id: 7, name: "Karthik Iyer", email: "karthik.sm@agni.com", phone: "+91 91234 20200", role: "Sales Manager", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy" },
-  { id: 8, name: "Arjun Hegde", email: "arjun.sales@agni.com", phone: "+91 91234 20201", role: "Senior Sales Officer", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Karthik Iyer" },
   { id: 9, name: "Deepa Rao", email: "deepa.sales@agni.com", phone: "+91 91234 20202", role: "Sales Representative", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Karthik Iyer" },
 
   // --- EAST ZONE (KOLKATA) - Subhash Banerjee ---

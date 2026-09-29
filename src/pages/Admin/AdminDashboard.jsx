@@ -239,8 +239,8 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
       const email = (c.salesPersonEmail || c.creatorEmail || c.email || "").toLowerCase();
 
       const belongsToWest = sales.includes("mia") || sales.includes("lucas") || sales.includes("eli") || sales.includes("ariana") || email.includes("mumbai");
-      const belongsToNorth = sales.includes("rohan") || sales.includes("kavya") || sales.includes("ananya") || sales.includes("rajesh") || email.includes("delhi");
-      const belongsToSouth = sales.includes("arjun") || sales.includes("deepa") || sales.includes("karthik") || sales.includes("suresh") || email.includes("bengaluru");
+      const belongsToNorth = sales.includes("rohan") || sales.includes("kavya") || sales.includes("arjun") || sales.includes("ananya") || sales.includes("rajesh") || email.includes("delhi");
+      const belongsToSouth = sales.includes("deepa") || sales.includes("karthik") || sales.includes("suresh") || email.includes("bengaluru");
       const belongsToEast = sales.includes("sourav") || sales.includes("riya") || sales.includes("debolina") || sales.includes("subhash") || email.includes("kolkata");
 
       if (targetRegion === "north") return belongsToNorth;

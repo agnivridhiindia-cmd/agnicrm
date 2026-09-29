@@ -28,6 +28,7 @@ export default function ActivityTracker({
   onRequestRollback,
   interactive = false,
   showTrack = true,
+  showMeter = true,
   size = "normal",
   stepDates = {},
   // Breakdown mode props:
@@ -140,19 +141,23 @@ export default function ActivityTracker({
               <strong>{currentCompleted.length}</strong> of {totalStages} Points Completed
             </span>
           </div>
-          <div className="activity-status-header-right">
-            <div className="activity-status-meter-wrap">
-              <div className="activity-status-meter-bar">
+          {showMeter && (
+            <div className="activity-status-header-right">
+              <div className="activity-status-meter-wrap">
                 <div
-                  className="activity-status-meter-fill"
-                  style={{ width: `${calculatedPercent}%` }}
-                />
+                  className="activity-status-meter-bar"
+                >
+                  <div
+                    className="activity-status-meter-fill"
+                    style={{ width: `${calculatedPercent}%` }}
+                  />
+                </div>
+                <strong className="activity-status-percent-pill">
+                  {calculatedPercent}%
+                </strong>
               </div>
-              <strong className="activity-status-percent-pill">
-                {calculatedPercent}%
-              </strong>
             </div>
-          </div>
+          )}
         </div>
       )}
 

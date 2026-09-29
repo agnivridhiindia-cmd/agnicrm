@@ -314,6 +314,63 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
 
   const [requestsList, setRequestsList] = useState(initialRequests);
 
+  const fetchDBOwnerRequests = async () => {
+    try {
+      const res = await apiFetch("/requests");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const mapped = data.data.map((r) => {
+            const clientName = r.client?.companyName || r.client?.name || r.requestedChanges?.companyName || r.requestedChanges?.name || "Client Account";
+            const reqTypeDisplay = r.requestType === "DELETE_CLIENT"
+              ? "Delete Client"
+              : r.requestType === "EDIT_CLIENT"
+              ? "Edit Client"
+              : r.requestType === "TRANSFER_CLIENT"
+              ? "Transfer Client"
+              : r.requestType === "DELETE_EMPLOYEE"
+              ? "Delete Employee"
+              : r.requestType === "TRANSFER_EMPLOYEE"
+              ? "Transfer Employee"
+              : r.requestType === "EDIT_EMPLOYEE"
+              ? "Edit Employee"
+              : r.requestType;
+
+            return {
+              id: r.requestCode || r.id,
+              rawId: r.id,
+              clientId: r.clientId,
+              clientName,
+              company: clientName,
+              managerName: r.requester?.fullName || "Branch Manager",
+              managerRole: r.requester?.role,
+              requestType: reqTypeDisplay,
+              createdAt: r.createdAt ? String(r.createdAt).split("T")[0] : "",
+              status: r.status === "PENDING" ? "Pending" : r.status === "APPROVED" ? "Approved" : "Rejected",
+              currentStage: r.currentStage,
+              approvalChain: r.approvalChain,
+              reason: r.reason,
+              requestedChanges: r.requestedChanges,
+              auditHistory: r.auditHistory || [],
+              raw: r,
+            };
+          });
+          setRequestsList(mapped);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch DB requests for Owner Dashboard:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDBOwnerRequests();
+    window.addEventListener("agni_requests_updated", fetchDBOwnerRequests);
+    return () => {
+      window.removeEventListener("agni_requests_updated", fetchDBOwnerRequests);
+    };
+  }, []);
+
   // Filter & deep linking states
   const [selectedRole, setSelectedRole] = useState("All roles");
   const [revenueRange, setRevenueRange] = useState("monthly");
@@ -480,40 +537,52 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
   };
 
   // Request actions
-  const handleApproveRequest = (reqId, remarks) => {
-    const today = new Date().toISOString().split("T")[0];
-    setRequestsList((prev) =>
-      prev.map((r) => {
-        if (r.id === reqId) {
-          return {
-            ...r,
-            status: "Approved",
-            decisionDate: today,
-            managerRemarks: remarks || "Approved by Owner.",
-          };
-        }
-        return r;
-      })
-    );
-    showToast(`✓ Request ${reqId} has been Approved.`);
+  const handleApproveRequest = async (reqId, remarks) => {
+    const targetReq = requestsList.find((r) => r.id === reqId || r.rawId === reqId);
+    const targetId = targetReq?.rawId || reqId;
+
+    try {
+      const res = await apiFetch(`/requests/${targetId}/decision`, {
+        method: "PATCH",
+        body: { decision: "APPROVED", managerRemarks: remarks },
+      });
+
+      if (res.ok) {
+        showToast(`✓ Request ${reqId} has been Approved and authorized.`);
+        window.dispatchEvent(new CustomEvent("agni_requests_updated"));
+        window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+        window.dispatchEvent(new CustomEvent("agni_employees_updated"));
+        fetchDBOwnerRequests();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(`⚠️ ${err.message || "Failed to approve request."}`);
+      }
+    } catch (e) {
+      showToast("⚠️ Network error while approving request.");
+    }
   };
 
-  const handleRejectRequest = (reqId, remarks) => {
-    const today = new Date().toISOString().split("T")[0];
-    setRequestsList((prev) =>
-      prev.map((r) => {
-        if (r.id === reqId) {
-          return {
-            ...r,
-            status: "Rejected",
-            decisionDate: today,
-            managerRemarks: remarks || "Rejected by Owner.",
-          };
-        }
-        return r;
-      })
-    );
-    showToast(`✓ Request ${reqId} has been Rejected.`);
+  const handleRejectRequest = async (reqId, remarks) => {
+    const targetReq = requestsList.find((r) => r.id === reqId || r.rawId === reqId);
+    const targetId = targetReq?.rawId || reqId;
+
+    try {
+      const res = await apiFetch(`/requests/${targetId}/decision`, {
+        method: "PATCH",
+        body: { decision: "REJECTED", managerRemarks: remarks },
+      });
+
+      if (res.ok) {
+        showToast(`✓ Request ${reqId} has been Rejected.`);
+        window.dispatchEvent(new CustomEvent("agni_requests_updated"));
+        fetchDBOwnerRequests();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(`⚠️ ${err.message || "Failed to reject request."}`);
+      }
+    } catch (e) {
+      showToast("⚠️ Network error while rejecting request.");
+    }
   };
 
   const handleCancelRequest = (reqId) => {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Icon from "../../../components/Icon";
 import SalesClientViewModal from "./SalesClientViewModal";
 import { getTrackerState } from "../../../utils/schemeTracker";
+import { exportClientsToCSV, downloadClientDossierPDF } from "../../../utils/exportHelpers";
 
 export default function SalesClientDirectory({
   clients = [],
@@ -33,14 +34,26 @@ export default function SalesClientDirectory({
           </p>
         </div>
 
-        <button
-          type="button"
-          className="sales-add-btn"
-          onClick={onCreateNewClient}
-        >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
-          <span>Register New Client</span>
-        </button>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button
+            type="button"
+            className="sales-btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontWeight: 700 }}
+            title="Download client directory as spreadsheet"
+            onClick={() => exportClientsToCSV(filteredClients, "My_Sales_Clients")}
+          >
+            <span>📥</span>
+            <span>Export CSV</span>
+          </button>
+          <button
+            type="button"
+            className="sales-add-btn"
+            onClick={onCreateNewClient}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+            <span>Register New Client</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Toolbar Card */}
@@ -219,14 +232,26 @@ export default function SalesClientDirectory({
                         </span>
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <button
-                          type="button"
-                          className="sales-view-btn"
-                          onClick={() => setViewingClient(client)}
-                        >
-                          <Icon name="eye" size={13} />
-                          <span>View</span>
-                        </button>
+                        <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                          <button
+                            type="button"
+                            className="sales-btn-secondary"
+                            style={{ padding: "6px 10px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4, borderRadius: 6 }}
+                            title="Download Official Client Dossier (PDF)"
+                            onClick={() => downloadClientDossierPDF(client)}
+                          >
+                            <span>📄</span>
+                            <span>Dossier</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="sales-view-btn"
+                            onClick={() => setViewingClient(client)}
+                          >
+                            <Icon name="eye" size={13} />
+                            <span>View</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

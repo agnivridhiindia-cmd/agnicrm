@@ -182,6 +182,13 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
             ? c.invoices.flatMap(inv => inv.payments || [])
             : null));
 
+      // Determine transfer metadata if client has been transferred
+      const hasTransfer = Array.isArray(c.transferLogs) && c.transferLogs.length > 0;
+      const latestTransfer = hasTransfer ? c.transferLogs[0] : null;
+      const originalRepName = latestTransfer?.fromSalesPerson?.fullName || c.originalSalesPerson?.fullName || (c.lastSalesPerson?.fullName ? c.lastSalesPerson.fullName : null);
+      const transferTimestamp = latestTransfer?.transferredAt ? parseDate(latestTransfer.transferredAt) : null;
+      const collectedBefore = latestTransfer ? parseRevenueValue(latestTransfer.collectedBeforeTransfer || 0) : 0;
+
       if (subPayments && subPayments.length > 0) {
         subPayments.forEach((p) => {
           if (!p) return;
@@ -189,7 +196,17 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
           if (st !== "failed" && st !== "cancelled") {
             const amt = p.amount || p.paidAmount || 0;
             const dt = p.paymentDate || p.date || p.createdAt || c.updatedAt || c.startDate;
-            const pRep = p.salesPerson || p.salesRep || repName;
+            const pDate = parseDate(dt);
+            
+            // If payment has explicit rep, use it; otherwise, if paid before transfer date, attribute to original rep
+            let pRep = p.salesPerson || p.salesRep;
+            if (!pRep) {
+              if (transferTimestamp && pDate < transferTimestamp && originalRepName) {
+                pRep = originalRepName;
+              } else {
+                pRep = repName;
+              }
+            }
             addPaymentEntry(amt, dt, pRep, companyName, p.id || p.paymentId ? `cl-pay-${p.id || p.paymentId}` : "");
           }
         });
@@ -198,7 +215,19 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
         const rec = parseRevenueValue(c.paymentReceived || (c.paymentStatus === "Paid" ? c.totalPayment || c.amount : 0));
         if (rec > 0) {
           const dt = c.updatedAt || c.lastPaymentDate || c.paymentDate || c.createdAt || c.startDate || c.assignedAt;
-          addPaymentEntry(rec, dt, repName, companyName, c.id ? `cl-rec-${c.id}` : "");
+          
+          if (hasTransfer && collectedBefore > 0 && originalRepName) {
+            // Historical quota locked to original salesperson A
+            addPaymentEntry(collectedBefore, dt, originalRepName, companyName, c.id ? `cl-rec-orig-${c.id}` : "");
+            
+            // Only surplus collected after transfer credits new salesperson B
+            const postTransferAmt = Math.max(0, rec - collectedBefore);
+            if (postTransferAmt > 0) {
+              addPaymentEntry(postTransferAmt, dt, repName, companyName, c.id ? `cl-rec-new-${c.id}` : "");
+            }
+          } else {
+            addPaymentEntry(rec, dt, repName, companyName, c.id ? `cl-rec-${c.id}` : "");
+          }
         }
       }
     });

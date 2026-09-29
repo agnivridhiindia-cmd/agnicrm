@@ -7,12 +7,28 @@ import RequestModal from "./RequestModal";
 import ManagerCreateRequestModal from "./ManagerCreateRequestModal";
 import { getManagerBranchDetails, normalizeSalesPersonName, repairPendingClientCreations } from "../../utils/branchHelper";
 
-export default function ManagerRequests({ branchTeamNames = [], managedRegion = "East Zone", branchTeam = [] }) {
+export default function ManagerRequests({ branchTeamNames = [], managedRegion = "East Zone", branchTeam = [], clients = [] }) {
   const [activeTab, setActiveTab] = useState("Review");
   const [myRequests, setMyRequests] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [notification, setNotification] = useState("");
   const [selectedRequest, setSelectedRequest] = useState(null);
+
+  const [localClients, setLocalClients] = useState(clients || []);
+  useEffect(() => {
+    if (clients && clients.length > 0) {
+      setLocalClients(clients);
+    } else {
+      apiFetch("/clients")
+        .then((res) => res.json())
+        .then((resData) => {
+          if (resData.success && Array.isArray(resData.data)) {
+            setLocalClients(resData.data);
+          }
+        })
+        .catch((err) => console.warn("Failed fetching clients fallback:", err));
+    }
+  }, [clients]);
 
   const branchInfo = useMemo(() => {
     const userEmail = localStorage.getItem("agni_user_email") || "";
@@ -64,11 +80,14 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
   useEffect(() => {
     fetchRequestsFromDB();
 
-    const handleSync = () => fetchRequestsFromDB();
+    const handleSync = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      fetchRequestsFromDB();
+    };
     window.addEventListener("storage", handleSync);
     window.addEventListener("agni_pending_updated", handleSync);
     window.addEventListener("agni_clients_updated", handleSync);
-    const interval = setInterval(handleSync, 3000);
+    const interval = setInterval(handleSync, 15000);
 
     return () => {
       window.removeEventListener("storage", handleSync);
@@ -97,6 +116,8 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
             ? "Edit Client"
             : r.requestType === "DELETE_CLIENT"
             ? "Delete Client"
+            : r.requestType === "TRANSFER_CLIENT"
+            ? "Transfer Client"
             : r.requestType || "Approval Request";
 
         const statusDisplay =
@@ -143,6 +164,10 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
           requestedChanges: r.requestedChanges || [],
           createdAt: r.createdAt ? String(r.createdAt).split("T")[0] : new Date().toISOString().split("T")[0],
           status: statusDisplay,
+          currentStage: r.currentStage,
+          approvalChain: r.approvalChain,
+          currentChainIndex: r.currentChainIndex,
+          auditHistory: r.auditHistory || [],
           source: r.requestType === "NEW_SERVICE" ? "client_creation" : "client_requests",
           raw: r,
         });
@@ -323,11 +348,13 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
       {showCreateModal && (
         <ManagerCreateRequestModal
           salesPeople={branchTeam}
+          clients={localClients}
           onClose={() => setShowCreateModal(false)}
           onSubmit={(newReq) => {
-            setMyRequests([newReq, ...myRequests]);
-            setNotification("Your request has been submitted successfully.");
-            setTimeout(() => setNotification(""), 4200);
+            setMyRequests((prev) => [newReq, ...prev]);
+            const targetName = newReq.clientName || newReq.salespersonName || "Account";
+            setNotification(`✓ Created "${newReq.requestType}" petition for ${targetName}.`);
+            setTimeout(() => setNotification(""), 4500);
           }}
         />
       )}

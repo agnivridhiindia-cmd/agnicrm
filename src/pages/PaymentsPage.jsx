@@ -2,10 +2,26 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../services/apiClient';
 import { useApiPayments } from "../hooks/useApiPayments";
 
+export function isPaymentSettled(status) {
+  if (!status) return false;
+  const s = String(status).trim().toLowerCase();
+  return (
+    s === "paid" ||
+    s === "success" ||
+    s === "verified" ||
+    s === "settled" ||
+    s === "completed" ||
+    s.includes("paid") ||
+    s.includes("settled") ||
+    s.includes("verified") ||
+    s.includes("success")
+  );
+}
+
 export function generatePaymentReceiptHTML(payment) {
   const amount = Number(payment.amount || 0);
   const formattedAmount = `₹${amount.toLocaleString("en-IN")}`;
-  const isPaid = (payment.status || "").toLowerCase() === "paid";
+  const isPaid = isPaymentSettled(payment.status);
   const statusLabel = isPaid ? "PAYMENT SETTLED & VERIFIED" : "PAYMENT DEMAND PENDING";
   const statusColor = isPaid ? "#10b981" : "#f59e0b";
 
@@ -238,16 +254,10 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
 
   const filteredPayments = useMemo(() => {
     if (activeTab === "Completed Settlements") {
-      return payments.filter((p) => {
-        const s = (p.status || "").toLowerCase();
-        return s === "paid" || s === "success";
-      });
+      return payments.filter((p) => isPaymentSettled(p.status));
     }
     if (activeTab === "Payment Demands") {
-      return payments.filter((p) => {
-        const s = (p.status || "").toLowerCase();
-        return s !== "paid" && s !== "success";
-      });
+      return payments.filter((p) => !isPaymentSettled(p.status));
     }
     return payments;
   }, [payments, activeTab]);
@@ -255,18 +265,23 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
   const stats = useMemo(() => {
     let totalSettled = 0;
     let totalPending = 0;
+    let settledCount = 0;
+    let pendingCount = 0;
     payments.forEach((p) => {
       const amt = Number(p.amount || 0);
-      const s = (p.status || "").toLowerCase();
-      if (s === "paid" || s === "success") {
+      if (isPaymentSettled(p.status)) {
         totalSettled += amt;
+        settledCount += 1;
       } else {
         totalPending += amt;
+        pendingCount += 1;
       }
     });
     return {
       totalSettled,
       totalPending,
+      settledCount,
+      pendingCount,
       count: payments.length,
     };
   }, [payments]);
@@ -419,24 +434,28 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
 
           {/* Tab Filter Buttons */}
           <div style={{ display: "flex", gap: 8 }}>
-            {["All Transactions", "Completed Settlements", "Payment Demands"].map((tab) => (
+            {[
+              { id: "All Transactions", label: `All Transactions (${payments.length})` },
+              { id: "Completed Settlements", label: `Completed Settlements (${stats.settledCount})` },
+              { id: "Payment Demands", label: `Payment Demands (${stats.pendingCount})` },
+            ].map((tab) => (
               <button
-                key={tab}
+                key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTab(tab.id)}
                 style={{
                   padding: "6px 14px",
                   borderRadius: 8,
                   fontSize: 12.5,
                   fontWeight: 600,
                   cursor: "pointer",
-                  border: activeTab === tab ? "1px solid #1877f2" : "1px solid #cbd5e1",
-                  background: activeTab === tab ? "#1877f2" : "#fff",
-                  color: activeTab === tab ? "#fff" : "#475569",
+                  border: activeTab === tab.id ? "1px solid #1877f2" : "1px solid #cbd5e1",
+                  background: activeTab === tab.id ? "#1877f2" : "#fff",
+                  color: activeTab === tab.id ? "#fff" : "#475569",
                   transition: "all 0.15s ease",
                 }}
               >
-                {tab}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -445,8 +464,14 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
         <div className="cd-table-wrap">
           {filteredPayments.length === 0 ? (
             <div style={{ padding: "40px 20px", textAlign: "center", color: "#666" }}>
-              <p style={{ fontSize: 16, fontWeight: 600, margin: "0 0 6px 0" }}>No Payment Records Found</p>
-              <p style={{ fontSize: 13, margin: 0 }}>Payment demands and receipts issued for your account will appear here automatically.</p>
+              <p style={{ fontSize: 16, fontWeight: 700, margin: "0 0 6px 0", color: "#0f172a" }}>
+                {activeTab === "Payment Demands" ? "No Outstanding Payment Demands ✓" : "No Payment Records Found"}
+              </p>
+              <p style={{ fontSize: 13, margin: 0, color: "#64748b" }}>
+                {activeTab === "Payment Demands"
+                  ? "All invoices and service fees are fully settled. There are no pending demands on your account."
+                  : "Payment demands and receipts issued for your account will appear here automatically."}
+              </p>
             </div>
           ) : (
             <table className="cd-invoices-table">
@@ -465,8 +490,8 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
               <tbody>
                 {filteredPayments.map((pay) => {
                   const rawStatus = (pay.status || "").toLowerCase();
-                  const isPaid = rawStatus === "paid" || rawStatus === "success";
-                  const isAwaitingApproval = rawStatus.includes("awaiting") || rawStatus.includes("pending sales");
+                  const isPaid = isPaymentSettled(pay.status);
+                  const isAwaitingApproval = !isPaid && (rawStatus.includes("awaiting") || rawStatus.includes("pending sales"));
                   const amt = Number(pay.amount || 0);
                   const formattedAmt = `₹${amt.toLocaleString("en-IN")}`;
 

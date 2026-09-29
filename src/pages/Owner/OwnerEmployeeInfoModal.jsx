@@ -1,5 +1,6 @@
 import React from "react";
 import SimpleModal from "../../components/SimpleModal";
+import Icon from "../../components/Icon";
 
 export default function OwnerEmployeeInfoModal({
   selectedEmployeeInfo,
@@ -19,13 +20,44 @@ export default function OwnerEmployeeInfoModal({
         .toUpperCase()
     : "EM";
 
+  const isTransferred =
+    selectedEmployeeInfo.isTransferred ||
+    (selectedEmployeeInfo.originBranch &&
+      selectedEmployeeInfo.branch &&
+      selectedEmployeeInfo.originBranch !== selectedEmployeeInfo.branch) ||
+    (Array.isArray(selectedEmployeeInfo.transferLogs) &&
+      selectedEmployeeInfo.transferLogs.length > 0);
+
+  const transferLogs = Array.isArray(selectedEmployeeInfo.transferLogs)
+    ? selectedEmployeeInfo.transferLogs
+    : [];
+
   return (
     <SimpleModal onClose={onClose}>
       <div className="owner-modal-profile">
         <div className="owner-modal-avatar">{initials}</div>
         <div>
           <h2 className="owner-header-title">{selectedEmployeeInfo.name}</h2>
-          <span className="owner-role-tag">{selectedEmployeeInfo.role}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+            <span className="owner-role-tag">{selectedEmployeeInfo.role}</span>
+            {isTransferred && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#d97706",
+                  background: "rgba(217, 119, 6, 0.12)",
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                🔄 Transferred Staff
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -46,24 +78,115 @@ export default function OwnerEmployeeInfoModal({
           <span className="owner-modal-card-label">Designation / Role</span>
           <span className="owner-modal-card-val">{selectedEmployeeInfo.role}</span>
         </div>
+
+        {/* Current Branch vs Origin Branch */}
         <div className="owner-modal-card">
-          <span className="owner-modal-card-label">Branch Territory</span>
-          <span className="owner-modal-card-val">{selectedEmployeeInfo.branch} Branch</span>
+          <span className="owner-modal-card-label">Current Branch Territory</span>
+          <span className="owner-modal-card-val" style={{ color: "#4f46e5", fontWeight: 700 }}>
+            {selectedEmployeeInfo.branch} Branch
+          </span>
         </div>
-        {['sales', 'manager', 'admin', 'IT', 'market'].includes(selectedEmployeeInfo.role) && (
-          <div className="owner-modal-card">
-            <span className="owner-modal-card-label">Branch Manager</span>
-            <span className="owner-modal-card-val">{selectedEmployeeInfo.branchManager || 'Ariana Lee'}</span>
-          </div>
-        )}
-        {['sales', 'market', 'IT', 'admin'].includes(selectedEmployeeInfo.role) && (
-          <div className="owner-modal-card">
-            <span className="owner-modal-card-label">Reporting Manager</span>
-            <span className="owner-modal-card-val">
-              {selectedEmployeeInfo.role === 'sales'
-                ? (selectedEmployeeInfo.reportingManager || 'Eli Brooks (Sales Lead)')
-                : (selectedEmployeeInfo.branchManager || 'Ariana Lee (Branch Manager)')}
-            </span>
+
+        <div className="owner-modal-card">
+          <span className="owner-modal-card-label">Origin Branch (Started At)</span>
+          <span className="owner-modal-card-val" style={{ color: "#0f766e", fontWeight: 700 }}>
+            {selectedEmployeeInfo.originBranch || selectedEmployeeInfo.branch || "Original Branch"} Branch
+          </span>
+        </div>
+
+        {/* Current Manager vs Initial Manager */}
+        <div className="owner-modal-card">
+          <span className="owner-modal-card-label">Current Reporting Manager</span>
+          <span className="owner-modal-card-val">
+            {selectedEmployeeInfo.reportingManager || selectedEmployeeInfo.branchManager || "Devika Shah (Owner)"}
+          </span>
+        </div>
+
+        <div className="owner-modal-card">
+          <span className="owner-modal-card-label">Initial Manager (Started Under)</span>
+          <span className="owner-modal-card-val">
+            {selectedEmployeeInfo.initialManager || selectedEmployeeInfo.reportingManager || "Foundational Manager"}
+          </span>
+        </div>
+
+        {/* Mobility History Audit Card if transferred */}
+        {isTransferred && (
+          <div
+            className="owner-modal-card"
+            style={{
+              gridColumn: "1 / -1",
+              background: "rgba(217, 119, 6, 0.05)",
+              border: "1px solid rgba(217, 119, 6, 0.2)",
+              padding: "16px",
+              borderRadius: "10px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 16 }}>🔄</span>
+              <strong style={{ fontSize: 14, color: "#b45309" }}>
+                Staff Mobility &amp; Inter-Branch Transfer History
+              </strong>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "rgba(255,255,255,0.7)",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  fontSize: 13,
+                }}
+              >
+                <div>
+                  <span style={{ color: "#64748b", display: "block", fontSize: 11 }}>Career Journey</span>
+                  <strong>{selectedEmployeeInfo.originBranch || "Origin Branch"}</strong>
+                  <span style={{ margin: "0 8px", color: "#d97706", fontWeight: 800 }}>➔</span>
+                  <strong style={{ color: "#4f46e5" }}>{selectedEmployeeInfo.branch} (Current)</strong>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ color: "#64748b", display: "block", fontSize: 11 }}>Status</span>
+                  <span style={{ color: "#10b981", fontWeight: 700 }}>Active in Territory</span>
+                </div>
+              </div>
+
+              {transferLogs.length > 0 && (
+                <div style={{ marginTop: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#64748b", display: "block", marginBottom: 6 }}>
+                    Transfer Audit Logs:
+                  </span>
+                  {transferLogs.map((log, idx) => (
+                    <div
+                      key={log.id || idx}
+                      style={{
+                        padding: "8px 12px",
+                        background: "rgba(0,0,0,0.02)",
+                        borderRadius: 6,
+                        marginBottom: 6,
+                        fontSize: 12,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div>
+                        <span>{log.fromBranch || "Branch"} ➔ <strong>{log.toBranch || "Branch"}</strong></span>
+                        {log.reason && (
+                          <div style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>
+                            Reason: {log.reason}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ color: "#94a3b8", fontSize: 11 }}>
+                        {log.transferredAt ? new Date(log.transferredAt).toLocaleDateString("en-IN") : "Recorded"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

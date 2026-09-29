@@ -86,6 +86,50 @@ export default function RequestDetailsModal({ request, onClose }) {
           </div>
         </div>
 
+        {/* Hierarchy Approval Pipeline */}
+        {request.approvalChain && request.approvalChain.length > 0 && (
+          <div
+            style={{
+              padding: "12px 16px",
+              borderRadius: 12,
+              background: "rgba(99, 102, 241, 0.08)",
+              border: "1px dashed rgba(99, 102, 241, 0.4)",
+            }}
+          >
+            <span style={{ fontSize: 11, color: "#818cf8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block" }}>
+              Hierarchy Approval Pipeline
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap", fontSize: 12 }}>
+              <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(99, 102, 241, 0.2)", color: "#a5b4fc", fontWeight: 600 }}>
+                1. Salesperson (Submitted)
+              </span>
+              <span style={{ color: "#64748b" }}>→</span>
+              {request.approvalChain.map((role, idx) => {
+                const isPassed = (request.currentChainIndex || 0) > idx || request.status === "Approved";
+                const isCurrent = (request.currentChainIndex || 0) === idx && request.status !== "Approved";
+                const roleLabel = role === "MANAGER" ? "Sales Manager" : role === "BRANCH_MANAGER" ? "Branch Manager" : "Owner";
+                return (
+                  <React.Fragment key={role}>
+                    <span
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: 6,
+                        background: isPassed ? "rgba(16, 185, 129, 0.16)" : isCurrent ? "rgba(245, 158, 11, 0.2)" : "rgba(148, 163, 184, 0.1)",
+                        color: isPassed ? "#10b981" : isCurrent ? "#f59e0b" : "#94a3b8",
+                        fontWeight: 600,
+                        border: isCurrent ? "1px solid #f59e0b" : "none",
+                      }}
+                    >
+                      {idx + 2}. {roleLabel} {isPassed ? "✓" : isCurrent ? "(Reviewing)" : ""}
+                    </span>
+                    {idx < request.approvalChain.length - 1 && <span style={{ color: "#64748b" }}>→</span>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Requested Service / Scheme Card (if applicable) */}
         {(request.schemeName || request.serviceName) && (
           <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(147, 51, 234, 0.08)", border: "1.5px solid rgba(147, 51, 234, 0.35)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -3,10 +3,10 @@
  */
 
 export function normalizeSalesPersonName(rawName) {
-  if (!rawName || typeof rawName !== "string") return "Mia Rose";
+  if (!rawName || typeof rawName !== "string") return "Sales Representative";
   const trimmed = rawName.trim();
   if (!trimmed || trimmed.toLowerCase() === "unassigned" || trimmed.toLowerCase() === "unknown") {
-    return "Mia Rose";
+    return "Sales Representative";
   }
   return trimmed;
 }
@@ -14,39 +14,99 @@ export function normalizeSalesPersonName(rawName) {
 export function getManagerBranchDetails(emailOrName = "") {
   const str = String(emailOrName || "").toLowerCase().trim();
 
-  let managerName = "Eli Brooks";
-  let branchManagerName = "Ariana Lee";
-  let branchName = "West Zone (Mumbai)";
-  let region = "West Zone";
-  let code = "BR-01";
-
-  if (str.includes("north") || str.includes("delhi") || str.includes("br-02") || str.includes("nz")) {
-    managerName = "Devanshi Varma";
-    branchManagerName = "Rajesh Sharma";
-    branchName = "North Zone (Delhi)";
-    region = "North Zone";
-    code = "BR-02";
-  } else if (str.includes("south") || str.includes("bangalore") || str.includes("br-03") || str.includes("sz")) {
-    managerName = "Siddharth Rao";
-    branchManagerName = "Priya Nair";
-    branchName = "South Zone (Bangalore)";
-    region = "South Zone";
-    code = "BR-03";
-  } else if (str.includes("east") || str.includes("kolkata") || str.includes("br-04") || str.includes("ez")) {
-    managerName = "Ananya Sen";
-    branchManagerName = "Subhash Chandra";
-    branchName = "East Zone (Kolkata)";
-    region = "East Zone";
-    code = "BR-04";
+  // 1. North Zone (Delhi)
+  if (
+    str.includes("ananya") ||
+    str.includes("rajesh") ||
+    str.includes("rohan") ||
+    str.includes("kavya") ||
+    str.includes("arjun") ||
+    str.includes("delhi") ||
+    str.includes("north") ||
+    str.includes("br-02") ||
+    str.includes("nz")
+  ) {
+    return {
+      managerName: "Ananya Sen",
+      managerEmail: "ananya.sm@agni.com",
+      branchManagerName: "Rajesh Khanna",
+      branchManagerEmail: "rajesh.bm@agni.com",
+      branchName: "North Zone (Delhi)",
+      branch: "North Zone (Delhi)",
+      region: "North Zone",
+      code: "BR-02",
+      branchCode: "BR-02",
+      salespersons: ["Rohan Gupta", "Kavya Sharma", "Arjun Hegde"],
+      salesEmails: ["rohan.sales@agni.com", "kavya.sales@agni.com", "arjun.sales@agni.com"],
+    };
   }
 
+  // 2. South Zone (Bengaluru)
+  if (
+    str.includes("karthik") ||
+    str.includes("suresh") ||
+    str.includes("deepa") ||
+    str.includes("south") ||
+    str.includes("bengaluru") ||
+    str.includes("bangalore") ||
+    str.includes("br-03") ||
+    str.includes("sz")
+  ) {
+    return {
+      managerName: "Karthik Iyer",
+      managerEmail: "karthik.sm@agni.com",
+      branchManagerName: "Suresh Reddy",
+      branchManagerEmail: "suresh.bm@agni.com",
+      branchName: "South Zone (Bengaluru)",
+      branch: "South Zone (Bengaluru)",
+      region: "South Zone",
+      code: "BR-03",
+      branchCode: "BR-03",
+      salespersons: ["Deepa Rao"],
+      salesEmails: ["deepa.sales@agni.com"],
+    };
+  }
+
+  // 3. East Zone (Kolkata)
+  if (
+    str.includes("debolina") ||
+    str.includes("subhash") ||
+    str.includes("sourav") ||
+    str.includes("riya") ||
+    str.includes("east") ||
+    str.includes("kolkata") ||
+    str.includes("calcutta") ||
+    str.includes("br-04") ||
+    str.includes("ez")
+  ) {
+    return {
+      managerName: "Debolina Roy",
+      managerEmail: "debolina.sm@agni.com",
+      branchManagerName: "Subhash Banerjee",
+      branchManagerEmail: "subhash.bm@agni.com",
+      branchName: "East Zone (Kolkata)",
+      branch: "East Zone (Kolkata)",
+      region: "East Zone",
+      code: "BR-04",
+      branchCode: "BR-04",
+      salespersons: ["Sourav Das", "Riya Mukherjee"],
+      salesEmails: ["sourav.sales@agni.com", "riya.sales@agni.com"],
+    };
+  }
+
+  // 4. West Zone (Mumbai) - Default fallback
   return {
-    managerName,
-    branchManagerName,
-    branchName,
-    branch: branchName,
-    region,
-    code,
+    managerName: "Eli Brooks",
+    managerEmail: "eli@agni.com",
+    branchManagerName: "Ariana Lee",
+    branchManagerEmail: "ariana@agni.com",
+    branchName: "West Zone (Mumbai)",
+    branch: "West Zone (Mumbai)",
+    region: "West Zone",
+    code: "BR-01",
+    branchCode: "BR-01",
+    salespersons: ["Mia Rose", "Lucas Scott"],
+    salesEmails: ["mia@agni.com", "lucas@agni.com"],
   };
 }
 
@@ -60,7 +120,8 @@ export function sanitizeClientRecord(c = {}) {
   const phone = c.phone || c.contactNumber || "+91 98765 43210";
   const scheme = c.serviceName || c.scheme || c.serviceType || "PMEGP";
   const serviceType = c.serviceType || "CONSULTANCY";
-  const salesRep = normalizeSalesPersonName(c.salesPerson?.fullName || c.salesRep || c.owner || c.assignedSalesPerson);
+  const rawRep = c.salesPerson?.fullName || c.salesRep || c.owner || c.assignedSalesPerson || "";
+  const salesRep = rawRep ? normalizeSalesPersonName(rawRep) : "Sales Representative";
 
   const rawTot = Number(c.totalPayment || c.amount || c.invoices?.[0]?.rawTotal || c.fundingRequirement || 0);
   const totalPayment = rawTot === 0 && !c.isPrimary ? 118000 : rawTot;
@@ -68,17 +129,20 @@ export function sanitizeClientRecord(c = {}) {
   const paymentReceived = (rawRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? totalPayment : rawRec;
   const paymentPending = Math.max(0, totalPayment - paymentReceived);
 
+  const branchLookup = c.branch?.name || c.branch || salesRep || c.salesPerson?.email || email || "";
+  const branchDetails = getManagerBranchDetails(branchLookup);
+
   return {
     ...c,
     id: c.id || c.appId || `client-${Date.now()}`,
-    appId: c.appId || `APP-WZ-${new Date().getFullYear()}-001`,
+    appId: c.appId || `APP-${branchDetails.code ? branchDetails.code.replace('BR-', '') : '01'}-${new Date().getFullYear()}-001`,
     name,
     company,
     contactPerson,
     email,
     phone,
-    branch: c.branch?.name || c.branch || "West Zone (Mumbai)",
-    region: c.branch?.region || c.region || "West Zone",
+    branch: c.branch?.name || c.branch || branchDetails.branchName,
+    region: c.branch?.region || c.region || branchDetails.region,
     scheme,
     serviceType,
     salesRep,

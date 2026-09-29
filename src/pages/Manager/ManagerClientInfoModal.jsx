@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import SimpleModal from "../../components/SimpleModal";
 import EditForm from "../../components/EditForm";
+import { downloadClientDossierPDF, downloadClientStatementPDF } from "../../utils/exportHelpers";
 
 export default function ManagerClientInfoModal({ client, onClose, onSave }) {
   const [editMode, setEditMode] = useState(false);
@@ -96,7 +97,27 @@ export default function ManagerClientInfoModal({ client, onClose, onSave }) {
               </span>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, flexWrap: "wrap", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="manager-btn-secondary"
+                type="button"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                onClick={() => downloadClientDossierPDF(client)}
+              >
+                <span>📄</span>
+                <span>Download Dossier (PDF)</span>
+              </button>
+              <button
+                className="manager-btn-secondary"
+                type="button"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                onClick={() => downloadClientStatementPDF(client)}
+              >
+                <span>📑</span>
+                <span>Account Statement</span>
+              </button>
+            </div>
             <button className="manager-btn-primary" type="button" onClick={() => setEditMode(true)}>
               Edit Client Profile
             </button>

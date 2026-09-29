@@ -376,6 +376,26 @@ export default function OwnerEmployeesPage({
                             <div className="owner-member-details">
                               <strong className="owner-member-name">{member.name}</strong>
                               <span className="owner-member-branch">{member.branch} Branch</span>
+                              {(member.isTransferred || (member.originBranch && member.branch && member.originBranch !== member.branch)) && (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 3,
+                                    fontSize: 10.5,
+                                    fontWeight: 700,
+                                    color: "#d97706",
+                                    background: "rgba(217, 119, 6, 0.12)",
+                                    padding: "2px 6px",
+                                    borderRadius: 4,
+                                    marginTop: 3,
+                                    width: "fit-content",
+                                  }}
+                                  title={`Transferred staff: Started at ${member.originBranch}`}
+                                >
+                                  🔄 Origin: {member.originBranch}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -1076,6 +1096,26 @@ export default function OwnerEmployeesPage({
                           <div className="owner-member-details">
                             <strong className="owner-member-name">{employee.name}</strong>
                             <span className="owner-member-branch">{employee.branch} Branch</span>
+                            {(employee.isTransferred || (employee.originBranch && employee.branch && employee.originBranch !== employee.branch)) && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  color: "#d97706",
+                                  background: "rgba(217, 119, 6, 0.12)",
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  marginTop: 3,
+                                  width: "fit-content",
+                                }}
+                                title={`Transferred staff: Started at ${employee.originBranch}`}
+                              >
+                                🔄 Origin: {employee.originBranch}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>

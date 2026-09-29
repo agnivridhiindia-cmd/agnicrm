@@ -154,11 +154,13 @@ export default function BranchManagerOverviewPage({
       } catch (e) {}
     }
     window.addEventListener("storage", syncPending);
+    window.addEventListener("agni_requests_updated", syncPending);
     window.addEventListener("agni_pending_updated", syncPending);
     window.addEventListener("agni_clients_updated", syncPending);
-    const interval = setInterval(syncPending, 2000);
+    const interval = setInterval(syncPending, 60000);
     return () => {
       window.removeEventListener("storage", syncPending);
+      window.removeEventListener("agni_requests_updated", syncPending);
       window.removeEventListener("agni_pending_updated", syncPending);
       window.removeEventListener("agni_clients_updated", syncPending);
       clearInterval(interval);

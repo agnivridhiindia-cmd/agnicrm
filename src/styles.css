@@ -583,6 +583,103 @@ form {
   box-shadow: 0 0 0 3px rgba(225, 137, 105, .13);
 }
 
+.field-hint {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 400;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+.field-error-msg {
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.3;
+}
+
+.field-valid-badge {
+  color: #059669;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.field-label input.input-valid {
+  border-color: #10b981;
+  background-color: #fbfefc;
+}
+
+.field-label input.input-valid:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.field-label input.input-error {
+  border-color: #ef4444 !important;
+  background-color: #fffbfa !important;
+}
+
+.field-label input.input-error:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.doc-form-alert {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #ef4444;
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: #991b1b;
+  font-size: 13px;
+  animation: fadeIn 0.2s ease-in;
+}
+
+.doc-form-alert h4 {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #b91c1c;
+}
+
+.doc-form-alert ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.doc-form-alert li {
+  line-height: 1.4;
+}
+
+.doc-cross-tip {
+  font-size: 11px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .password-wrap {
   position: relative;
 }
@@ -781,7 +878,7 @@ form {
   --dash-purple: #9a74e9;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: 248px minmax(0, 1fr);
   background: var(--dash-bg);
   color: var(--dash-ink);
   font-family: 'DM Sans', sans-serif;
@@ -1348,7 +1445,7 @@ form {
 .owner-dashboard {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 248px 1fr;
+  grid-template-columns: 248px minmax(0, 1fr);
   gap: 18px;
   background-color: #e8e7f0;
   background-image: url('/dashboard_day_bg.jpg') !important;
@@ -1361,7 +1458,10 @@ form {
 }
 
 .owner-dashboard .client-sidebar {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -2810,14 +2910,18 @@ form {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   background: rgba(12, 14, 24, 0.44);
   z-index: 60;
-  padding: 24px;
+  padding: 24px 16px;
+  overflow-y: auto;
 }
 
 .modal-content {
+  position: relative;
+  margin: auto;
   width: min(720px, 94%);
   max-height: min(92vh, 800px);
   background: #fff;

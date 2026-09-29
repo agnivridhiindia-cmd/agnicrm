@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Icon from "../../../components/Icon";
 import ActivityTracker from "../../../components/ActivityTracker";
 import { getTrackerState, getProcessTypeLabel } from "../../../utils/schemeTracker";
+import { downloadClientDossierPDF, downloadClientStatementPDF } from "../../../utils/exportHelpers";
 
 export default function SalesClientViewModal({
   client,
@@ -405,14 +406,34 @@ export default function SalesClientViewModal({
 
         {/* Footer Actions */}
         <div className="sales-vm-footer">
-          <div className="sales-vm-footer-left">
+          <div className="sales-vm-footer-left" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button
               type="button"
               className="sales-vm-btn-ghost"
               onClick={handleCopySummary}
             >
               <Icon name="document" size={14} />
-              <span>{copied ? "✓ Copied Summary!" : "Copy Summary"}</span>
+              <span>{copied ? "✓ Copied!" : "Copy Summary"}</span>
+            </button>
+            <button
+              type="button"
+              className="sales-vm-btn-ghost"
+              style={{ color: "#4e7cff", borderColor: "rgba(78, 124, 255, 0.3)" }}
+              title="Download executive printable dossier PDF"
+              onClick={() => downloadClientDossierPDF(client)}
+            >
+              <span>📄</span>
+              <span>Dossier (PDF)</span>
+            </button>
+            <button
+              type="button"
+              className="sales-vm-btn-ghost"
+              style={{ color: "#10b981", borderColor: "rgba(16, 185, 129, 0.3)" }}
+              title="Download client ledger and account statement PDF"
+              onClick={() => downloadClientStatementPDF(client)}
+            >
+              <span>📊</span>
+              <span>Statement (PDF)</span>
             </button>
           </div>
 

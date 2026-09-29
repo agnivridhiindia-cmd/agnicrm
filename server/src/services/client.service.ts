@@ -3,6 +3,7 @@ import { ServiceType, Stage, PaymentMode, Role, ApprovalStatus, DocumentStatus, 
 import { prisma } from "../config/prisma";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { generateAppId, generateSchemeCode } from "../utils/idGenerator";
+import { broadcastSseEvent } from "./sse.service";
 
 export interface CreateClientInput {
   companyName: string;
@@ -71,8 +72,32 @@ export interface UpdateClientInput {
   adminNotes?: string;
 }
 
-export async function getClientsService(user: AuthenticatedUser) {
-  let whereClause: any = { isDeleted: false };
+interface CacheEntry {
+  timestamp: number;
+  data: any;
+}
+const clientsCache = new Map<string, CacheEntry>();
+const CLIENTS_CACHE_TTL_MS = 3000; // 3-second SWR cache to absorb concurrent polls
+
+let cachedBranches: { timestamp: number; data: any[] } | null = null;
+const BRANCHES_CACHE_TTL_MS = 600000; // 10 minutes static branch cache
+
+let cachedUsers: { timestamp: number; data: any[] } | null = null;
+const USERS_CACHE_TTL_MS = 60000; // 1 minute user name map cache
+
+export function invalidateClientCache() {
+  clientsCache.clear();
+}
+
+export async function getClientsService(user: AuthenticatedUser, query?: { deletedOnly?: boolean; includeDeleted?: boolean }) {
+  const cacheKey = `${user.userId}_${user.role}_${user.branchId || ""}_${query?.deletedOnly}_${query?.includeDeleted}`;
+  const now = Date.now();
+  const cached = clientsCache.get(cacheKey);
+  if (cached && now - cached.timestamp < CLIENTS_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  let whereClause: any = query?.deletedOnly ? { isDeleted: true } : (query?.includeDeleted ? {} : { isDeleted: false });
 
   if (user.role === "SALES_PERSON") {
     whereClause.salesPersonId = user.userId;
@@ -104,6 +129,10 @@ export async function getClientsService(user: AuthenticatedUser) {
     include: {
       branch: true,
       salesPerson: { select: { id: true, fullName: true, email: true } },
+      originalSalesPerson: { select: { id: true, fullName: true, email: true } },
+      lastSalesPerson: { select: { id: true, fullName: true, email: true } },
+      deletedByUser: { select: { id: true, fullName: true, email: true } },
+      transferLogs: { orderBy: { transferredAt: "desc" } },
       invoices: { where: { isDeleted: false }, include: { payments: { where: { isDeleted: false } } } },
       payments: { where: { isDeleted: false } },
       documents: { where: { isDeleted: false } },
@@ -111,6 +140,24 @@ export async function getClientsService(user: AuthenticatedUser) {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  let allBranches: any[];
+  if (cachedBranches && now - cachedBranches.timestamp < BRANCHES_CACHE_TTL_MS) {
+    allBranches = cachedBranches.data;
+  } else {
+    allBranches = await prisma.branch.findMany({ select: { id: true, name: true, region: true } });
+    cachedBranches = { timestamp: now, data: allBranches };
+  }
+
+  let allUsers: any[];
+  if (cachedUsers && now - cachedUsers.timestamp < USERS_CACHE_TTL_MS) {
+    allUsers = cachedUsers.data;
+  } else {
+    allUsers = await prisma.user.findMany({ select: { id: true, fullName: true, email: true } });
+    cachedUsers = { timestamp: now, data: allUsers };
+  }
+  const branchMap = new Map(allBranches.map((b) => [b.id, b]));
+  const userMap = new Map(allUsers.map((u) => [u.id, u]));
 
   const cleanedClients = clients.map((c) => {
     const isSec = (c as any).isPrimary === false || (c as any).processType === "secondary" || (c.serviceName && !c.serviceName.toLowerCase().includes("pmegp"));
@@ -138,11 +185,19 @@ export async function getClientsService(user: AuthenticatedUser) {
 
     // Accurate calculation of totalPayment, paymentReceived, and paymentPending across invoices and payments
     const totalPayNum = Number(c.totalPayment || 0);
-    const invoicePaymentsSum = (c.invoices || []).reduce((sum, inv) => sum + Number(inv.paymentReceived || 0), 0);
-    const directPaymentsSum = (c.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const invoicePaymentsSum = (c.invoices || []).reduce((sum: number, inv: any) => sum + Number(inv.paymentReceived || 0), 0);
+    const directPaymentsSum = (c.payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
     const payReceivedNum = Math.max(Number(c.paymentReceived || 0), invoicePaymentsSum, directPaymentsSum);
     const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
     const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
+
+    const enrichedLogs = (c.transferLogs || []).map((log) => ({
+      ...log,
+      fromSalesPerson: log.fromSalesPersonId ? userMap.get(log.fromSalesPersonId) || null : null,
+      toSalesPerson: log.toSalesPersonId ? userMap.get(log.toSalesPersonId) || null : null,
+      fromBranch: log.fromBranchId ? branchMap.get(log.fromBranchId)?.name || null : null,
+      toBranch: log.toBranchId ? branchMap.get(log.toBranchId)?.name || null : null,
+    }));
 
     return {
       ...c,
@@ -156,10 +211,17 @@ export async function getClientsService(user: AuthenticatedUser) {
       paymentReceived: payReceivedNum,
       paymentPending: payPendingNum,
       paymentStatus: isPaid ? "Paid" : (payReceivedNum > 0 ? "Partial" : "Pending"),
+      originalSalesPerson: c.originalSalesPerson,
+      lastSalesPerson: c.lastSalesPerson,
+      deletedByUser: c.deletedByUser,
+      deleteReason: c.deleteReason,
+      transferLogs: enrichedLogs,
     };
   });
 
-  return { success: true, count: cleanedClients.length, data: cleanedClients };
+  const responseData = { success: true, count: cleanedClients.length, data: cleanedClients };
+  clientsCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
+  return responseData;
 }
 
 export async function createClientService(user: AuthenticatedUser, data: CreateClientInput) {
@@ -222,12 +284,17 @@ export async function createClientService(user: AuthenticatedUser, data: CreateC
     }
 
     return await createActiveClientCore(tx, data, resolvedSalesPersonId, resolvedBranchId || "", initialApprovalStatus, branchCode);
+  },
+  {
+    maxWait: 15000,
+    timeout: 30000,
   });
 
   const message = newClient.approvalStatus === "PENDING_APPROVAL"
     ? "Registration request submitted for manager approval."
     : "Client registered successfully and login account provisioned.";
 
+  invalidateClientCache();
   return {
     success: true,
     statusCode: 201,
@@ -252,7 +319,7 @@ export async function createActiveClientCore(
   });
 
   if (!existingUser) {
-    const defaultPasswordHash = await bcrypt.hash("password123", 10);
+    const defaultPasswordHash = "$2a$10$JG0jmgWyjXbhIdYVr02KM.x7lAdO6IWTB9ca5PYDtOdZCVtrHfD/."; // Pre-hashed "password123" to avoid blocking event loop
     await tx.user.create({
       data: {
         email: data.email,
@@ -311,6 +378,7 @@ export async function createActiveClientCore(
       adminNotes: data.adminNotes,
       branchId: resolvedBranchId,
       salesPersonId: resolvedSalesPersonId,
+      originalSalesPersonId: resolvedSalesPersonId,
       approvalStatus: initialApprovalStatus,
       documentStatus: effectiveDocStatus,
       totalPayment: data.amount,
@@ -442,12 +510,15 @@ export async function getMyProfileService(user: AuthenticatedUser) {
     (c) => c.eligibleSchemes && Array.isArray(c.eligibleSchemes) && (c.eligibleSchemes as any).length > 0
   )?.eligibleSchemes || client.eligibleSchemes || [];
 
+  const resolvedDueDate = clients.find((c) => c.dueDate)?.dueDate || client.dueDate || null;
+
   return {
     success: true,
     statusCode: 200,
     data: {
       ...client,
       eligibleSchemes: resolvedEligibleSchemes,
+      dueDate: resolvedDueDate,
       computedTotalLoan: totalLoan,
       documentStatus: effectiveDocStatus,
       approvalStatus: effectiveApprovalStatus,
@@ -497,6 +568,22 @@ export async function updateClientStatusService(clientId: string, data: UpdateCl
     },
   });
 
+  invalidateClientCache();
+  broadcastSseEvent({
+    type: "MILESTONE_UPDATED",
+    payload: {
+      clientId: updatedClient.id,
+      clientName: updatedClient.name,
+      companyName: updatedClient.companyName,
+      salesPersonId: updatedClient.salesPersonId,
+      branchId: updatedClient.branchId,
+      completedSteps: updatedClient.completedSteps,
+      applicationStatus: updatedClient.applicationStatus,
+      progressPercent: updatedClient.progressPercent,
+      adminNotes: updatedClient.adminNotes,
+    },
+  });
+
   return {
     success: true,
     statusCode: 200,
@@ -542,6 +629,22 @@ export async function updateClientService(clientId: string, data: UpdateClientIn
       data: schemeUpdate,
     });
   }
+
+  invalidateClientCache();
+  broadcastSseEvent({
+    type: "CLIENT_UPDATED",
+    payload: {
+      clientId: updatedClient.id,
+      clientName: updatedClient.name,
+      companyName: updatedClient.companyName,
+      salesPersonId: updatedClient.salesPersonId,
+      branchId: updatedClient.branchId,
+      applicationStatus: updatedClient.applicationStatus,
+      progressPercent: updatedClient.progressPercent,
+      totalPayment: updatedClient.totalPayment,
+      paymentReceived: updatedClient.paymentReceived,
+    },
+  });
 
   return {
     success: true,
@@ -599,12 +702,20 @@ export async function verifyClientDocumentService(clientId: string, data: { docu
 /**
  * Soft delete client record
  */
-export async function deleteClientService(clientId: string) {
+export async function deleteClientService(clientId: string, user?: AuthenticatedUser, reason?: string) {
+  const existingClient = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { salesPersonId: true, email: true },
+  });
+
   const updated = await prisma.client.update({
     where: { id: clientId },
     data: {
       isDeleted: true,
       deletedAt: new Date(),
+      deletedById: user?.userId || null,
+      deleteReason: reason || "Direct deletion by authorized user",
+      lastSalesPersonId: existingClient?.salesPersonId || null,
     },
   });
 
@@ -624,6 +735,7 @@ export async function deleteClientService(clientId: string) {
     }
   }
 
+  invalidateClientCache();
   return {
     success: true,
     statusCode: 200,
@@ -656,6 +768,7 @@ export async function updateClientEligibleSchemesService(clientId: string, schem
     },
   });
 
+  invalidateClientCache();
   return {
     success: true,
     statusCode: 200,
@@ -663,4 +776,85 @@ export async function updateClientEligibleSchemesService(clientId: string, schem
     data: schemes,
   };
 }
+
+export async function updateClientDueDateService(clientId: string, dueDate: string | null) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+  });
+
+  if (!client) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: "Client not found.",
+    };
+  }
+
+  const parsedDate = dueDate ? new Date(dueDate) : null;
+
+  // Update across all client records sharing this email (primary and secondary)
+  await prisma.client.updateMany({
+    where: {
+      email: { equals: client.email, mode: "insensitive" },
+      isDeleted: false,
+    },
+    data: {
+      dueDate: parsedDate,
+    },
+  });
+
+  invalidateClientCache();
+  return {
+    success: true,
+    statusCode: 200,
+    message: "Due date updated successfully.",
+    data: { dueDate: parsedDate },
+  };
+}
+
+export async function restoreClientService(clientId: string, user: AuthenticatedUser) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+  });
+
+  if (!client) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: "Client not found.",
+    };
+  }
+
+  // Restore client and reset delete audit fields
+  const restored = await prisma.client.update({
+    where: { id: clientId },
+    data: {
+      isDeleted: false,
+      deletedAt: null,
+      deletedById: null,
+      deleteReason: null,
+    },
+    include: {
+      branch: true,
+      salesPerson: { select: { id: true, fullName: true, email: true } },
+    },
+  });
+
+  // Restore client user login account if applicable
+  if (restored.email) {
+    await prisma.user.updateMany({
+      where: { email: restored.email, role: Role.CLIENT },
+      data: { isDeleted: false, deletedAt: null },
+    });
+  }
+
+  invalidateClientCache();
+  return {
+    success: true,
+    statusCode: 200,
+    message: "Client restored successfully.",
+    data: restored,
+  };
+}
+
 

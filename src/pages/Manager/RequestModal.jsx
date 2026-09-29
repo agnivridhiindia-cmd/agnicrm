@@ -12,10 +12,18 @@ export default function RequestModal({ request, onClose, onApprove, onReject, re
   const isNewClient = request.source === "client_creation" || reqTypeLower.includes("new client") || reqTypeLower.includes("registration");
   const isScheme = request.source === "scheme_request" || reqTypeLower.includes("scheme");
 
+  const isMultiTier = Array.isArray(request.approvalChain) && request.approvalChain.length > 1;
+  const isFinalStep = !isMultiTier || ((request.currentChainIndex || 0) >= (request.approvalChain ? request.approvalChain.length - 1 : 0));
+  const nextRole = !isFinalStep && Array.isArray(request.approvalChain) ? request.approvalChain[(request.currentChainIndex || 0) + 1] : null;
+
   let actionLabel = "Approve Changes";
   if (isNewClient) actionLabel = "Approve Client Registration ✓";
   else if (isScheme) actionLabel = "Approve Scheme Enrollment ✓";
-  else if (isDelete) actionLabel = "Approve Client Deletion";
+  else if (!isFinalStep && nextRole) {
+    actionLabel = `Approve & Forward to ${nextRole === "BRANCH_MANAGER" ? "Branch Manager" : "Owner"} →`;
+  } else if (isDelete) {
+    actionLabel = "Authorize & Apply Deletion";
+  }
 
   const statusClass = (request.status || "Pending").toLowerCase().replace(/[^a-z]/g, "");
 
@@ -47,6 +55,41 @@ export default function RequestModal({ request, onClose, onApprove, onReject, re
             </span>
           </div>
         </div>
+
+        {/* Hierarchical Pipeline Visualizer */}
+        {request.approvalChain && request.approvalChain.length > 0 && (
+          <div className="manager-modal-card" style={{ background: "rgba(99, 102, 241, 0.04)", border: "1px dashed rgba(99, 102, 241, 0.3)" }}>
+            <span className="manager-modal-card-label" style={{ color: "#6366f1", fontWeight: 700 }}>
+              Hierarchy Approval Pipeline
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap", fontSize: 12 }}>
+              <span style={{ padding: "3px 8px", borderRadius: 6, background: "rgba(99, 102, 241, 0.1)", color: "#6366f1", fontWeight: 600 }}>
+                1. Salesperson (Submitted)
+              </span>
+              <span>→</span>
+              {request.approvalChain.map((role, idx) => {
+                const isPassed = (request.currentChainIndex || 0) > idx || request.status === "Approved";
+                const isCurrent = (request.currentChainIndex || 0) === idx && request.status !== "Approved";
+                const roleLabel = role === "MANAGER" ? "Sales Manager" : role === "BRANCH_MANAGER" ? "Branch Manager" : "Owner";
+                return (
+                  <React.Fragment key={role}>
+                    <span style={{
+                      padding: "3px 8px",
+                      borderRadius: 6,
+                      background: isPassed ? "rgba(16, 185, 129, 0.12)" : isCurrent ? "rgba(245, 158, 11, 0.15)" : "rgba(148, 163, 184, 0.1)",
+                      color: isPassed ? "#10b981" : isCurrent ? "#f59e0b" : "#94a3b8",
+                      fontWeight: 600,
+                      border: isCurrent ? "1px solid #f59e0b" : "none"
+                    }}>
+                      {idx + 2}. {roleLabel} {isPassed ? "✓" : isCurrent ? "(Reviewing)" : ""}
+                    </span>
+                    {idx < request.approvalChain.length - 1 && <span>→</span>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* New Client Onboarding Details Card */}
         {isNewClient && (
@@ -99,6 +142,18 @@ export default function RequestModal({ request, onClose, onApprove, onReject, re
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Submission Reason & Notes */}
+        {request.reason && (
+          <div className="manager-modal-card" style={{ background: "rgba(140, 95, 248, 0.04)" }}>
+            <span className="manager-modal-card-label" style={{ color: "#8c5ff8", fontWeight: 700 }}>
+              Justification & Operational Rationale
+            </span>
+            <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5, color: "inherit" }}>
+              {request.reason}
+            </p>
           </div>
         )}
 

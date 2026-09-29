@@ -22,6 +22,9 @@ export function useSalesClients(salesPersonName, onClientAdded) {
 
   useEffect(() => {
     async function fetchSalesClientsFromDB() {
+      const token = localStorage.getItem("agni_token");
+      if (!token) return;
+
       try {
         const response = await apiFetch("/clients");
 
@@ -73,6 +76,7 @@ export function useSalesClients(salesPersonName, onClientAdded) {
                 createdAt: c.createdAt,
                 invoices: c.invoices || [],
                 eligibleSchemes: c.eligibleSchemes || [],
+                dueDate: c.dueDate || null,
               });
             });
 
@@ -90,7 +94,7 @@ export function useSalesClients(salesPersonName, onClientAdded) {
     window.addEventListener("storage", fetchSalesClientsFromDB);
     window.addEventListener("agni_pending_updated", fetchSalesClientsFromDB);
     window.addEventListener("agni_clients_updated", fetchSalesClientsFromDB);
-    const interval = setInterval(fetchSalesClientsFromDB, 3000);
+    const interval = setInterval(fetchSalesClientsFromDB, 30000);
 
     return () => {
       window.removeEventListener("storage", fetchSalesClientsFromDB);
@@ -314,6 +318,62 @@ export function useSalesClients(salesPersonName, onClientAdded) {
     window.dispatchEvent(new CustomEvent("agni_clients_updated"));
   };
 
+  const handleUpdateClientDueDate = async (clientId, newDueDate) => {
+    if (!clientId) return;
+
+    setClients((prev) =>
+      prev.map((c) =>
+        c.id === clientId || (selectedClient?.email && c.email && c.email.toLowerCase() === selectedClient.email.toLowerCase())
+          ? { ...c, dueDate: newDueDate }
+          : c
+      )
+    );
+
+    setSelectedClient((prev) => {
+      if (!prev) return null;
+      if (prev.id === clientId || (prev.email && selectedClient?.email && prev.email.toLowerCase() === selectedClient.email.toLowerCase())) {
+        return { ...prev, dueDate: newDueDate };
+      }
+      return prev;
+    });
+
+    const clientEmailKey = selectedClient?.email ? selectedClient.email.trim().toLowerCase() : "";
+    if (clientEmailKey) {
+      try {
+        localStorage.setItem(`agni_client_due_date_${clientEmailKey}`, newDueDate || "");
+      } catch (e) {}
+
+      try {
+        ["agni_sales_clients", "agni_branch_clients"].forEach((storageKey) => {
+          const savedList = localStorage.getItem(storageKey);
+          if (savedList) {
+            const list = JSON.parse(savedList);
+            if (Array.isArray(list)) {
+              const updated = list.map((c) =>
+                c.email && c.email.toLowerCase().trim() === clientEmailKey
+                  ? { ...c, dueDate: newDueDate }
+                  : c
+              );
+              localStorage.setItem(storageKey, JSON.stringify(updated));
+            }
+          }
+        });
+      } catch (e) {}
+    }
+
+    try {
+      await apiFetch(`/clients/${clientId}/due-date`, {
+        method: "PATCH",
+        body: { dueDate: newDueDate },
+      });
+    } catch (err) {
+      console.warn("Failed to persist due date to backend:", err);
+    }
+
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+  };
+
   const handleVerifyDocument = async (clientId, docName, newStatus) => {
     if (!clientId) return;
     const apiStatus = newStatus === "Verified" ? "VERIFIED" : "NOT_SUBMITTED";
@@ -411,6 +471,7 @@ export function useSalesClients(salesPersonName, onClientAdded) {
     pendingSchemeRequests,
     handleApproveSchemeRequest,
     handleDeclineSchemeRequest,
+    handleUpdateClientDueDate,
   };
 }
 

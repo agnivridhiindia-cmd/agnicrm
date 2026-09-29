@@ -28,7 +28,7 @@ export function useApiPayments() {
               amount: pay.amount,
               date: pay.paymentDate || pay.date,
               mode: pay.paymentMode || pay.mode,
-              status: pay.status === "SUCCESS" ? "Verified" : (pay.status || "Pending"),
+              status: (pay.status === "SUCCESS" || pay.status === "PAID" || pay.status === "Verified") ? "Paid" : (pay.status || "Pending"),
             };
           });
         }

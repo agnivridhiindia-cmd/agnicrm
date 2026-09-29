@@ -123,6 +123,12 @@ export default function AuthScreen({ onLogin }) {
       localStorage.setItem("agni_token", data.token);
       localStorage.setItem("agni_user_email", data.user.email);
       localStorage.setItem("agni_user_role", mappedRole);
+      if (data.user?.fullName) {
+        localStorage.setItem("agni_user_name", data.user.fullName);
+      }
+      if (data.user) {
+        localStorage.setItem("agni_user", JSON.stringify(data.user));
+      }
 
       setIsLoading(false);
       onLogin(data.user.email, mappedRole, data.token);
@@ -303,6 +309,7 @@ export default function AuthScreen({ onLogin }) {
                 <option value="ananya.sm@agni.com">Ananya Sen — [Sales Manager] ananya.sm@agni.com</option>
                 <option value="rohan.sales@agni.com">Rohan Gupta — [Salesperson] rohan.sales@agni.com</option>
                 <option value="kavya.sales@agni.com">Kavya Sharma — [Salesperson] kavya.sales@agni.com</option>
+                <option value="arjun.sales@agni.com">Arjun Hegde — [Salesperson] arjun.sales@agni.com</option>
                 <option value="aarav.it@agni.com">Aarav Mehta — [IT Lead] aarav.it@agni.com</option>
                 <option value="ishaan.it@agni.com">Ishaan Verma — [Sys Admin] ishaan.it@agni.com</option>
                 <option value="neha.mkt@agni.com">Neha Kapoor — [Marketing Lead] neha.mkt@agni.com</option>
@@ -314,7 +321,6 @@ export default function AuthScreen({ onLogin }) {
               <optgroup label="🏛️ BRANCH 3: SOUTH ZONE (BENGALURU)">
                 <option value="suresh.bm@agni.com">Suresh Reddy — [Branch Manager] suresh.bm@agni.com</option>
                 <option value="karthik.sm@agni.com">Karthik Iyer — [Sales Manager] karthik.sm@agni.com</option>
-                <option value="arjun.sales@agni.com">Arjun Hegde — [Salesperson] arjun.sales@agni.com</option>
                 <option value="deepa.sales@agni.com">Deepa Rao — [Salesperson] deepa.sales@agni.com</option>
                 <option value="vikram.it@agni.com">Vikram Rao — [Cloud Architect] vikram.it@agni.com</option>
                 <option value="niharika.it@agni.com">Niharika Bhat — [IT Lead] niharika.it@agni.com</option>

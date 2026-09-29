@@ -64,10 +64,40 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsAutoScrollPaused, setNotificationsAutoScrollPaused] = useState(false);
   const [query, setQuery] = useState("");
-  const branchInfo = useMemo(() => getManagerBranchDetails(userEmail), [userEmail]);
-  const managerName = branchInfo.managerName;
-  const managedBranch = branchInfo.branchName;
-  const managedRegion = branchInfo.region;
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const u = localStorage.getItem("agni_user");
+      return u ? JSON.parse(u) : null;
+    } catch (e) { return null; }
+  });
+
+  const branchInfo = useMemo(() => {
+    return getManagerBranchDetails(userEmail || currentUser?.email || currentUser?.branch?.name || "");
+  }, [userEmail, currentUser]);
+
+  const managerName = currentUser?.fullName || (userEmail?.toLowerCase().includes("ananya") ? "Ananya Sen" : branchInfo.managerName);
+  const managedBranch = currentUser?.branch?.name || branchInfo.branchName;
+  const managedRegion = currentUser?.region || currentUser?.branch?.region || branchInfo.region;
+
+  // Sync logged in user profile from API
+  useEffect(() => {
+    let isMounted = true;
+    async function syncMe() {
+      try {
+        const res = await apiFetch("/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user && isMounted) {
+            localStorage.setItem("agni_user_name", data.user.fullName);
+            localStorage.setItem("agni_user", JSON.stringify(data.user));
+            setCurrentUser(data.user);
+          }
+        }
+      } catch (e) {}
+    }
+    syncMe();
+    return () => { isMounted = false; };
+  }, []);
 
   const [managerNotices, setManagerNotices] = useState(() => {
     try {
@@ -87,10 +117,12 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
       } catch (e) {}
     }
     window.addEventListener("storage", syncManagerNotices);
+    window.addEventListener("agni_notifications_updated", syncManagerNotices);
     window.addEventListener("agni_pending_updated", syncManagerNotices);
-    const interval = setInterval(syncManagerNotices, 2000);
+    const interval = setInterval(syncManagerNotices, 45000);
     return () => {
       window.removeEventListener("storage", syncManagerNotices);
+      window.removeEventListener("agni_notifications_updated", syncManagerNotices);
       window.removeEventListener("agni_pending_updated", syncManagerNotices);
       clearInterval(interval);
     };
@@ -112,22 +144,27 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
             const finalRec = (!isSec && rawRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? finalTot : rawRec;
             const finalPend = Math.max(0, finalTot - finalRec);
 
+            const repName = c.salesPerson?.fullName || c.owner || c.assignedSalesPerson || branchInfo.salespersons?.[0] || "Sales Representative";
+            const repEmail = c.salesPerson?.email || c.ownerEmail || branchInfo.salesEmails?.[0] || "";
+
             return sanitizeClientRecord({
               ...c,
               id: c.id,
               appId: c.appId,
               name: c.name,
-              company: c.companyName,
-              contactPerson: c.contactPerson,
+              company: c.companyName || c.name,
+              contactPerson: c.contactPerson || c.name,
               email: c.email,
               phone: c.phone,
               branch: c.branch?.name || managedBranch,
+              region: c.branch?.region || managedRegion,
               scheme: c.serviceName,
               service: c.serviceName,
               serviceType: c.serviceType,
-              assignedSalesPerson: c.salesPerson?.fullName || c.owner || "Mia Rose",
-              salesRep: c.salesPerson?.fullName || c.owner || "Mia Rose",
-              owner: c.salesPerson?.fullName || c.owner || "Mia Rose",
+              assignedSalesPerson: repName,
+              salesRep: repName,
+              owner: repName,
+              salesPersonEmail: repEmail,
               applicationStatus: c.applicationStatus || "CRM Creation",
               stage: c.applicationStatus || "Active",
               completedSteps: c.completedSteps || ["CRM Creation"],
@@ -156,8 +193,8 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                   date: p.paymentDate || p.createdAt,
                   paymentDate: p.paymentDate || p.createdAt,
                   status: p.status === "FAILED" ? "failed" : p.status === "PENDING" ? "pending" : "success",
-                  salesPerson: c.salesPerson?.fullName || c.owner || "Mia Rose",
-                  salesRep: c.salesPerson?.fullName || c.owner || "Mia Rose",
+                  salesPerson: repName,
+                  salesRep: repName,
                 }))
               ),
             });
@@ -202,7 +239,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
   const branchTeam = useMemo(() => {
     const branchLower = (managedBranch || "").toLowerCase().trim();
     const regionLower = (managedRegion || "").toLowerCase().trim();
-    const codeLower = (branchInfo.branchCode || "").toLowerCase().trim();
+    const codeLower = (branchInfo.branchCode || branchInfo.code || "").toLowerCase().trim();
 
     const designatedNames = (branchInfo.salespersons || []).map((s) => s.toLowerCase().trim());
     const designatedEmails = (branchInfo.salesEmails || []).map((s) => s.toLowerCase().trim());
@@ -241,6 +278,8 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
   );
 
   const branchClients = useMemo(() => {
+    if (!clients || clients.length === 0) return [];
+
     const salesNamesLower = (branchInfo.salespersons || []).map((s) => s.toLowerCase().trim());
     const salesEmailsLower = (branchInfo.salesEmails || []).map((s) => s.toLowerCase().trim());
     const managedBranchLower = (managedBranch || "").toLowerCase().trim();
@@ -257,13 +296,15 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
         (repEmail && salesEmailsLower.includes(repEmail));
 
       const isBranchMatch =
-        clientBranch &&
-        (managedBranchLower.includes(clientBranch) ||
-          managedRegionLower.includes(clientBranch) ||
-          (clientBranch.includes("west") && managedBranchLower.includes("west")) ||
-          (clientBranch.includes("north") && managedBranchLower.includes("north")) ||
-          (clientBranch.includes("south") && managedBranchLower.includes("south")) ||
-          (clientBranch.includes("east") && managedBranchLower.includes("east")));
+        !clientBranch ||
+        managedBranchLower.includes(clientBranch) ||
+        clientBranch.includes(managedBranchLower) ||
+        managedRegionLower.includes(clientBranch) ||
+        clientBranch.includes(managedRegionLower) ||
+        (clientBranch.includes("west") && managedBranchLower.includes("west")) ||
+        (clientBranch.includes("north") && managedBranchLower.includes("north")) ||
+        (clientBranch.includes("south") && managedBranchLower.includes("south")) ||
+        (clientBranch.includes("east") && managedBranchLower.includes("east"));
 
       return isRepMatch || isBranchMatch;
     });
@@ -413,8 +454,8 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
             <UserProfileMenu
               user={{
                 name: managerName || "Enterprise Manager",
-                email: userEmail || branchInfo.managerEmail || "manager@agnicrm.com",
-                phone: "+91 98202 33445",
+                email: userEmail || currentUser?.email || branchInfo.managerEmail || "manager@agnicrm.com",
+                phone: currentUser?.phone || "+91 98111 22335",
                 branch: managedBranch,
                 designation: "Enterprise Sales Manager",
                 empId: "EMP-MGR-2004",
@@ -422,7 +463,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
               }}
               role="Manager"
               roleBadge="Manager"
-              initials="M"
+              initials={managerName ? managerName.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().substring(0, 2) : "M"}
               avatarColor="linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)"
               onSignOut={onSignOut}
               showToast={(msg) => alert(msg)}
@@ -495,6 +536,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                 branchTeamNames={branchTeamNames}
                 managedRegion={managedRegion}
                 branchTeam={branchTeam}
+                clients={branchClients}
               />
             }
           />
@@ -505,6 +547,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                 branchTeamNames={branchTeamNames}
                 managedRegion={managedRegion}
                 branchTeam={branchTeam}
+                clients={branchClients}
               />
             }
           />

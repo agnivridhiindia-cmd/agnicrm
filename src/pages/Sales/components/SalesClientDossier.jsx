@@ -5,6 +5,7 @@ import EligibleSchemes from "../EligibleSchemes";
 import { mockEligibleSchemes } from "../mockEligibleSchemes";
 import { getTrackerState, getProcessTypeLabel, getSchemeCompletedStages, getClientAllSchemeTrackers, isPaymentDemandOrSettlement, isClientPrimaryScheme } from "../../../utils/schemeTracker";
 import { isEligibleSchemeRequest } from "../SalesRequests";
+import { downloadClientDossierPDF, downloadClientStatementPDF } from "../../../utils/exportHelpers";
 
 export default function SalesClientDossier({
   selectedClient,
@@ -16,6 +17,7 @@ export default function SalesClientDossier({
   pendingSchemeRequests = [],
   onApproveSchemeRequest,
   onDeclineSchemeRequest,
+  onUpdateDueDate,
 }) {
   if (!selectedClient) return null;
 
@@ -23,6 +25,52 @@ export default function SalesClientDossier({
   const [requiredAmountInput, setRequiredAmountInput] = React.useState("");
   const [pitchedAmountInput, setPitchedAmountInput] = React.useState("20000");
   const [paymentReceivedInput, setPaymentReceivedInput] = React.useState("23600");
+
+  const initialDueDate = React.useMemo(() => {
+    if (selectedClient?.dueDate) {
+      try {
+        const d = new Date(selectedClient.dueDate);
+        if (!isNaN(d.getTime())) {
+          return d.toISOString().split("T")[0];
+        }
+      } catch (e) {}
+      if (typeof selectedClient.dueDate === "string" && selectedClient.dueDate.includes("-")) {
+        return selectedClient.dueDate.split("T")[0];
+      }
+    }
+    return "";
+  }, [selectedClient?.dueDate]);
+
+  const [dueDateInput, setDueDateInput] = React.useState(initialDueDate);
+  const [dueDateSaving, setDueDateSaving] = React.useState(false);
+  const [dueDateMessage, setDueDateMessage] = React.useState("");
+
+  React.useEffect(() => {
+    setDueDateInput(initialDueDate);
+  }, [initialDueDate]);
+
+  const handleSaveDueDate = async (dateToSave = dueDateInput) => {
+    setDueDateSaving(true);
+    try {
+      if (onUpdateDueDate) {
+        await onUpdateDueDate(dateToSave || null);
+      }
+      setDueDateMessage("✓ Due Date updated and synced live to Client Dashboard!");
+      setTimeout(() => setDueDateMessage(""), 3500);
+    } catch (e) {
+      setDueDateMessage("Failed to update due date");
+    } finally {
+      setDueDateSaving(false);
+    }
+  };
+
+  const handleApplyPreset = (monthsToAdd) => {
+    const base = new Date();
+    base.setMonth(base.getMonth() + monthsToAdd);
+    const dateStr = base.toISOString().split("T")[0];
+    setDueDateInput(dateStr);
+    handleSaveDueDate(dateStr);
+  };
 
   const siblingClients = React.useMemo(() => {
     if (!selectedClient || !Array.isArray(allClients)) return [];
@@ -224,7 +272,27 @@ export default function SalesClientDossier({
           <span>←</span>
           <span>Back to Client Directory</span>
         </button>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="sales-btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontWeight: 700 }}
+            title="Download executive A4 Dossier for offline client meetings"
+            onClick={() => downloadClientDossierPDF(selectedClient)}
+          >
+            <span>📄</span>
+            <span>Download Dossier (PDF)</span>
+          </button>
+          <button
+            type="button"
+            className="sales-btn-secondary"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontWeight: 700 }}
+            title="Download financial account statement with fee realization"
+            onClick={() => downloadClientStatementPDF(selectedClient)}
+          >
+            <span>📊</span>
+            <span>Account Statement (PDF)</span>
+          </button>
           <button
             type="button"
             className="sales-btn-secondary"
@@ -314,6 +382,62 @@ export default function SalesClientDossier({
 
       {/* Comprehensive Financial Breakdown */}
       <div className="dossier-finance-card">
+        {(selectedClient.transferLogs?.length > 0 || (selectedClient.originalSalesPersonId && selectedClient.originalSalesPersonId !== selectedClient.salesPersonId)) && (
+          <div
+            style={{
+              padding: "14px 18px",
+              borderRadius: "10px",
+              background: "rgba(59, 130, 246, 0.07)",
+              border: "1px solid rgba(59, 130, 246, 0.25)",
+              marginBottom: 16,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>🔄</span>
+                <strong style={{ color: "#1d4ed8", fontSize: 14 }}>
+                  Transferred Client Account — Quota Attribution Active
+                </strong>
+              </div>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#2563eb",
+                  background: "rgba(59, 130, 246, 0.15)",
+                  padding: "3px 8px",
+                  borderRadius: 6,
+                }}
+              >
+                Fresh Rep Account (No Prior Quota Overlap)
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, fontSize: 13, marginTop: 4 }}>
+              <div>
+                <span style={{ color: "#64748b", display: "block", fontSize: 11 }}>Original Originating Representative:</span>
+                <strong style={{ color: "#1e293b" }}>
+                  {selectedClient.originalSalesPerson?.fullName || "Original Rep"}
+                </strong>
+                <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                  Historical collections remain locked to original rep.
+                </div>
+              </div>
+              <div>
+                <span style={{ color: "#64748b", display: "block", fontSize: 11 }}>Current Assigned Representative:</span>
+                <strong style={{ color: "#059669" }}>
+                  {selectedClient.salesPerson?.fullName || salesPersonName || "Current Rep"}
+                </strong>
+                <div style={{ fontSize: 11.5, color: "#059669", marginTop: 2 }}>
+                  ✓ 100% quota credit on collected pending balance (₹{(parseFloat(selectedClient.paymentPending) || 0).toLocaleString("en-IN")}) and new services.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="dossier-card-title">
           <span>Financial & Commercial Breakdown</span>
           <span className="scheme-tag" style={{ fontSize: 13, padding: '6px 12px' }}>
@@ -383,6 +507,205 @@ export default function SalesClientDossier({
             />
           </div>
         </div>
+      </div>
+
+      {/* ── SERVICE DUE DATE & RENEWAL CONTROL CARD ── */}
+      <div className="dossier-finance-card" style={{ marginBottom: 20 }}>
+        <div className="dossier-card-title">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🕒</span>
+            <div>
+              <span style={{ fontSize: 16, fontWeight: 800 }}>Service Due Date &amp; Renewal Schedule</span>
+              <small style={{ color: "#94a3b8", display: "block", fontSize: 12, marginTop: 2 }}>
+                Dynamically connected to the client dashboard's <strong>Next Renewal / Due Date</strong> card.
+              </small>
+            </div>
+          </div>
+          <span
+            className="scheme-tag"
+            style={{
+              fontSize: 13,
+              padding: "6px 14px",
+              background: dueDateInput ? "rgba(242, 170, 56, 0.15)" : "rgba(100, 116, 139, 0.15)",
+              color: dueDateInput ? "#f2aa38" : "#94a3b8",
+              border: dueDateInput ? "1px solid rgba(242, 170, 56, 0.3)" : "1px solid rgba(100, 116, 139, 0.3)",
+              fontWeight: 700,
+            }}
+          >
+            {dueDateInput
+              ? `Due: ${new Date(dueDateInput).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+              : "No Due Date Set"}
+          </span>
+        </div>
+
+        <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 220 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#cbd5e1" }}>
+              Select Due / Renewal Date:
+            </label>
+            <input
+              type="date"
+              value={dueDateInput}
+              onChange={(e) => setDueDateInput(e.target.value)}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1.5px solid rgba(140, 95, 248, 0.35)",
+                background: "rgba(15, 23, 42, 0.7)",
+                color: "#f8fafc",
+                fontSize: 14,
+                fontWeight: 600,
+                outline: "none",
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#cbd5e1" }}>
+              Quick Presets:
+            </label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(1)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(140, 95, 248, 0.3)",
+                  background: "rgba(140, 95, 248, 0.12)",
+                  color: "#c4b5fd",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                +1 Month
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(3)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(140, 95, 248, 0.3)",
+                  background: "rgba(140, 95, 248, 0.12)",
+                  color: "#c4b5fd",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                +3 Months
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(6)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(140, 95, 248, 0.3)",
+                  background: "rgba(140, 95, 248, 0.12)",
+                  color: "#c4b5fd",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                +6 Months
+              </button>
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(12)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(242, 170, 56, 0.35)",
+                  background: "rgba(242, 170, 56, 0.15)",
+                  color: "#f2aa38",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                +1 Year
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignSelf: "flex-end", marginTop: "auto" }}>
+            <button
+              type="button"
+              disabled={dueDateSaving}
+              onClick={() => handleSaveDueDate()}
+              style={{
+                padding: "10px 22px",
+                borderRadius: 10,
+                border: "none",
+                background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                color: "#ffffff",
+                fontSize: 13.5,
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: "0 4px 14px rgba(245, 158, 11, 0.35)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                transition: "all 0.15s ease",
+              }}
+            >
+              <span>💾</span>
+              <span>{dueDateSaving ? "Updating..." : "Save Due Date"}</span>
+            </button>
+            {dueDateInput && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDueDateInput("");
+                  handleSaveDueDate("");
+                }}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(239, 68, 68, 0.4)",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  color: "#f87171",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Clear Date
+              </button>
+            )}
+          </div>
+        </div>
+
+        {dueDateMessage && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: "8px 14px",
+              borderRadius: 8,
+              background: "rgba(16, 185, 129, 0.15)",
+              border: "1px solid rgba(16, 185, 129, 0.3)",
+              color: "#34d399",
+              fontSize: 13,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span>✓</span>
+            <span>{dueDateMessage}</span>
+          </div>
+        )}
       </div>
 
       {/* Two-Column Grid: Contact Profile & Compliance Documents */}

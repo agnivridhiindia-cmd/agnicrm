@@ -277,6 +277,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
               <BranchManagerClientsPage
                 clients={clients}
                 setClients={setClients}
+                employeesList={employeesList}
               />
             }
           />
@@ -309,6 +310,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 branchIT={branchIT}
                 branchMarketing={branchMarketing}
                 myBranch={myBranch}
+                clients={clients}
               />
             }
           />

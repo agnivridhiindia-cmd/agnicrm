@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import AuthScreen from "./Auth/AuthScreen";
 import { apiFetch } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
+import { initRealtimeService, closeRealtimeService } from "../services/realtimeService";
 
 const ClientDashboard = lazy(() => import("../ClientDashboard"));
 const DocumentForm = lazy(() => import("./Documents/DocumentForm"));
@@ -136,6 +137,7 @@ function ClientRouteWrapper({ userEmail, onSignOut }) {
     return (
       <DocumentForm
         email={userEmail}
+        onSignOut={onSignOut}
         onComplete={() => {
           localStorage.setItem(docSubmittedKey, "true");
           setHasCompletedSetup(true);
@@ -268,6 +270,20 @@ export default function App() {
     }
 
     const checkAuth = () => {
+      // If user directly visits /auth or /login with an intent to authenticate or switch accounts,
+      // allow them to see the auth screen cleanly without forced bounce-back
+      if (window.location.pathname === "/auth") {
+        localStorage.removeItem("agni_user_email");
+        localStorage.removeItem("agni_user_role");
+        localStorage.removeItem("agni_role");
+        localStorage.removeItem("agni_user");
+        localStorage.removeItem("agni_email");
+        localStorage.removeItem("agni_token");
+        setUserRole("");
+        setUserEmail("");
+        return;
+      }
+
       const storedRole = localStorage.getItem("agni_user_role");
       const storedEmail = localStorage.getItem("agni_user_email");
 
@@ -281,7 +297,7 @@ export default function App() {
       } else {
         setUserRole("");
         setUserEmail("");
-        if (window.location.pathname !== "/login") {
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/auth") {
           navigate("/login", { replace: true });
         }
       }
@@ -300,16 +316,35 @@ export default function App() {
     };
   }, [navigate]);
 
+  // Manage real-time SSE stream lifecycle based on login status
+  React.useEffect(() => {
+    const token = localStorage.getItem("agni_token");
+    if (token && userRole) {
+      initRealtimeService();
+    } else {
+      closeRealtimeService();
+    }
+    return () => {
+      // Keep connection alive across route transitions
+    };
+  }, [userRole]);
+
   function handleLogin(email, role, token) {
     // Clear any stale session before writing the new one so an old
     // cached role can never leak into this login.
     localStorage.removeItem("agni_user_email");
     localStorage.removeItem("agni_user_role");
+    localStorage.removeItem("agni_role");
+    localStorage.removeItem("agni_user");
+    localStorage.removeItem("agni_email");
     localStorage.removeItem("agni_token");
 
     localStorage.setItem("agni_user_email", email);
     localStorage.setItem("agni_user_role", role);
-    if (token) localStorage.setItem("agni_token", token);
+    if (token) {
+      localStorage.setItem("agni_token", token);
+      initRealtimeService();
+    }
     
     setUserEmail(email);
     setUserRole(role);
@@ -318,12 +353,16 @@ export default function App() {
   }
 
   function handleSignOut() {
+    closeRealtimeService();
     localStorage.removeItem("agni_user_email");
     localStorage.removeItem("agni_user_role");
+    localStorage.removeItem("agni_role");
+    localStorage.removeItem("agni_user");
+    localStorage.removeItem("agni_email");
     localStorage.removeItem("agni_token");
     setUserRole("");
     setUserEmail("");
-    navigate("/login");
+    navigate("/auth");
   }
 
   return (
@@ -337,6 +376,10 @@ export default function App() {
       <Routes>
       <Route
         path="/login"
+        element={<AuthScreen onLogin={handleLogin} />}
+      />
+      <Route
+        path="/auth"
         element={<AuthScreen onLogin={handleLogin} />}
       />
 
