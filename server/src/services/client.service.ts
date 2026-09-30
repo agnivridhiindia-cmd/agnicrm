@@ -161,7 +161,7 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
 
   const cleanedClients = clients.map((c) => {
     const isSec = (c as any).isPrimary === false || (c as any).processType === "secondary" || (c.serviceName && !c.serviceName.toLowerCase().includes("pmegp"));
-    
+
     let compName = c.companyName;
     if (!compName || compName.toLowerCase() === "representative") {
       const primaryMatch = clients.find(p => p.email.toLowerCase() === c.email.toLowerCase() && p.companyName && p.companyName.toLowerCase() !== "representative");
@@ -285,10 +285,10 @@ export async function createClientService(user: AuthenticatedUser, data: CreateC
 
     return await createActiveClientCore(tx, data, resolvedSalesPersonId, resolvedBranchId || "", initialApprovalStatus, branchCode);
   },
-  {
-    maxWait: 15000,
-    timeout: 30000,
-  });
+    {
+      maxWait: 15000,
+      timeout: 30000,
+    });
 
   const message = newClient.approvalStatus === "PENDING_APPROVAL"
     ? "Registration request submitted for manager approval."

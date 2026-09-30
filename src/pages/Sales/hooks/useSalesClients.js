@@ -129,7 +129,18 @@ export function useSalesClients(salesPersonName, onClientAdded) {
         (c.scheme && c.scheme.toLowerCase().includes(q)) ||
         (c.serviceType && c.serviceType.toLowerCase().includes(q));
 
-      const matchesStage = stageFilter === "all" || c.stage === stageFilter;
+      const filterLower = (stageFilter || "all").toLowerCase().trim();
+      const clientServiceTypeLower = (c.serviceType || "").toLowerCase().trim();
+      const clientStageLower = (c.stage || "").toLowerCase().trim();
+
+      const matchesStage =
+        filterLower === "all" ||
+        clientStageLower === filterLower ||
+        clientServiceTypeLower === filterLower ||
+        (filterLower.includes("consult") && clientServiceTypeLower.includes("consult")) ||
+        (filterLower.includes("cert") && clientServiceTypeLower.includes("cert")) ||
+        (filterLower === "it" && clientServiceTypeLower === "it") ||
+        (filterLower.includes("market") && clientServiceTypeLower.includes("market"));
 
       let matchesPayment = true;
       const pending = parseFloat(c.paymentPending) || 0;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { apiFetch } from "../services/apiClient";
-import { generateInvoiceHTML } from "./Sales/SalesInvoices";
+import { generateInvoiceHTML, getPlaceOfSupplyWithCode } from "../utils/invoiceGenerator";
+import { printHtmlContent } from "../utils/exportHelpers";
 import { useApiInvoices } from "../hooks/useApiInvoices";
 
 export default function InvoicesPage({ userEmail }) {
@@ -26,21 +27,14 @@ export default function InvoicesPage({ userEmail }) {
   function triggerDownload(inv) {
     const htmlContent = generateInvoiceHTML(inv);
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 400);
-    }
+    printHtmlContent(htmlContent);
 
     const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${inv.id}_Agnivridhi_${(inv.type || "Invoice").replace(/\s+/g, "_")}.html`;
+    const cleanId = (inv.id || "Invoice").replace(/\//g, "-");
+    link.download = `${cleanId}_Agnivridhi_${(inv.type || "Invoice").replace(/\s+/g, "_")}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -51,7 +45,8 @@ export default function InvoicesPage({ userEmail }) {
 
   async function handlePayNow(inv) {
     try {
-      const res = await apiFetch(`/invoices/${inv.id}/payments`, {
+      const invRef = inv.dbId || encodeURIComponent(inv.id);
+      const res = await apiFetch(`/invoices/${invRef}/payments`, {
         method: "POST",
         body: JSON.stringify({
           amount: Number(inv.amount || 0),
@@ -129,9 +124,10 @@ export default function InvoicesPage({ userEmail }) {
                 {invoices.map((inv) => {
                   const docType = String(inv.type || inv.documentType || inv.invoiceType || "");
                   const isProforma = docType.toLowerCase().includes("proforma") || docType.toLowerCase().includes("performa") || docType.toLowerCase().includes("pro forma");
+                  const isGstInvoice = docType.toLowerCase().includes("gst") && !docType.toLowerCase().includes("tax");
                   const isPaid = !isProforma || (inv.status || "").toLowerCase() === "paid";
                   const rate = Number(inv.rate || inv.pitchedAmount || inv.amount || 0);
-                  const gst = Number(inv.gstPercent) !== undefined ? Number(inv.gstPercent) : 18;
+                  const gst = isGstInvoice ? 0 : (Number(inv.gstPercent) !== undefined ? Number(inv.gstPercent) : 18);
                   const total = inv.totalAmount ? Number(inv.totalAmount) : (rate * (1 + gst / 100));
                   const formattedTotal = `₹${Math.round(total).toLocaleString("en-IN")}`;
 
@@ -141,7 +137,11 @@ export default function InvoicesPage({ userEmail }) {
                         <strong className="cd-inv-id">{inv.id}</strong>
                       </td>
                       <td>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: isProforma ? "#f59e0b" : "#1877f2" }}>
+                        <span style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: isProforma ? "#f59e0b" : isGstInvoice ? "#b45309" : "#1877f2"
+                        }}>
                           {inv.type || inv.documentType || "Tax Invoice"}
                         </span>
                       </td>
@@ -214,9 +214,21 @@ export default function InvoicesPage({ userEmail }) {
                 <strong>{selectedInvoice.clientName || "Client"}</strong>
               </div>
               <div>
-                <span>GSTIN</span>
-                <strong>{selectedInvoice.gstin || "N/A"}</strong>
+                <span>Place of Supply</span>
+                <strong>{getPlaceOfSupplyWithCode(selectedInvoice.placeOfSupply, selectedInvoice.address, selectedInvoice.gstin)}</strong>
               </div>
+              {selectedInvoice.gstin && selectedInvoice.gstin !== "None" && selectedInvoice.gstin !== "N/A" ? (
+                <div>
+                  <span>GSTIN</span>
+                  <strong>{selectedInvoice.gstin}</strong>
+                </div>
+              ) : null}
+              {selectedInvoice.pan ? (
+                <div>
+                  <span>PAN</span>
+                  <strong>{selectedInvoice.pan}</strong>
+                </div>
+              ) : null}
               <div>
                 <span>Base Rate</span>
                 <strong>₹{Number(selectedInvoice.rate || 0).toLocaleString("en-IN")}</strong>
@@ -225,13 +237,9 @@ export default function InvoicesPage({ userEmail }) {
                 <span>GST ({selectedInvoice.gstPercent || 18}%)</span>
                 <strong>₹{Number(selectedInvoice.totalGst || 0).toLocaleString("en-IN")}</strong>
               </div>
-              <div>
+              <div style={{ gridColumn: '1 / -1' }}>
                 <span>Total Amount Due</span>
                 <strong style={{ color: '#4e7cff' }}>{selectedInvoice.formattedTotal}</strong>
-              </div>
-              <div>
-                <span>Place of Supply</span>
-                <strong>{selectedInvoice.placeOfSupply || "Uttar Pradesh"}</strong>
               </div>
             </div>
 

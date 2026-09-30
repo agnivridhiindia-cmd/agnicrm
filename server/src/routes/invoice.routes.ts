@@ -14,9 +14,9 @@ router.post(
   createInvoice
 );
 
-// Payment routes for an invoice
+// Payment routes for an invoice (supports UUIDs and slashed invoice numbers like INV-dd/mm/yyyy-001)
 router.post(
-  "/:id/payments",
+  ["/:id/payments", "/:id(*)/payments"],
   authenticateJWT,
   authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON, Role.CLIENT),
   addPayment

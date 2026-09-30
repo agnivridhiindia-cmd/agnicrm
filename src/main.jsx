@@ -5,6 +5,7 @@ import App from "./pages/App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "./context/AuthContext";
 import ApiErrorToast from "./components/ApiErrorToast";
+import { clearClientLocalStorage } from "./utils/clearClientLocalStorage";
 import "./styles.css";
 import "./utils/pwaInstall";
 
@@ -21,6 +22,9 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       });
   });
 }
+
+// Automatically purge all stale clients, invoices, and payments cached in localStorage
+clearClientLocalStorage();
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>

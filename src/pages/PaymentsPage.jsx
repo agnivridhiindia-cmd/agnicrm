@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../services/apiClient';
 import { useApiPayments } from "../hooks/useApiPayments";
+import { printHtmlContent } from "../utils/exportHelpers";
 
 export function isPaymentSettled(status) {
   if (!status) return false;
@@ -289,15 +290,7 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
   function triggerDownloadReceipt(pay) {
     const htmlContent = generatePaymentReceiptHTML(pay);
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 400);
-    }
+    printHtmlContent(htmlContent);
 
     const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);

@@ -2,10 +2,61 @@ import React, { useState, useMemo } from "react";
 import KpiCard from "../../components/KpiCard";
 import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
-import { RevenueSparkline, ActivityTracker } from "../../components/charts";
-import { workforceKpiCards, activities } from "./mockOwnerData";
+import { RevenueSparkline } from "../../components/charts";
+import { workforceKpiCards } from "./mockOwnerData";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 import "./owner.css";
+
+const defaultOwnerActivities = [
+  {
+    title: "New Client Assignment",
+    detail: "Bright Retail assigned to East branch",
+    tone: "#9a74e9",
+    time: "10m ago",
+  },
+  {
+    title: "Milestone Cleared",
+    detail: "Doc audit completed for Urban Foods",
+    tone: "#10b981",
+    time: "32m ago",
+  },
+  {
+    title: "Revenue Disbursed",
+    detail: "₹68k commercial token settled",
+    tone: "#4e7cff",
+    time: "1h ago",
+  },
+  {
+    title: "IT Support Resolved",
+    detail: "Server sync verified for West branch",
+    tone: "#f59e0b",
+    time: "2h ago",
+  },
+  {
+    title: "Manager Review Scheduled",
+    detail: "Monthly regional sync with North Zone",
+    tone: "#8c5ff8",
+    time: "4h ago",
+  },
+  {
+    title: "Campaign Initiated",
+    detail: "Q3 Marketing leads allocated to sales",
+    tone: "#ec4899",
+    time: "Yesterday",
+  },
+  {
+    title: "Compliance Verified",
+    detail: "Quarterly audit & tax filings checked",
+    tone: "#06b6d4",
+    time: "1d ago",
+  },
+  {
+    title: "Team Quota Updated",
+    detail: "South Zone targets increased by 15%",
+    tone: "#10b981",
+    time: "2d ago",
+  },
+];
 
 export default function OwnerOverviewPage({
   clients = [],
@@ -162,6 +213,32 @@ export default function OwnerOverviewPage({
     ];
   }, [revenueMetrics]);
 
+  const displayActivities = useMemo(() => {
+    const dynamicList = [];
+    if (clients && clients.length > 0) {
+      clients.slice(0, 3).forEach((c, i) => {
+        dynamicList.push({
+          title: "New Client Added",
+          detail: `${c.companyName || c.clientName || "Client"} (${c.serviceType || "Services"})`,
+          tone: "#9a74e9",
+          time: i === 0 ? "Just now" : `${(i + 1) * 20}m ago`,
+        });
+      });
+    }
+    if (invoices && invoices.length > 0) {
+      invoices.slice(0, 2).forEach((inv, i) => {
+        dynamicList.push({
+          title: "Payment Received",
+          detail: `${inv.invoiceNo || "Invoice"} - ₹${(inv.grandTotal || inv.amount || 0).toLocaleString("en-IN")}`,
+          tone: "#10b981",
+          time: `${(i + 1) * 35}m ago`,
+        });
+      });
+    }
+    const merged = [...dynamicList, ...defaultOwnerActivities];
+    return merged.slice(0, 8);
+  }, [clients, invoices]);
+
   return (
     <div className="owner-dashboard-layout" style={{ animation: "ownerFadeIn 0.25s ease-out" }}>
       <div className="dashboard-main">
@@ -257,26 +334,30 @@ export default function OwnerOverviewPage({
         </section>
       </div>
 
-      <aside className="owner-sidebar-widgets">
-        {/* Dynamic Activity Status Milestone Widget */}
-        <ActivityTracker clients={clients} />
-
-        <section className="activity-panel">
-          <div className="panel-header">
+      {/* Full-Height Live Activity Sidebar covering whole right block */}
+      <aside className="owner-sidebar-widgets owner-sidebar-widgets-flex">
+        <section className="activity-panel owner-activity-panel">
+          <div className="panel-header owner-activity-header">
             <div>
-              <p className="eyebrow">Recent activity</p>
-              <h2>What's happening</h2>
+              <p className="eyebrow owner-activity-eyebrow">Live Activity Feed</p>
+              <h2 className="owner-activity-heading">What’s happening</h2>
             </div>
           </div>
-          <div className="activity-list">
-            {activities.map((activity) => (
-              <div className="activity-row" key={activity.title}>
-                <span className="activity-mark" style={{ background: activity.tone }} />
-                <div>
-                  <strong>{activity.title}</strong>
-                  <small>{activity.detail}</small>
+          <div className="activity-list owner-activity-list">
+            {displayActivities.map((activity, idx) => (
+              <div className="activity-row owner-activity-row" key={`${activity.title}-${idx}`}>
+                <span
+                  className="activity-mark owner-activity-mark"
+                  style={{
+                    background: activity.tone,
+                    boxShadow: `0 0 8px ${activity.tone}`,
+                  }}
+                />
+                <div className="owner-activity-content">
+                  <strong className="owner-activity-title">{activity.title}</strong>
+                  <small className="owner-activity-detail">{activity.detail}</small>
                 </div>
-                <time>{activity.time}</time>
+                <time className="owner-activity-time">{activity.time}</time>
               </div>
             ))}
           </div>

@@ -234,6 +234,38 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
   const notificationsListRef = useRef(null);
   const notificationsPauseTimer = useRef(null);
 
+  const [dbEmployees, setDbEmployees] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchDBUsers() {
+      try {
+        const response = await apiFetch("/auth/users");
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.users) && isMounted) {
+            const mapped = resData.users.map((u) => ({
+              ...u,
+              id: u.id,
+              name: u.fullName || u.name,
+              fullName: u.fullName || u.name,
+              role: u.role || "Sales Executive",
+              email: u.email,
+              phone: u.phone || "",
+              branch: u.branch ? (typeof u.branch === "string" ? u.branch : u.branch.name) : (u.region || "West Zone (Mumbai)"),
+              region: u.region || (u.branch ? (typeof u.branch === "object" ? u.branch.region : "") : ""),
+            }));
+            setDbEmployees(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch DB users for Manager Dashboard:", err);
+      }
+    }
+    fetchDBUsers();
+    return () => { isMounted = false; };
+  }, []);
+
   // Dynamically resolve ALL sales persons belonging to this manager's branch
   const branchTeam = useMemo(() => {
     const branchLower = (managedBranch || "").toLowerCase().trim();
@@ -243,9 +275,11 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
     const designatedNames = (branchInfo.salespersons || []).map((s) => s.toLowerCase().trim());
     const designatedEmails = (branchInfo.salesEmails || []).map((s) => s.toLowerCase().trim());
 
-    return salesTeam.filter((member) => {
+    const userSource = dbEmployees.length > 0 ? dbEmployees : salesTeam;
+
+    return userSource.filter((member) => {
       if (!member) return false;
-      const mName = (member.name || "").toLowerCase().trim();
+      const mName = (member.name || member.fullName || "").toLowerCase().trim();
       const mEmail = (member.email || "").toLowerCase().trim();
       const mBranch = (member.branch || member.region || "").toLowerCase().trim();
 
@@ -269,7 +303,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
 
       return false;
     });
-  }, [managedBranch, managedRegion, branchInfo]);
+  }, [managedBranch, managedRegion, branchInfo, dbEmployees]);
 
   const branchTeamNames = useMemo(
     () => Array.from(new Set([...branchTeam.map((member) => member.name), ...(branchInfo.salespersons || [])])),
