@@ -3,6 +3,7 @@ import { prisma } from "../config/prisma";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { createActiveClientCore, invalidateClientCache } from "./client.service";
 import { broadcastSseEvent } from "./sse.service";
+import { sendWelcomeEmail } from "./email.service";
 
 export type HierarchicalAction =
   | "EDIT_CLIENT"
@@ -586,6 +587,19 @@ export async function executeWorkflowDecision(
         data: result.data,
       },
     });
+
+    if (existingRequest.requestType === RequestType.NEW_SERVICE && decision === "APPROVED" && result.data?.currentStage === "APPLIED") {
+      if (existingRequest.requestedChanges) {
+        const payload = existingRequest.requestedChanges as any;
+        if (payload.email) {
+          sendWelcomeEmail(
+            payload.email,
+            payload.contactPerson || "Client",
+            payload.companyName || ""
+          ).catch(err => console.error("Failed to send welcome email:", err));
+        }
+      }
+    }
   }
 
   return {
