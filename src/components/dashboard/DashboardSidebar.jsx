@@ -25,7 +25,26 @@ export default function DashboardSidebar({
     <aside className="client-sidebar">
       {/* ── Brand Logo ── */}
       <div className="client-brand">
-        {brandMark && <span className="client-brand-mark">{brandMark}</span>}
+        <span
+          className="client-brand-mark"
+          style={{
+            background: "#ffffff",
+            padding: "2px",
+            overflow: "hidden",
+            boxShadow: "0 4px 14px rgba(0, 0, 0, 0.18)",
+            border: "1px solid rgba(255, 255, 255, 0.6)",
+          }}
+        >
+          {brandMark && typeof brandMark !== "string" ? (
+            brandMark
+          ) : (
+            <img
+              src="/icons/icon-192.png"
+              alt="Agnivridhi"
+              style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "10px" }}
+            />
+          )}
+        </span>
         <span className="client-brand-text">
           {brandName ?? (
             <>

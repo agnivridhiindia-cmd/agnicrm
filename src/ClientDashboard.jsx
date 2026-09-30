@@ -9,6 +9,7 @@ import InvoicesPage from "./pages/InvoicesPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import { getTrackerState, getSchemeCompletedStages, getClientAllSchemeTrackers, getClientCompositeKey, isClientPrimaryScheme, isPaymentDemandOrSettlement, getCanonicalSchemeName } from "./utils/schemeTracker";
 import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord } from "./utils/branchHelper";
+import ClientInstallButton from "./components/ClientInstallButton";
 
 /* ── Icon Registry ── */
 const dashboardIcons = {
@@ -1490,6 +1491,9 @@ export default function Dashboard({ onSignOut, userEmail }) {
                 <DashboardIcon name="clock" size={14} />
                 <span>{formatRealTime(currentDateTime)}</span>
               </div>
+
+              {/* Install App Button (Client Dashboard only, auto-hides when installed) */}
+              <ClientInstallButton />
 
               {/* Notifications Popover */}
               <div className="cd-popover-wrap" onClick={(e) => e.stopPropagation()}>

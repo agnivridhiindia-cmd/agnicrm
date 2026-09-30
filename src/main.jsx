@@ -6,6 +6,21 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "./context/AuthContext";
 import ApiErrorToast from "./components/ApiErrorToast";
 import "./styles.css";
+import "./utils/pwaInstall";
+
+// Register Service Worker for PWA capabilities
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        // SW registered
+      })
+      .catch((err) => {
+        console.warn("ServiceWorker registration error:", err);
+      });
+  });
+}
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -19,3 +34,4 @@ createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
