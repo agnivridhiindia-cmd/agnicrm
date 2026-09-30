@@ -308,7 +308,10 @@
 }
 
 .manager-table-scroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .manager-team-table {
@@ -924,7 +927,10 @@
 }
 
 .mgr-requests-scroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mgr-requests-table {

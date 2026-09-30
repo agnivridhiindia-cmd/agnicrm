@@ -420,8 +420,12 @@
   border-radius: 20px;
 }
 
-.bm-table-scroll {
+.bm-table-scroll,
+.sales-table-scroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .bm-table {
@@ -621,29 +625,35 @@
   color: #f59e0b;
 }
 
-.stage-tag.active {
-  background: rgba(16, 185, 129, 0.12) !important;
-  color: #059669 !important;
+.branch-manager-dashboard .stage-tag.active,
+.bm-table .stage-tag.active {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
   border: 1px solid rgba(16, 185, 129, 0.25);
   font-weight: 700;
 }
 
-.dark .stage-tag.active {
-  background: rgba(16, 185, 129, 0.2) !important;
-  color: #34d399 !important;
+.branch-manager-dashboard.dashboard-dark .stage-tag.active,
+.dark .branch-manager-dashboard .stage-tag.active,
+.dashboard-dark .bm-table .stage-tag.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
   border-color: rgba(16, 185, 129, 0.35);
 }
 
-.stage-tag.completed {
-  background: rgba(140, 95, 248, 0.1) !important;
-  color: #7c3aed !important;
+.branch-manager-dashboard .stage-tag.completed,
+.bm-table .stage-tag.completed {
+  background: rgba(140, 95, 248, 0.1);
+  color: #7c3aed;
   border: 1px solid rgba(140, 95, 248, 0.22);
   font-weight: 700;
 }
 
-.dark .stage-tag.completed {
-  background: rgba(140, 95, 248, 0.2) !important;
-  color: #c4b5fd !important;
+.branch-manager-dashboard.dashboard-dark .stage-tag.completed,
+.dark .branch-manager-dashboard .stage-tag.completed,
+.dashboard-dark .bm-table .stage-tag.completed {
+  background: rgba(140, 95, 248, 0.2);
+  color: #c4b5fd;
   border-color: rgba(140, 95, 248, 0.35);
 }
 

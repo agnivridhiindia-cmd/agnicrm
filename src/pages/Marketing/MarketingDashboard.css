@@ -6,8 +6,7 @@
 /* ---------------------------------------------------------
    Container & Layout
    --------------------------------------------------------- */
-.mkt-page-container,
-.it-page-container {
+.mkt-page-container{
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -17,8 +16,7 @@
 }
 
 /* Glass Banner Header (matches sidebar glassmorphism) */
-.mkt-header-banner,
-.it-header-banner {
+.mkt-header-banner{
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -32,8 +30,7 @@
   box-shadow: 0 12px 32px rgba(154, 116, 233, 0.08);
 }
 
-.mkt-kicker,
-.it-kicker {
+.mkt-kicker{
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -43,8 +40,7 @@
   margin-bottom: 4px;
 }
 
-.mkt-title,
-.it-title {
+.mkt-title{
   margin: 0 0 4px 0;
   font-size: 24px;
   font-weight: 700;
@@ -52,8 +48,7 @@
   letter-spacing: -0.3px;
 }
 
-.mkt-desc,
-.it-desc {
+.mkt-desc{
   margin: 0;
   font-size: 13.5px;
   color: #64748b;
@@ -63,29 +58,25 @@
 /* ---------------------------------------------------------
    High-Aesthetic KPI Stat Cards
    --------------------------------------------------------- */
-.mkt-kpi-grid,
-.it-kpi-grid {
+.mkt-kpi-grid{
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
 @media (max-width: 1100px) {
-  .mkt-kpi-grid,
-  .it-kpi-grid {
+  .mkt-kpi-grid{
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 640px) {
-  .mkt-kpi-grid,
-  .it-kpi-grid {
+  .mkt-kpi-grid{
     grid-template-columns: 1fr;
   }
 }
 
-.mkt-stat-card,
-.it-stat-card {
+.mkt-stat-card{
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -101,23 +92,20 @@
   overflow: hidden;
 }
 
-.mkt-stat-card:hover,
-.it-stat-card:hover {
+.mkt-stat-card:hover{
   transform: translateY(-3px);
   box-shadow: 0 16px 40px rgba(154, 116, 233, 0.12);
   border-color: rgba(78, 124, 255, 0.4);
 }
 
-.mkt-stat-top,
-.it-stat-top {
+.mkt-stat-top{
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
 }
 
-.mkt-stat-icon-wrap,
-.it-stat-icon-wrap {
+.mkt-stat-icon-wrap{
   width: 38px;
   height: 38px;
   border-radius: 10px;
@@ -126,15 +114,13 @@
   justify-content: center;
 }
 
-.mkt-stat-label,
-.it-stat-label {
+.mkt-stat-label{
   font-size: 12.5px;
   font-weight: 600;
   color: #64748b;
 }
 
-.mkt-stat-value,
-.it-stat-value {
+.mkt-stat-value{
   font-size: 26px;
   font-weight: 800;
   color: #0f172a;
@@ -143,8 +129,7 @@
   line-height: 1.15;
 }
 
-.mkt-stat-pill,
-.it-stat-pill {
+.mkt-stat-pill{
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -156,26 +141,25 @@
 }
 
 /* Color Accents for Stat Cards */
-.mkt-stat-card.blue .mkt-stat-icon-wrap, .it-stat-card.blue .it-stat-icon-wrap { background: rgba(78, 124, 255, 0.12); color: #4e7cff; }
-.mkt-stat-card.blue .mkt-stat-pill, .it-stat-card.blue .it-stat-pill { background: rgba(78, 124, 255, 0.1); color: #2563eb; }
+.mkt-stat-card.blue .mkt-stat-icon-wrap{ background: rgba(78, 124, 255, 0.12); color: #4e7cff; }
+.mkt-stat-card.blue .mkt-stat-pill{ background: rgba(78, 124, 255, 0.1); color: #2563eb; }
 
-.mkt-stat-card.green .mkt-stat-icon-wrap, .it-stat-card.green .it-stat-icon-wrap { background: rgba(16, 185, 129, 0.12); color: #10b981; }
-.mkt-stat-card.green .mkt-stat-value, .it-stat-card.green .it-stat-value { color: #10b981; }
-.mkt-stat-card.green .mkt-stat-pill, .it-stat-card.green .it-stat-pill { background: rgba(16, 185, 129, 0.1); color: #059669; }
+.mkt-stat-card.green .mkt-stat-icon-wrap{ background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.mkt-stat-card.green .mkt-stat-value{ color: #10b981; }
+.mkt-stat-card.green .mkt-stat-pill{ background: rgba(16, 185, 129, 0.1); color: #059669; }
 
-.mkt-stat-card.purple .mkt-stat-icon-wrap, .it-stat-card.purple .it-stat-icon-wrap { background: rgba(168, 85, 247, 0.12); color: #9a74e9; }
-.mkt-stat-card.purple .mkt-stat-value, .it-stat-card.purple .it-stat-value { color: #9a74e9; }
-.mkt-stat-card.purple .mkt-stat-pill, .it-stat-card.purple .it-stat-pill { background: rgba(168, 85, 247, 0.1); color: #7c3aed; }
+.mkt-stat-card.purple .mkt-stat-icon-wrap{ background: rgba(168, 85, 247, 0.12); color: #9a74e9; }
+.mkt-stat-card.purple .mkt-stat-value{ color: #9a74e9; }
+.mkt-stat-card.purple .mkt-stat-pill{ background: rgba(168, 85, 247, 0.1); color: #7c3aed; }
 
-.mkt-stat-card.amber .mkt-stat-icon-wrap, .it-stat-card.amber .it-stat-icon-wrap { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
-.mkt-stat-card.amber .mkt-stat-value, .it-stat-card.amber .it-stat-value { color: #d97706; }
-.mkt-stat-card.amber .mkt-stat-pill, .it-stat-card.amber .it-stat-pill { background: rgba(245, 158, 11, 0.1); color: #b45309; }
+.mkt-stat-card.amber .mkt-stat-icon-wrap{ background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.mkt-stat-card.amber .mkt-stat-value{ color: #d97706; }
+.mkt-stat-card.amber .mkt-stat-pill{ background: rgba(245, 158, 11, 0.1); color: #b45309; }
 
 /* ---------------------------------------------------------
    Launchpad Quick Action Cards (Overview)
    --------------------------------------------------------- */
-.mkt-launchpad-grid,
-.it-launchpad-grid {
+.mkt-launchpad-grid{
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
@@ -183,14 +167,12 @@
 }
 
 @media (max-width: 900px) {
-  .mkt-launchpad-grid,
-  .it-launchpad-grid {
+  .mkt-launchpad-grid{
     grid-template-columns: 1fr;
   }
 }
 
-.mkt-launchpad-card,
-.it-launchpad-card {
+.mkt-launchpad-card{
   position: relative;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
@@ -205,38 +187,35 @@
   flex-direction: column;
 }
 
-.mkt-launchpad-card:hover,
-.it-launchpad-card:hover {
+.mkt-launchpad-card:hover{
   transform: translateY(-3px);
   box-shadow: 0 16px 40px rgba(78, 124, 255, 0.16);
   border-color: rgba(78, 124, 255, 0.4);
 }
 
-.mkt-launchpad-card.blue, .it-launchpad-card.blue {
+.mkt-launchpad-card.blue{
   background: linear-gradient(135deg, rgba(78, 124, 255, 0.08) 0%, rgba(255, 255, 255, 0.85) 100%);
   border-color: rgba(78, 124, 255, 0.25);
 }
 
-.mkt-launchpad-card.green, .it-launchpad-card.green {
+.mkt-launchpad-card.green{
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(255, 255, 255, 0.85) 100%);
   border-color: rgba(16, 185, 129, 0.25);
 }
 
-.mkt-launchpad-card.purple, .it-launchpad-card.purple {
+.mkt-launchpad-card.purple{
   background: linear-gradient(135deg, rgba(154, 116, 233, 0.08) 0%, rgba(255, 255, 255, 0.85) 100%);
   border-color: rgba(154, 116, 233, 0.25);
 }
 
-.mkt-launchpad-top,
-.it-launchpad-top {
+.mkt-launchpad-top{
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 14px;
 }
 
-.mkt-launchpad-icon,
-.it-launchpad-icon {
+.mkt-launchpad-icon{
   width: 40px;
   height: 40px;
   border-radius: 12px;
@@ -246,29 +225,26 @@
   color: #ffffff;
 }
 
-.mkt-launchpad-card.blue .mkt-launchpad-icon, .it-launchpad-card.blue .it-launchpad-icon { background: #4e7cff; }
-.mkt-launchpad-card.green .mkt-launchpad-icon, .it-launchpad-card.green .it-launchpad-icon { background: #10b981; }
-.mkt-launchpad-card.purple .mkt-launchpad-icon, .it-launchpad-card.purple .it-launchpad-icon { background: #9a74e9; }
+.mkt-launchpad-card.blue .mkt-launchpad-icon{ background: #4e7cff; }
+.mkt-launchpad-card.green .mkt-launchpad-icon{ background: #10b981; }
+.mkt-launchpad-card.purple .mkt-launchpad-icon{ background: #9a74e9; }
 
-.mkt-launchpad-action-link,
-.it-launchpad-action-link {
+.mkt-launchpad-action-link{
   font-size: 12.5px;
   font-weight: 700;
 }
-.mkt-launchpad-card.blue .mkt-launchpad-action-link, .it-launchpad-card.blue .it-launchpad-action-link { color: #4e7cff; }
-.mkt-launchpad-card.green .mkt-launchpad-action-link, .it-launchpad-card.green .it-launchpad-action-link { color: #10b981; }
-.mkt-launchpad-card.purple .mkt-launchpad-action-link, .it-launchpad-card.purple .it-launchpad-action-link { color: #9a74e9; }
+.mkt-launchpad-card.blue .mkt-launchpad-action-link{ color: #4e7cff; }
+.mkt-launchpad-card.green .mkt-launchpad-action-link{ color: #10b981; }
+.mkt-launchpad-card.purple .mkt-launchpad-action-link{ color: #9a74e9; }
 
-.mkt-launchpad-title,
-.it-launchpad-title {
+.mkt-launchpad-title{
   margin: 0 0 6px 0;
   font-size: 16.5px;
   font-weight: 700;
   color: #0f172a;
 }
 
-.mkt-launchpad-desc,
-.it-launchpad-desc {
+.mkt-launchpad-desc{
   margin: 0;
   font-size: 13px;
   color: #64748b;
@@ -278,8 +254,7 @@
 /* ---------------------------------------------------------
    Standard Panel & Surface Cards
    --------------------------------------------------------- */
-.mkt-panel-card,
-.it-panel-card {
+.mkt-panel-card{
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -289,24 +264,21 @@
   box-shadow: 0 12px 32px rgba(154, 116, 233, 0.08);
 }
 
-.mkt-panel-header,
-.it-panel-header {
+.mkt-panel-header{
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 18px;
 }
 
-.mkt-panel-header-title,
-.it-panel-header-title {
+.mkt-panel-header-title{
   margin: 0;
   font-size: 18px;
   font-weight: 700;
   color: #0f172a;
 }
 
-.mkt-subcard,
-.it-subcard {
+.mkt-subcard{
   background: rgba(248, 250, 252, 0.8);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -318,15 +290,13 @@
 /* ---------------------------------------------------------
    Services Grid & Cards
    --------------------------------------------------------- */
-.mkt-services-grid,
-.it-services-grid {
+.mkt-services-grid{
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 20px;
 }
 
-.mkt-service-card,
-.it-service-card {
+.mkt-service-card{
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -339,15 +309,13 @@
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.mkt-service-card:hover,
-.it-service-card:hover {
+.mkt-service-card:hover{
   transform: translateY(-3px);
   box-shadow: 0 18px 44px rgba(154, 116, 233, 0.16);
   border-color: rgba(78, 124, 255, 0.4);
 }
 
-.mkt-service-card-top,
-.it-service-card-top {
+.mkt-service-card-top{
   padding: 14px 18px;
   border-bottom: 1px solid rgba(154, 116, 233, 0.12);
   display: flex;
@@ -355,16 +323,14 @@
   align-items: center;
 }
 
-.mkt-service-card-body,
-.it-service-card-body {
+.mkt-service-card-body{
   padding: 18px 20px;
   flex-grow: 1;
   display: flex;
   flex-direction: column;
 }
 
-.mkt-service-category,
-.it-service-category {
+.mkt-service-category{
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -373,8 +339,7 @@
   display: block;
 }
 
-.mkt-service-name,
-.it-service-name {
+.mkt-service-name{
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 700;
@@ -382,8 +347,7 @@
   line-height: 1.35;
 }
 
-.mkt-service-description,
-.it-service-description {
+.mkt-service-description{
   margin: 0 0 16px 0;
   font-size: 12.5px;
   color: #64748b;
@@ -391,8 +355,7 @@
   flex-grow: 1;
 }
 
-.mkt-service-price-box,
-.it-service-price-box {
+.mkt-service-price-box{
   background: rgba(248, 250, 252, 0.8);
   border: 1px solid rgba(154, 116, 233, 0.12);
   border-radius: 12px;
@@ -403,8 +366,7 @@
   align-items: center;
 }
 
-.mkt-service-feature-row,
-.it-service-feature-row {
+.mkt-service-feature-row{
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -416,8 +378,7 @@
 /* ---------------------------------------------------------
    Buttons & Action Pills
    --------------------------------------------------------- */
-.mkt-btn-primary,
-.it-btn-primary {
+.mkt-btn-primary{
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -434,15 +395,13 @@
   box-shadow: 0 4px 16px rgba(78, 124, 255, 0.35);
 }
 
-.mkt-btn-primary:hover,
-.it-btn-primary:hover {
+.mkt-btn-primary:hover{
   background: linear-gradient(135deg, #3f6fe0 0%, #2f56cc 100%);
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(78, 124, 255, 0.45);
 }
 
-.mkt-btn-secondary,
-.it-btn-secondary {
+.mkt-btn-secondary{
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -459,14 +418,12 @@
   transition: all 0.15s ease;
 }
 
-.mkt-btn-secondary:hover,
-.it-btn-secondary:hover {
+.mkt-btn-secondary:hover{
   background: rgba(226, 232, 240, 0.9);
   color: #0f172a;
 }
 
-.mkt-badge,
-.it-badge {
+.mkt-badge{
   display: inline-block;
   padding: 3px 10px;
   border-radius: 12px;
@@ -477,8 +434,7 @@
 /* ---------------------------------------------------------
    Form Controls
    --------------------------------------------------------- */
-.mkt-form-label,
-.it-form-label {
+.mkt-form-label{
   display: block;
   font-size: 12px;
   font-weight: 700;
@@ -487,11 +443,8 @@
 }
 
 .mkt-form-input,
-.it-form-input,
 .mkt-form-select,
-.it-form-select,
-.mkt-form-textarea,
-.it-form-textarea {
+.mkt-form-textarea{
   width: 100%;
   padding: 10px 14px;
   border-radius: 12px;
@@ -504,11 +457,8 @@
 }
 
 .mkt-form-input:focus,
-.it-form-input:focus,
 .mkt-form-select:focus,
-.it-form-select:focus,
-.mkt-form-textarea:focus,
-.it-form-textarea:focus {
+.mkt-form-textarea:focus{
   border-color: #4e7cff;
   box-shadow: 0 0 0 3px rgba(78, 124, 255, 0.18);
 }
@@ -516,8 +466,7 @@
 /* ---------------------------------------------------------
    Table & Filter Controls
    --------------------------------------------------------- */
-.mkt-filter-bar,
-.it-filter-bar {
+.mkt-filter-bar{
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -532,15 +481,13 @@
   box-shadow: 0 12px 32px rgba(154, 116, 233, 0.08);
 }
 
-.mkt-branch-tabs,
-.it-branch-tabs {
+.mkt-branch-tabs{
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.mkt-branch-tab,
-.it-branch-tab {
+.mkt-branch-tab{
   padding: 7px 16px;
   border-radius: 20px;
   font-size: 12px;
@@ -552,34 +499,32 @@
   transition: all 0.15s ease;
 }
 
-.mkt-branch-tab.active,
-.it-branch-tab.active {
+.mkt-branch-tab.active{
   background: #4e7cff;
   color: #ffffff;
   border-color: #4e7cff;
   box-shadow: 0 2px 8px rgba(78, 124, 255, 0.28);
 }
 
-.mkt-table-wrap,
-.it-table-wrap {
+.mkt-table-wrap{
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(154, 116, 233, 0.18);
   border-radius: 18px;
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
   box-shadow: 0 12px 32px rgba(154, 116, 233, 0.08);
 }
 
-.mkt-table,
-.it-table {
+.mkt-table{
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
 
-.mkt-table th,
-.it-table th {
+.mkt-table th{
   padding: 15px 18px;
   font-size: 12px;
   font-weight: 700;
@@ -588,16 +533,14 @@
   border-bottom: 1px solid rgba(154, 116, 233, 0.12);
 }
 
-.mkt-table td,
-.it-table td {
+.mkt-table td{
   padding: 15px 18px;
   border-bottom: 1px solid rgba(154, 116, 233, 0.08);
   font-size: 13px;
   color: #1e293b;
 }
 
-.mkt-table tbody tr:hover td,
-.it-table tbody tr:hover td {
+.mkt-table tbody tr:hover td{
   background: rgba(154, 116, 233, 0.05);
 }
 
@@ -605,24 +548,20 @@
    DARK MODE OVERRIDES (.dashboard-dark)
    ========================================================================== */
 
-.dashboard-dark .mkt-title,
-.dashboard-dark .it-title {
+.dashboard-dark .mkt-title{
   color: #ffffff !important;
 }
 
-.dashboard-dark .mkt-desc,
-.dashboard-dark .it-desc {
+.dashboard-dark .mkt-desc{
   color: #94a3b8 !important;
 }
 
-.dashboard-dark .mkt-panel-header-title,
-.dashboard-dark .it-panel-header-title {
+.dashboard-dark .mkt-panel-header-title{
   color: #ffffff !important;
 }
 
 /* Header Banner in Dark Mode */
-.dashboard-dark .mkt-header-banner,
-.dashboard-dark .it-header-banner {
+.dashboard-dark .mkt-header-banner{
   background: rgba(15, 21, 35, 0.75) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
@@ -631,8 +570,7 @@
 }
 
 /* KPI Stat Cards in Dark Mode */
-.dashboard-dark .mkt-stat-card,
-.dashboard-dark .it-stat-card {
+.dashboard-dark .mkt-stat-card{
   background: rgba(15, 21, 35, 0.75) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
@@ -640,85 +578,70 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-stat-card:hover,
-.dashboard-dark .it-stat-card:hover {
+.dashboard-dark .mkt-stat-card:hover{
   border-color: rgba(122, 162, 255, 0.4) !important;
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5) !important;
 }
 
-.dashboard-dark .mkt-stat-label,
-.dashboard-dark .it-stat-label {
+.dashboard-dark .mkt-stat-label{
   color: #94a3b8 !important;
 }
 
-.dashboard-dark .mkt-stat-value,
-.dashboard-dark .it-stat-value {
+.dashboard-dark .mkt-stat-value{
   color: #ffffff !important;
 }
 
-.dashboard-dark .mkt-stat-card.blue .mkt-stat-icon-wrap,
-.dashboard-dark .it-stat-card.blue .it-stat-icon-wrap {
+.dashboard-dark .mkt-stat-card.blue .mkt-stat-icon-wrap{
   background: rgba(78, 124, 255, 0.22);
   color: #7aa2ff;
 }
-.dashboard-dark .mkt-stat-card.blue .mkt-stat-pill,
-.dashboard-dark .it-stat-card.blue .it-stat-pill {
+.dashboard-dark .mkt-stat-card.blue .mkt-stat-pill{
   background: rgba(78, 124, 255, 0.18);
   color: #93c5fd;
   border: 1px solid rgba(78, 124, 255, 0.35);
 }
 
-.dashboard-dark .mkt-stat-card.green .mkt-stat-icon-wrap,
-.dashboard-dark .it-stat-card.green .it-stat-icon-wrap {
+.dashboard-dark .mkt-stat-card.green .mkt-stat-icon-wrap{
   background: rgba(16, 185, 129, 0.22);
   color: #34d399;
 }
-.dashboard-dark .mkt-stat-card.green .mkt-stat-value,
-.dashboard-dark .it-stat-card.green .it-stat-value {
+.dashboard-dark .mkt-stat-card.green .mkt-stat-value{
   color: #34d399 !important;
 }
-.dashboard-dark .mkt-stat-card.green .mkt-stat-pill,
-.dashboard-dark .it-stat-card.green .it-stat-pill {
+.dashboard-dark .mkt-stat-card.green .mkt-stat-pill{
   background: rgba(16, 185, 129, 0.18);
   color: #6ee7b7;
   border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
-.dashboard-dark .mkt-stat-card.purple .mkt-stat-icon-wrap,
-.dashboard-dark .it-stat-card.purple .it-stat-icon-wrap {
+.dashboard-dark .mkt-stat-card.purple .mkt-stat-icon-wrap{
   background: rgba(168, 85, 247, 0.22);
   color: #c084fc;
 }
-.dashboard-dark .mkt-stat-card.purple .mkt-stat-value,
-.dashboard-dark .it-stat-card.purple .it-stat-value {
+.dashboard-dark .mkt-stat-card.purple .mkt-stat-value{
   color: #c084fc !important;
 }
-.dashboard-dark .mkt-stat-card.purple .mkt-stat-pill,
-.dashboard-dark .it-stat-card.purple .it-stat-pill {
+.dashboard-dark .mkt-stat-card.purple .mkt-stat-pill{
   background: rgba(168, 85, 247, 0.18);
   color: #d8b4fe;
   border: 1px solid rgba(168, 85, 247, 0.35);
 }
 
-.dashboard-dark .mkt-stat-card.amber .mkt-stat-icon-wrap,
-.dashboard-dark .it-stat-card.amber .it-stat-icon-wrap {
+.dashboard-dark .mkt-stat-card.amber .mkt-stat-icon-wrap{
   background: rgba(245, 158, 11, 0.22);
   color: #fbbf24;
 }
-.dashboard-dark .mkt-stat-card.amber .mkt-stat-value,
-.dashboard-dark .it-stat-card.amber .it-stat-value {
+.dashboard-dark .mkt-stat-card.amber .mkt-stat-value{
   color: #fbbf24 !important;
 }
-.dashboard-dark .mkt-stat-card.amber .mkt-stat-pill,
-.dashboard-dark .it-stat-card.amber .it-stat-pill {
+.dashboard-dark .mkt-stat-card.amber .mkt-stat-pill{
   background: rgba(245, 158, 11, 0.18);
   color: #fde68a;
   border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 /* Launchpad in Dark Mode */
-.dashboard-dark .mkt-launchpad-card,
-.dashboard-dark .it-launchpad-card {
+.dashboard-dark .mkt-launchpad-card{
   background: rgba(15, 21, 35, 0.75) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
@@ -726,43 +649,36 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-launchpad-card:hover,
-.dashboard-dark .it-launchpad-card:hover {
+.dashboard-dark .mkt-launchpad-card:hover{
   border-color: rgba(122, 162, 255, 0.5) !important;
   box-shadow: 0 20px 48px rgba(78, 124, 255, 0.25) !important;
 }
 
-.dashboard-dark .mkt-launchpad-card.blue,
-.dashboard-dark .it-launchpad-card.blue {
+.dashboard-dark .mkt-launchpad-card.blue{
   background: linear-gradient(135deg, rgba(78, 124, 255, 0.15) 0%, rgba(15, 21, 35, 0.8) 100%) !important;
   border-color: rgba(78, 124, 255, 0.3) !important;
 }
 
-.dashboard-dark .mkt-launchpad-card.green,
-.dashboard-dark .it-launchpad-card.green {
+.dashboard-dark .mkt-launchpad-card.green{
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 21, 35, 0.8) 100%) !important;
   border-color: rgba(16, 185, 129, 0.3) !important;
 }
 
-.dashboard-dark .mkt-launchpad-card.purple,
-.dashboard-dark .it-launchpad-card.purple {
+.dashboard-dark .mkt-launchpad-card.purple{
   background: linear-gradient(135deg, rgba(154, 116, 233, 0.15) 0%, rgba(15, 21, 35, 0.8) 100%) !important;
   border-color: rgba(154, 116, 233, 0.3) !important;
 }
 
-.dashboard-dark .mkt-launchpad-title,
-.dashboard-dark .it-launchpad-title {
+.dashboard-dark .mkt-launchpad-title{
   color: #ffffff !important;
 }
 
-.dashboard-dark .mkt-launchpad-desc,
-.dashboard-dark .it-launchpad-desc {
+.dashboard-dark .mkt-launchpad-desc{
   color: #94a3b8 !important;
 }
 
 /* Panels & Cards in Dark Mode */
-.dashboard-dark .mkt-panel-card,
-.dashboard-dark .it-panel-card {
+.dashboard-dark .mkt-panel-card{
   background: rgba(15, 21, 35, 0.75) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
@@ -770,8 +686,7 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-subcard,
-.dashboard-dark .it-subcard {
+.dashboard-dark .mkt-subcard{
   background: rgba(10, 15, 26, 0.65) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
@@ -779,8 +694,7 @@
 }
 
 /* Services Grid & Cards in Dark Mode */
-.dashboard-dark .mkt-service-card,
-.dashboard-dark .it-service-card {
+.dashboard-dark .mkt-service-card{
   background: rgba(15, 21, 35, 0.75) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
@@ -788,50 +702,40 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-service-card:hover,
-.dashboard-dark .it-service-card:hover {
+.dashboard-dark .mkt-service-card:hover{
   border-color: rgba(122, 162, 255, 0.45) !important;
   box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5) !important;
 }
 
-.dashboard-dark .mkt-service-card-top,
-.dashboard-dark .it-service-card-top {
+.dashboard-dark .mkt-service-card-top{
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-service-name,
-.dashboard-dark .it-service-name {
+.dashboard-dark .mkt-service-name{
   color: #ffffff !important;
 }
 
-.dashboard-dark .mkt-service-description,
-.dashboard-dark .it-service-description {
+.dashboard-dark .mkt-service-description{
   color: #94a3b8 !important;
 }
 
-.dashboard-dark .mkt-service-price-box,
-.dashboard-dark .it-service-price-box {
+.dashboard-dark .mkt-service-price-box{
   background: rgba(10, 15, 26, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-service-feature-row,
-.dashboard-dark .it-service-feature-row {
+.dashboard-dark .mkt-service-feature-row{
   color: #cbd5e1 !important;
 }
 
 /* Form Controls in Dark Mode */
-.dashboard-dark .mkt-form-label,
-.dashboard-dark .it-form-label {
+.dashboard-dark .mkt-form-label{
   color: #cbd5e1 !important;
 }
 
 .dashboard-dark .mkt-form-input,
-.dashboard-dark .it-form-input,
 .dashboard-dark .mkt-form-select,
-.dashboard-dark .it-form-select,
-.dashboard-dark .mkt-form-textarea,
-.dashboard-dark .it-form-textarea {
+.dashboard-dark .mkt-form-textarea{
   background: rgba(10, 15, 26, 0.7) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
@@ -840,31 +744,24 @@
 }
 
 .dashboard-dark .mkt-form-input:focus,
-.dashboard-dark .it-form-input:focus,
 .dashboard-dark .mkt-form-select:focus,
-.dashboard-dark .it-form-select:focus,
-.dashboard-dark .mkt-form-textarea:focus,
-.dashboard-dark .it-form-textarea:focus {
+.dashboard-dark .mkt-form-textarea:focus{
   border-color: #7aa2ff !important;
   box-shadow: 0 0 0 3px rgba(122, 162, 255, 0.25) !important;
 }
 
 .dashboard-dark .mkt-form-input::placeholder,
-.dashboard-dark .it-form-input::placeholder,
-.dashboard-dark .mkt-form-textarea::placeholder,
-.dashboard-dark .it-form-textarea::placeholder {
+.dashboard-dark .mkt-form-textarea::placeholder{
   color: #64748b !important;
 }
 
-.dashboard-dark .mkt-form-select option,
-.dashboard-dark .it-form-select option {
+.dashboard-dark .mkt-form-select option{
   background: #0f1523 !important;
   color: #f8fafc !important;
 }
 
 /* Filter Bar & Tabs in Dark Mode */
-.dashboard-dark .mkt-filter-bar,
-.dashboard-dark .it-filter-bar {
+.dashboard-dark .mkt-filter-bar{
   background: rgba(15, 21, 35, 0.75) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
@@ -872,21 +769,18 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-branch-tab,
-.dashboard-dark .it-branch-tab {
+.dashboard-dark .mkt-branch-tab{
   background: rgba(10, 15, 26, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: #94a3b8 !important;
 }
 
-.dashboard-dark .mkt-branch-tab:hover,
-.dashboard-dark .it-branch-tab:hover {
+.dashboard-dark .mkt-branch-tab:hover{
   background: rgba(30, 41, 59, 0.8) !important;
   color: #f1f5f9 !important;
 }
 
-.dashboard-dark .mkt-branch-tab.active,
-.dashboard-dark .it-branch-tab.active {
+.dashboard-dark .mkt-branch-tab.active{
   background: #4e7cff !important;
   border-color: #4e7cff !important;
   color: #ffffff !important;
@@ -894,8 +788,7 @@
 }
 
 /* Tables in Dark Mode */
-.dashboard-dark .mkt-table-wrap,
-.dashboard-dark .it-table-wrap {
+.dashboard-dark .mkt-table-wrap{
   background: rgba(15, 21, 35, 0.75) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
@@ -903,41 +796,35 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-.dashboard-dark .mkt-table th,
-.dashboard-dark .it-table th {
+.dashboard-dark .mkt-table th{
   background: rgba(10, 15, 26, 0.8) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   color: #94a3b8 !important;
 }
 
-.dashboard-dark .mkt-table td,
-.dashboard-dark .it-table td {
+.dashboard-dark .mkt-table td{
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
   color: #e2e8f0 !important;
 }
 
-.dashboard-dark .mkt-table tbody tr:hover td,
-.dashboard-dark .it-table tbody tr:hover td {
+.dashboard-dark .mkt-table tbody tr:hover td{
   background: rgba(255, 255, 255, 0.04) !important;
 }
 
 /* Secondary Buttons in Dark Mode */
-.dashboard-dark .mkt-btn-secondary,
-.dashboard-dark .it-btn-secondary {
+.dashboard-dark .mkt-btn-secondary{
   background: rgba(10, 15, 26, 0.65) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   color: #e2e8f0 !important;
 }
 
-.dashboard-dark .mkt-btn-secondary:hover,
-.dashboard-dark .it-btn-secondary:hover {
+.dashboard-dark .mkt-btn-secondary:hover{
   background: rgba(30, 41, 59, 0.8) !important;
   color: #ffffff !important;
 }
 
 /* Modals in Dark Mode */
-.dashboard-dark .modal-card.mkt-panel-card,
-.dashboard-dark .modal-card.it-panel-card {
+.dashboard-dark .modal-card.mkt-panel-card{
   background: rgba(15, 21, 35, 0.92) !important;
   backdrop-filter: blur(32px) saturate(200%) !important;
   -webkit-backdrop-filter: blur(32px) saturate(200%) !important;

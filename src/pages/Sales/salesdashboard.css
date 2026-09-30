@@ -624,7 +624,10 @@
 }
 
 .sales-table-scroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sales-clients-table {
@@ -733,22 +736,26 @@
   white-space: nowrap;
 }
 
-.stage-tag.active {
+.sales-dashboard .stage-tag.active,
+.sales-clients-table .stage-tag.active {
   background: rgba(16, 185, 129, 0.12);
   color: #10b981;
 }
 
-.stage-tag.onboarding {
+.sales-dashboard .stage-tag.onboarding,
+.sales-clients-table .stage-tag.onboarding {
   background: rgba(59, 130, 246, 0.12);
   color: #3b82f6;
 }
 
-.stage-tag.renewal {
+.sales-dashboard .stage-tag.renewal,
+.sales-clients-table .stage-tag.renewal {
   background: rgba(140, 95, 248, 0.12);
   color: #8c5ff8;
 }
 
-.stage-tag.prospect {
+.sales-dashboard .stage-tag.prospect,
+.sales-clients-table .stage-tag.prospect {
   background: rgba(245, 158, 11, 0.12);
   color: #f59e0b;
 }

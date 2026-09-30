@@ -2914,7 +2914,7 @@ form {
   justify-content: center;
   align-items: flex-start;
   background: rgba(12, 14, 24, 0.44);
-  z-index: 60;
+  z-index: 99999 !important;
   padding: 24px 16px;
   overflow-y: auto;
 }
@@ -3824,7 +3824,7 @@ form {
 
 .scheme-modal-backdrop {
   position: fixed;
-  z-index: 20;
+  z-index: 99999 !important;
   inset: 0;
   display: grid;
   place-items: center;
@@ -4994,6 +4994,24 @@ form {
   margin: 0;
 }
 
+/* Responsive Table Scroll Containers */
+.sales-table-scroll,
+.owner-table-scroll,
+.owner-table-wrapper,
+.bm-table-scroll,
+.manager-table-scroll,
+.mgr-requests-scroll,
+.admin-table-wrap,
+.it-table-wrap,
+.mkt-table-wrap,
+.cd-table-wrap,
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 .sales-clients-table {
   width: 100%;
   border-collapse: separate;
@@ -5084,22 +5102,22 @@ form {
   letter-spacing: 0.2px;
 }
 
-.stage-tag.active {
+.sales-clients-table .stage-tag.active {
   background: #e6f8f3;
   color: #0d9488;
 }
 
-.stage-tag.onboarding {
+.sales-clients-table .stage-tag.onboarding {
   background: #e0f2fe;
   color: #0284c7;
 }
 
-.stage-tag.renewal {
+.sales-clients-table .stage-tag.renewal {
   background: #f3e8ff;
   color: #7c3aed;
 }
 
-.stage-tag.prospect {
+.sales-clients-table .stage-tag.prospect {
   background: #fef3c7;
   color: #d97706;
 }
@@ -6506,8 +6524,8 @@ form {
 
   .owner-dashboard .dashboard-content {
     padding: 19px 14px 84px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+    max-width: 100%;
   }
 
   .owner-dashboard-top h1 {
