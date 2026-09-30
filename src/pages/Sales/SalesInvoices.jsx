@@ -7,6 +7,7 @@ import { isClientCreatedByUser } from "./hooks/useSalesClients";
 import { useApiInvoices } from "../../hooks/useApiInvoices";
 import { useApiClients } from "../../hooks/useApiClients";
 import { generateInvoiceHTML, getPlaceOfSupplyWithCode } from "../../utils/invoiceGenerator";
+import { printHtmlContent } from "../../utils/exportHelpers";
 
 export { generateInvoiceHTML, getPlaceOfSupplyWithCode };
 
@@ -842,19 +843,15 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
   const downloadInvoice = (invoice) => {
     const htmlContent = generateInvoiceHTML(invoice);
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 400);
-    }
+    // Safely trigger print without popup blockers or race conditions
+    printHtmlContent(htmlContent);
 
+    // Also download HTML file
     const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
     const cleanId = (invoice.id || "Invoice").replace(/\//g, "-");
+    link.href = url;
     link.download = `${cleanId}_Agnivridhi_${(invoice.type || "Invoice").replace(/\s+/g, "_")}.html`;
     document.body.appendChild(link);
     link.click();

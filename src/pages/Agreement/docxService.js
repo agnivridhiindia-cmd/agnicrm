@@ -25,6 +25,7 @@ import {
   getTemplateTypeForService,
   normalizeAgreementData,
 } from "../../services/agreementService";
+import { printHtmlContent } from "../../utils/exportHelpers";
 
 export const TEMPLATES = {
   SCHEME: {
@@ -701,34 +702,8 @@ export function downloadPdfFile(agr, filename) {
   const htmlContent = generateAgreementDocumentHtml(agr);
   const outFilename = filename || `${cleanCompany} Agreement.pdf`;
 
-  // Open printable PDF tab
-  const printWindow = window.open("", "_blank");
-  if (printWindow) {
-    printWindow.document.write(htmlContent);
-    printWindow.document.title = `${cleanCompany} Agreement`;
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      try {
-        printWindow.print();
-      } catch (e) {
-        console.warn("Auto print failed:", e);
-      }
-    }, 400);
-    return { success: true, filename: outFilename, openedWindow: true };
-  } else {
-    // Fallback: Download printable HTML document if popup was blocked
-    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = outFilename.replace(/\.pdf$/, ".html");
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return { success: true, filename: outFilename };
-  }
+  printHtmlContent(htmlContent);
+  return { success: true, filename: outFilename };
 }
 
 /**

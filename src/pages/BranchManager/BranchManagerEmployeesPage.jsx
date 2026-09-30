@@ -13,7 +13,7 @@ export default function BranchManagerEmployeesPage({
   const [searchQuery, setSearchQuery] = useState("");
 
   const branchEmployees = useMemo(() => {
-    return employeesList.filter((emp) => {
+    const list = employeesList.filter((emp) => {
       if (!emp) return false;
       const empBM = (emp.branchManager || emp.branchManagerName || "").toLowerCase().trim();
       const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();

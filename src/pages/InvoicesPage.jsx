@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { apiFetch } from "../services/apiClient";
 import { generateInvoiceHTML, getPlaceOfSupplyWithCode } from "../utils/invoiceGenerator";
+import { printHtmlContent } from "../utils/exportHelpers";
 import { useApiInvoices } from "../hooks/useApiInvoices";
 
 export default function InvoicesPage({ userEmail }) {
@@ -26,15 +27,7 @@ export default function InvoicesPage({ userEmail }) {
   function triggerDownload(inv) {
     const htmlContent = generateInvoiceHTML(inv);
 
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 400);
-    }
+    printHtmlContent(htmlContent);
 
     const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);

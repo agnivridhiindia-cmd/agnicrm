@@ -587,19 +587,76 @@ export function generateClientStatementHTML(client) {
 /**
  * Triggers PDF print window for Client Dossier.
  */
+/**
+ * Safely prints HTML document using a hidden iframe to prevent popup blocker interception
+ * and waits for fonts/styles ready state to eliminate race conditions.
+ */
+export function printHtmlContent(htmlContent) {
+  if (typeof window === "undefined" || !htmlContent) return;
+
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    const triggerPrint = () => {
+      try {
+        const frameDoc = iframe.contentWindow.document;
+        const fontPromise = frameDoc.fonts ? frameDoc.fonts.ready : Promise.resolve();
+        fontPromise.then(() => {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+          setTimeout(() => {
+            if (iframe.parentNode) {
+              iframe.parentNode.removeChild(iframe);
+            }
+          }, 4000);
+        });
+      } catch (err) {
+        console.warn("Print trigger error:", err);
+      }
+    };
+
+    if (iframe.contentWindow.document.readyState === "complete") {
+      triggerPrint();
+    } else {
+      iframe.contentWindow.onload = triggerPrint;
+      setTimeout(triggerPrint, 600);
+    }
+  } catch (err) {
+    console.warn("Hidden iframe print failed, falling back to window.open:", err);
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      const fontPromise = printWindow.document.fonts ? printWindow.document.fonts.ready : Promise.resolve();
+      fontPromise.then(() => {
+        printWindow.print();
+      });
+    }
+  }
+}
+
+/**
+ * Triggers PDF print window for Client Dossier profile.
+ */
 export function downloadClientDossierPDF(client) {
   if (!client) return;
   try {
     const html = generateClientDossierHTML(client);
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 400);
-    }
+    printHtmlContent(html);
   } catch (err) {
     console.error("Failed to generate Dossier PDF:", err);
   }
@@ -612,15 +669,7 @@ export function downloadClientStatementPDF(client) {
   if (!client) return;
   try {
     const html = generateClientStatementHTML(client);
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 400);
-    }
+    printHtmlContent(html);
   } catch (err) {
     console.error("Failed to generate Statement PDF:", err);
   }
