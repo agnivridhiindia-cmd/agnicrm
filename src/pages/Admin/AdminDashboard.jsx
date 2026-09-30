@@ -93,6 +93,14 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
 
   // Admin Name & Branch Details
   const adminName = useMemo(() => {
+    try {
+      const storedUser = localStorage.getItem("agni_user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.fullName) return parsed.fullName;
+      }
+    } catch (e) {}
+
     if (!userEmail) return "Branch Admin";
     const raw = userEmail.split("@")[0];
     const cleaned = raw.replace(/\d+$/, "");
@@ -102,23 +110,54 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   }, [userEmail]);
 
   const adminBranchDetails = useMemo(() => {
+    try {
+      const storedUser = localStorage.getItem("agni_user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.branch && parsed.branch.name) {
+          return { branchName: parsed.branch.name };
+        }
+      }
+    } catch (e) {}
     return getManagerBranchDetails(userEmail);
   }, [userEmail]);
 
   // Selected Branch (dynamically bound to logged-in Admin's branch)
   const [selectedBranch, setSelectedBranch] = useState(() => {
+    try {
+      const storedUser = localStorage.getItem("agni_user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.branch && parsed.branch.name) {
+          return parsed.branch.name;
+        }
+      }
+    } catch (e) {}
+    
     const details = getManagerBranchDetails(userEmail);
     return details?.branchName || "North Zone (Delhi)";
   });
 
   useEffect(() => {
-    if (adminBranchDetails && adminBranchDetails.branchName) {
-      setSelectedBranch(adminBranchDetails.branchName);
+    // Force sync on mount (handles HMR and stale state issues)
+    try {
+      const storedUser = localStorage.getItem("agni_user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed.branch && parsed.branch.name && parsed.branch.name !== selectedBranch) {
+          setSelectedBranch(parsed.branch.name);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (selectedBranch) {
       try {
-        localStorage.setItem("agni_user_branch", adminBranchDetails.branchName);
+        localStorage.setItem("agni_user_branch", selectedBranch);
       } catch (e) { }
     }
-  }, [adminBranchDetails]);
+  }, [selectedBranch]);
 
   const [teamMembers, setTeamMembers] = useState(initialBranchTeam);
 
@@ -207,6 +246,43 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
     notes: "",
     documentUpdates: {},
   });
+
+  // Live Sync Open Modals with Real-Time Data (SSE Updates)
+  useEffect(() => {
+    if (selectedClientForDossier) {
+      const liveClient = clients.find(c => c.id === selectedClientForDossier.id);
+      if (liveClient && JSON.stringify(liveClient.completedSteps) !== JSON.stringify(selectedClientForDossier.completedSteps)) {
+        setSelectedClientForDossier(prev => ({
+          ...prev,
+          ...liveClient,
+          history: liveClient.history || prev.history
+        }));
+      }
+    }
+    
+    if (updatingClient) {
+      const liveClient = clients.find(c => c.id === updatingClient.id);
+      if (liveClient && JSON.stringify(liveClient.completedSteps) !== JSON.stringify(updatingClient.completedSteps)) {
+        setUpdatingClient(prev => ({ ...prev, ...liveClient }));
+        
+        // Live-update the checkboxes and progress so they don't overwrite each other!
+        const targetScheme = liveClient.scheme || "PMEGP";
+        const isPrimary = liveClient.isPrimary === false || liveClient.processType === "secondary" ? false : isClientPrimaryScheme(liveClient, targetScheme);
+        const defaultSteps = isPrimary
+          ? (liveClient.completedSteps || ["CRM Creation"])
+          : ["CRM Creation", "Agreement", "Reports"];
+        const savedSteps = getSchemeCompletedStages(liveClient, targetScheme, defaultSteps);
+        const tracker = getTrackerState({ ...liveClient, scheme: targetScheme }, savedSteps);
+
+        setStatusFormData(prev => ({
+          ...prev,
+          status: tracker.currentStage,
+          completedSteps: tracker.completedStages,
+          progress: tracker.progressPercent,
+        }));
+      }
+    }
+  }, [clients]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -571,17 +647,17 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
 
             <UserProfileMenu
               user={{
-                name: adminName || "Rajesh Kumar",
-                email: "rajesh.admin@agnicrm.com",
-                phone: "+91 98203 11223",
-                branch: selectedBranch || "West Zone (Mumbai)",
+                name: adminName || "Branch Admin",
+                email: userEmail || "admin@agnicrm.com",
+                phone: "+91 98203 11223", // Example placeholder
+                branch: selectedBranch || "Branch",
                 designation: "Branch Lead Administrator",
                 empId: "EMP-ADM-3001",
-                reportingManager: "Vikramaditya Sharma (Branch Manager)",
+                reportingManager: "Branch Manager",
               }}
               role="Branch Admin"
               roleBadge="Branch Admin"
-              initials="AD"
+              initials={(adminName || "Admin").substring(0, 2).toUpperCase()}
               avatarColor="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
               onSignOut={onSignOut}
               showToast={(msg) => showToast(msg)}

@@ -189,9 +189,6 @@ export default function UserProfileMenu({
               <span style={{ fontSize: 11.5, color: "#64748b", display: "block", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {user.email || `${role.toLowerCase().replace(/\s+/g, "")}@agnicrm.com`}
               </span>
-              <span style={{ fontSize: 10.5, fontWeight: 750, color: "#4f46e5", display: "inline-block", marginTop: 3 }}>
-                {roleBadge || role} • {user.branch || "Headquarters"}
-              </span>
             </div>
           </div>
 

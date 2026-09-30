@@ -282,6 +282,19 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
       const mName = (member.name || member.fullName || "").toLowerCase().trim();
       const mEmail = (member.email || "").toLowerCase().trim();
       const mBranch = (member.branch || member.region || "").toLowerCase().trim();
+      const mRole = String(member.role || "").toLowerCase().trim();
+
+      // Exclude IT, Admin, Marketing, and Managers from the Sales Team list
+      if (
+        mRole === "it" ||
+        mRole.includes("admin") ||
+        mRole.includes("market") ||
+        mRole.includes("it ") ||
+        mRole.includes("tech") ||
+        mRole.includes("manager")
+      ) {
+        return false;
+      }
 
       // 1. Designated salesperson match from branchInfo
       if (designatedNames.includes(mName) || designatedEmails.includes(mEmail)) {
