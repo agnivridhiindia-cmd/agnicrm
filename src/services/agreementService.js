@@ -114,6 +114,10 @@ export function normalizeAgreementData(agr) {
       email: email,
       phone: phone,
       address: address,
+      // Payment amounts from client record (used as fallback in docxService when agreement pricing is empty)
+      totalPayment: agr.client?.totalPayment ?? agr.totalPayment ?? agr.amount ?? null,
+      paymentReceived: agr.client?.paymentReceived ?? agr.paymentReceived ?? null,
+      amount: agr.client?.amount ?? agr.amount ?? null,
     },
 
     // Convenience flat properties for legacy components
