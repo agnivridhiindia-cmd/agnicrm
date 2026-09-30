@@ -145,7 +145,7 @@ export default function ITDashboard({ onSignOut, userEmail }) {
     syncITData();
     window.addEventListener("storage", syncITData);
     window.addEventListener("agni_dept_assigned", syncITData);
-    const interval = setInterval(syncITData, 1500);
+    const interval = setInterval(syncITData, 30000);
     return () => {
       window.removeEventListener("storage", syncITData);
       window.removeEventListener("agni_dept_assigned", syncITData);

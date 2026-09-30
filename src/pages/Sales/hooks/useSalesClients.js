@@ -3,7 +3,6 @@ import {
   GST_RATE,
   schemeOptions,
   serviceTypeSchemes,
-  initialSalesClients,
   initialNewClientState,
   salesLeads,
 } from "../mockSalesData";
@@ -13,7 +12,7 @@ import { sanitizeClientRecord, mergeSecondaryClients } from "../../../utils/bran
 import { apiFetch } from "../../../services/apiClient";
 
 export function useSalesClients(salesPersonName, onClientAdded) {
-  const [clients, setClients] = useState(initialSalesClients);
+  const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientSearch, setClientSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
@@ -22,6 +21,7 @@ export function useSalesClients(salesPersonName, onClientAdded) {
 
   useEffect(() => {
     async function fetchSalesClientsFromDB() {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const token = localStorage.getItem("agni_token");
       if (!token) return;
 
@@ -91,15 +91,27 @@ export function useSalesClients(salesPersonName, onClientAdded) {
 
     fetchSalesClientsFromDB();
 
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchSalesClientsFromDB();
+      }
+    };
+
     window.addEventListener("storage", fetchSalesClientsFromDB);
     window.addEventListener("agni_pending_updated", fetchSalesClientsFromDB);
     window.addEventListener("agni_clients_updated", fetchSalesClientsFromDB);
-    const interval = setInterval(fetchSalesClientsFromDB, 30000);
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibility);
+    }
+    const interval = setInterval(fetchSalesClientsFromDB, 60000);
 
     return () => {
       window.removeEventListener("storage", fetchSalesClientsFromDB);
       window.removeEventListener("agni_pending_updated", fetchSalesClientsFromDB);
       window.removeEventListener("agni_clients_updated", fetchSalesClientsFromDB);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibility);
+      }
       clearInterval(interval);
     };
   }, [salesPersonName]);
@@ -134,8 +146,20 @@ export function useSalesClients(salesPersonName, onClientAdded) {
     });
   }, [clients, clientSearch, stageFilter, paymentFilter]);
 
-  const totalActiveClients = clients.filter((client) => client.stage === "Active" || client.stage === "ACTIVE" || client.approvalStatus === "ACTIVE").length;
-  const totalClosedDeals = clients.filter((client) => client.stage === "COMPLETED" || client.stage === "Completed" || client.applicationStatus === "Completed").length;
+  const { totalActiveClients, totalClosedDeals } = useMemo(() => {
+    let active = 0;
+    let closed = 0;
+    for (let i = 0; i < clients.length; i++) {
+      const client = clients[i];
+      if (client.stage === "Active" || client.stage === "ACTIVE" || client.approvalStatus === "ACTIVE") {
+        active++;
+      }
+      if (client.stage === "COMPLETED" || client.stage === "Completed" || client.applicationStatus === "Completed") {
+        closed++;
+      }
+    }
+    return { totalActiveClients: active, totalClosedDeals: closed };
+  }, [clients]);
 
   const quotaMetrics = useMemo(() => {
     const totalRealized = clients.reduce((sum, c) => {

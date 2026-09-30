@@ -24,7 +24,6 @@ import { apiFetch } from "../../services/apiClient";
 import {
   navItems,
   salesTeam,
-  managerClients,
 } from "./mockManagerData";
 
 export default function ManagerDashboard({ onSignOut, userEmail }) {

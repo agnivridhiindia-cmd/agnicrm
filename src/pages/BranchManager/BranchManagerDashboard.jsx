@@ -24,7 +24,6 @@ import { apiFetch } from "../../services/apiClient";
 
 // Mock & Initial Data
 import {
-  initialBranchManagerClients,
   initialBranchAdmins,
   initialBranchIT,
   initialBranchMarketing,
@@ -77,7 +76,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
   const [query, setQuery] = useState("");
 
   // States
-  const [clients, setClients] = useState(initialBranchManagerClients);
+  const [clients, setClients] = useState([]);
   const [branchAdmins] = useState(initialBranchAdmins);
   const [branchIT] = useState(initialBranchIT);
   const [branchMarketing] = useState(initialBranchMarketing);

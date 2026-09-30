@@ -71,16 +71,23 @@ export default function OwnerClientsPage({
 
   // Compute Active KPI metrics
   const totalClients = clients.length;
-  const fullyPaidCount = clients.filter(
-    (c) => (c.paymentReceived || 0) >= (c.totalPayment || 0) && (c.totalPayment || 0) > 0
-  ).length;
-  const activePipelineCount = clients.filter(
-    (c) => (c.paymentReceived || 0) < (c.totalPayment || 0)
-  ).length;
-  const totalPortfolioValue = clients.reduce(
-    (sum, c) => sum + (parseFloat(String(c.totalPayment || 0).replace(/[^0-9.]/g, "")) || 0),
-    0
-  );
+  const { fullyPaidCount, activePipelineCount, totalPortfolioValue } = useMemo(() => {
+    let paid = 0;
+    let pipeline = 0;
+    let totalVal = 0;
+    for (let i = 0; i < clients.length; i++) {
+      const c = clients[i];
+      const received = c.paymentReceived || 0;
+      const total = c.totalPayment || 0;
+      if (received >= total && total > 0) {
+        paid++;
+      } else {
+        pipeline++;
+      }
+      totalVal += (parseFloat(String(total).replace(/[^0-9.]/g, "")) || 0);
+    }
+    return { fullyPaidCount: paid, activePipelineCount: pipeline, totalPortfolioValue: totalVal };
+  }, [clients]);
 
   // Filter active clients
   const filteredClients = useMemo(() => {

@@ -34,7 +34,6 @@ import OwnerRequestDecisionModal from "./OwnerRequestDecisionModal";
 // Data & Configs
 import {
   navItems,
-  initialOwnerClients,
   initialOwnerEmployees,
   initialInvoices,
   initialRequests,
@@ -157,7 +156,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
   }, [userEmail]);
 
   // Clients state
-  const [clients, setClients] = useState(() => initialOwnerClients.map(sanitizeClientRecord));
+  const [clients, setClients] = useState([]);
 
   // Fetch clients from backend PostgreSQL DB on mount
   useEffect(() => {

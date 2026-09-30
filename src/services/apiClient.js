@@ -43,41 +43,66 @@ export async function apiFetch(endpoint, options = {}) {
     }
   }
 
+  const timeoutMs = options.timeout !== undefined ? options.timeout : 15000;
+  let customSignal = options.signal;
+  let timeoutController = null;
+  let timeoutId = null;
+
+  if (!customSignal && timeoutMs > 0) {
+    timeoutController = new AbortController();
+    timeoutId = setTimeout(() => {
+      timeoutController.abort(new DOMException("Request timed out", "TimeoutError"));
+    }, timeoutMs);
+  }
+
   const fetchOptions = {
     ...options,
     headers,
     body,
+    signal: customSignal || (timeoutController ? timeoutController.signal : undefined),
   };
 
   let response;
   let fetchError = null;
 
   try {
-    response = await fetch(url, fetchOptions);
-  } catch (err) {
-    fetchError = err;
-    // Attempt localhost -> 127.0.0.1 or vice-versa fallback if network error
-    if (url.includes("localhost:5000")) {
-      const fallbackUrl = url.replace("localhost:5000", "127.0.0.1:5000");
-      try {
-        response = await fetch(fallbackUrl, fetchOptions);
-        fetchError = null;
-      } catch (fallbackErr) {
-        fetchError = fallbackErr;
+    try {
+      response = await fetch(url, fetchOptions);
+    } catch (err) {
+      fetchError = err;
+      const isTimeout = err.name === "TimeoutError" || err.name === "AbortError";
+      // Attempt localhost -> 127.0.0.1 or vice-versa fallback only if not timed out
+      if (!isTimeout) {
+        if (url.includes("localhost:5000")) {
+          const fallbackUrl = url.replace("localhost:5000", "127.0.0.1:5000");
+          try {
+            response = await fetch(fallbackUrl, fetchOptions);
+            fetchError = null;
+          } catch (fallbackErr) {
+            fetchError = fallbackErr;
+          }
+        } else if (url.includes("127.0.0.1:5000")) {
+          const fallbackUrl = url.replace("127.0.0.1:5000", "localhost:5000");
+          try {
+            response = await fetch(fallbackUrl, fetchOptions);
+            fetchError = null;
+          } catch (fallbackErr) {
+            fetchError = fallbackErr;
+          }
+        }
       }
-    } else if (url.includes("127.0.0.1:5000")) {
-      const fallbackUrl = url.replace("127.0.0.1:5000", "localhost:5000");
-      try {
-        response = await fetch(fallbackUrl, fetchOptions);
-        fetchError = null;
-      } catch (fallbackErr) {
-        fetchError = fallbackErr;
-      }
+    }
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
     }
   }
 
   if (fetchError) {
-    const errorMsg = fetchError.message || "Network error: Unable to reach Agni CRM API server.";
+    const isTimeout = fetchError.name === "TimeoutError" || fetchError.name === "AbortError";
+    const errorMsg = isTimeout
+      ? "Request timeout: Agni CRM API server took too long to respond."
+      : (fetchError.message || "Network error: Unable to reach Agni CRM API server.");
     window.dispatchEvent(
       new CustomEvent("agni_api_error", {
         detail: { message: errorMsg, status: 0, endpoint },

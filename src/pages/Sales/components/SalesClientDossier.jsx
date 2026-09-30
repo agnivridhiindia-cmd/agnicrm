@@ -90,21 +90,27 @@ export default function SalesClientDossier({
     });
   }, [selectedClient, allClients]);
 
-  const allSchemeTrackers = getClientAllSchemeTrackers(selectedClient, siblingClients);
+  const allSchemeTrackers = React.useMemo(() => {
+    return getClientAllSchemeTrackers(selectedClient, siblingClients);
+  }, [selectedClient, siblingClients]);
+
   const [activeDossierSchemeIdx, setActiveDossierSchemeIdx] = React.useState(0);
 
   const activeItem = allSchemeTrackers[activeDossierSchemeIdx] || allSchemeTrackers[0] || {};
   const tracker = activeItem.tracker || getTrackerState(selectedClient);
-  const schemeName = activeItem.schemeName || selectedClient.scheme || tracker.schemeName;
+  const schemeName = activeItem.schemeName || selectedClient?.scheme || tracker.schemeName;
   const processLabel = tracker.processTypeLabel || getProcessTypeLabel(tracker.processType);
-  const clientPendingReqs = (pendingSchemeRequests || []).filter(
-    (r) =>
-      (r.clientEmail === selectedClient.email ||
-        r.clientName === selectedClient.name ||
-        r.clientEmail === "client@company.com" ||
-        selectedClient.name === "Acme Industries Pvt. Ltd.") &&
-      r.status.includes("Pending")
-  );
+  const clientPendingReqs = React.useMemo(() => {
+    return (pendingSchemeRequests || []).filter(
+      (r) =>
+        (r.clientEmail === selectedClient?.email ||
+          r.clientName === selectedClient?.name ||
+          r.clientEmail === "client@company.com" ||
+          selectedClient?.name === "Acme Industries Pvt. Ltd.") &&
+        r.status &&
+        r.status.includes("Pending")
+    );
+  }, [pendingSchemeRequests, selectedClient]);
 
   const enrolledSchemesList = React.useMemo(() => {
     const list = [];

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { clearClientLocalStorage } from "../utils/clearClientLocalStorage";
 
 const AuthContext = createContext({
   token: null,
@@ -43,10 +42,6 @@ export function AuthProvider({ children }) {
   const jwtPayload = parseJwtPayload(token);
   const userRole = jwtPayload?.role || user?.role || localStorage.getItem("agni_user_role") || localStorage.getItem("agni_role");
   const userEmail = jwtPayload?.email || user?.email || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email");
-
-  useEffect(() => {
-    clearClientLocalStorage();
-  }, []);
 
   const syncAuthFromStorage = useCallback(() => {
     const curToken = localStorage.getItem("agni_token");

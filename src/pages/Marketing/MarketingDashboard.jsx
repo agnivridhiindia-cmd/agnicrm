@@ -142,7 +142,7 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
     syncMarketingData();
     window.addEventListener("storage", syncMarketingData);
     window.addEventListener("agni_dept_assigned", syncMarketingData);
-    const interval = setInterval(syncMarketingData, 1500);
+    const interval = setInterval(syncMarketingData, 30000);
     return () => {
       window.removeEventListener("storage", syncMarketingData);
       window.removeEventListener("agni_dept_assigned", syncMarketingData);

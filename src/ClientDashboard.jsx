@@ -138,6 +138,33 @@ function DashboardIcon({ name, size = 19 }) {
   );
 }
 
+function ClientLiveClock() {
+  const [currentDateTime, setCurrentDateTime] = React.useState(new Date());
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dayName = days[currentDateTime.getDay()];
+  const dayNum = String(currentDateTime.getDate()).padStart(2, '0');
+  const monthName = months[currentDateTime.getMonth()];
+  const year = currentDateTime.getFullYear();
+  let hours = currentDateTime.getHours();
+  const minutes = String(currentDateTime.getMinutes()).padStart(2, '0');
+  const seconds = String(currentDateTime.getSeconds()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const formattedHours = String(hours).padStart(2, '0');
+
+  return <span>{`${dayName}, ${dayNum} ${monthName} ${year} • ${formattedHours}:${minutes}:${seconds} ${ampm}`}</span>;
+}
+
 export function isMoreServiceScheme(scheme) {
   if (!scheme) return false;
   const name = (scheme.name || scheme.schemeName || scheme.scheme || "").toLowerCase();
@@ -1383,32 +1410,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
     }
   }, [clientProfileOpen]);
 
-  const [currentDateTime, setCurrentDateTime] = React.useState(new Date());
-
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentDateTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const formatRealTime = (date) => {
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const dayName = days[date.getDay()];
-    const dayNum = String(date.getDate()).padStart(2, '0');
-    const monthName = months[date.getMonth()];
-    const year = date.getFullYear();
-    let hours = date.getHours();
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const formattedHours = String(hours).padStart(2, '0');
-
-    return `${dayName}, ${dayNum} ${monthName} ${year} • ${formattedHours}:${minutes}:${seconds} ${ampm}`;
-  };
 
   function handleCreateRequest(e) {
     e.preventDefault();
@@ -1489,7 +1490,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
               {/* Real-time Day & Time Clock */}
               <div className="cd-date-pill">
                 <DashboardIcon name="clock" size={14} />
-                <span>{formatRealTime(currentDateTime)}</span>
+                <ClientLiveClock />
               </div>
 
               {/* Install App Button (Client Dashboard only, auto-hides when installed) */}
