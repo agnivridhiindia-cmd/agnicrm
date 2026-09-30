@@ -1,43 +1,55 @@
 /**
- * Clears all client-related cached data keys from localStorage
+ * Clears all client-related, invoice-related, payment-related, and request cached data keys from localStorage
  */
 export function clearClientLocalStorage() {
   if (typeof window === "undefined" || !window.localStorage) return;
 
+  const authKeepKeys = new Set([
+    "agni_token",
+    "agni_user",
+    "agni_user_role",
+    "agni_role",
+    "agni_user_email",
+    "agni_email",
+    "agni_user_name",
+    "agni_branch",
+    "agni_theme",
+    "agni_remember_me",
+  ]);
+
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
+    if (!key) continue;
+    if (authKeepKeys.has(key)) continue;
+
+    const lower = key.toLowerCase();
     if (
-      key &&
-      (key.startsWith("agni_pending_client_creations") ||
-        key.startsWith("agni_pending_scheme_requests") ||
-        key.startsWith("agni_client_doc_data_") ||
-        key.startsWith("agni_verified_docs_") ||
-        key.startsWith("agni_approved_client_plans_") ||
-        key.startsWith("agni_client_doc_submitted_") ||
-        key.startsWith("agni_client_eligible_schemes_") ||
-        key.startsWith("agni_client_") ||
-        key.startsWith("agni_invoices") ||
-        key.startsWith("agni_sales_invoices") ||
-        key.startsWith("agni_sales_payments") ||
-        key.startsWith("agni_payment_demands") ||
-        key.startsWith("agni_payment_") ||
-        key.startsWith("agni_client_requests") ||
-        key.startsWith("agni_crm_agreements") ||
-        key.startsWith("agni_doc_temp_") ||
-        key === "agni_sales_clients" ||
-        key === "agni_branch_clients" ||
-        key === "agni_clients" ||
-        key === "agni_client_enrolled_schemes_db" ||
-        key === "agni_all_agreements")
+      lower.includes("client") ||
+      lower.includes("invoice") ||
+      lower.includes("payment") ||
+      lower.includes("agreement") ||
+      lower.includes("scheme") ||
+      lower.includes("doc_data") ||
+      lower.includes("verified_docs") ||
+      lower.includes("demand") ||
+      lower.includes("pending") ||
+      lower.includes("request") ||
+      lower.includes("dossier") ||
+      lower.includes("melody") ||
+      lower.startsWith("agni_sales_clients") ||
+      lower.startsWith("agni_branch_clients") ||
+      lower.startsWith("agni_clients")
     ) {
       keysToRemove.push(key);
     }
   }
 
   keysToRemove.forEach((key) => localStorage.removeItem(key));
-  window.dispatchEvent(new CustomEvent("agni_clients_updated"));
-  window.dispatchEvent(new Event("agni_invoices_updated"));
-  window.dispatchEvent(new Event("agni_payments_updated"));
-  window.dispatchEvent(new Event("storage"));
+  try {
+    window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+    window.dispatchEvent(new Event("agni_invoices_updated"));
+    window.dispatchEvent(new Event("agni_payments_updated"));
+    window.dispatchEvent(new Event("storage"));
+  } catch (e) {}
 }

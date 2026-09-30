@@ -43,7 +43,20 @@ export async function getInvoicesService(user: AuthenticatedUser) {
     where: whereClause,
     include: {
       client: {
-        select: { name: true, companyName: true, email: true, phone: true },
+        select: {
+          id: true,
+          name: true,
+          companyName: true,
+          email: true,
+          phone: true,
+          address: true,
+          gstNumber: true,
+          panNumber: true,
+          companyPan: true,
+          contactPerson: true,
+          representativeName: true,
+          contactNumber: true,
+        },
       },
       branch: { select: { name: true } },
       accountManager: { select: { fullName: true, email: true } },
@@ -70,7 +83,26 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
     return { success: false, statusCode: 404, message: "Client not found" };
   }
 
-  const invoiceNo = generateInvoiceNo();
+  // Count invoices created today for daily sequence: INV-dd/mm/yyyy-00number
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  const todayCount = await prisma.invoice.count({
+    where: {
+      createdAt: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+    },
+  });
+
+  let seq = todayCount + 1;
+  let invoiceNo = generateInvoiceNo(seq, now);
+  while (await prisma.invoice.findUnique({ where: { invoiceNo } })) {
+    seq++;
+    invoiceNo = generateInvoiceNo(seq, now);
+  }
 
   // Check if client has already made payments or if this is a Tax Invoice for paid fees
   const clientAlreadyPaid = Number(client.paymentReceived || 0);
@@ -114,7 +146,22 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
       accountManagerId: client.salesPersonId,
     },
     include: {
-      client: { select: { name: true, companyName: true } },
+      client: {
+        select: {
+          id: true,
+          name: true,
+          companyName: true,
+          email: true,
+          phone: true,
+          address: true,
+          gstNumber: true,
+          panNumber: true,
+          companyPan: true,
+          contactPerson: true,
+          representativeName: true,
+          contactNumber: true,
+        },
+      },
       payments: true,
     },
   });

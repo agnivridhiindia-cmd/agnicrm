@@ -15,9 +15,12 @@ export function generateAppId(branchCode: string = "WZ"): string {
   return `APP-${branchCode.toUpperCase()}-${year}-${getUniqueSuffix()}`;
 }
 
-export function generateInvoiceNo(): string {
-  const year = new Date().getFullYear();
-  return `INV-${year}-${getUniqueSuffix()}`;
+export function generateInvoiceNo(seq: number = 1, date: Date = new Date()): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const seqStr = String(seq).padStart(3, "0");
+  return `INV-${yyyy}${mm}${dd}-${seqStr}`;
 }
 
 export function generatePaymentId(): string {

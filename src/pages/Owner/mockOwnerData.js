@@ -1,4 +1,5 @@
 import { ACTIVITY_STAGES } from "../Admin/mockAdminData";
+import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
 
 export const navItems = [
   { icon: "dashboard", label: "Dashboard" },
@@ -338,35 +339,24 @@ export function generateYearlySeries(employee) {
 }
 
 export function downloadInvoiceFile(inv, onSuccess) {
-  const fileContent = `
-====================================================================
-                    AGNI CRM - OFFICIAL CLIENT INVOICE
-====================================================================
-Invoice Number  : ${inv.id}
-Client Name     : ${inv.company}
-Service Line    : ${inv.serviceName}
-Branch          : ${inv.branch}
-Region Name     : ${inv.region}
-Issue Date      : ${inv.issueDate}
-Due Date        : ${inv.dueDate}
-Account Manager : ${inv.accountManager}
-GSTIN / Reg No  : ${inv.gstNo}
---------------------------------------------------------------------
-Base Fee        : ${inv.amount}
-Applicable GST  : ${inv.tax}
-TOTAL AMOUNT    : ${inv.totalAmount}
-PAYMENT STATUS  : ${inv.status.toUpperCase()}
---------------------------------------------------------------------
-Thank you for choosing AgniCRM Enterprise Services.
-For billing support contact: billing@agnicrm.com
-====================================================================
-`.trim();
+  const htmlContent = generateInvoiceHTML(inv);
 
-  const blob = new Blob([fileContent], { type: "text/plain;charset=utf-8" });
+  const printWindow = window.open("", "_blank");
+  if (printWindow) {
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  }
+
+  const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${inv.id}_${(inv.clientName || 'Client').replace(/\s+/g, '_')}_Invoice.txt`;
+  const cleanId = (inv.id || "Invoice").replace(/\//g, "-");
+  link.download = `${cleanId}_Agnivridhi_${(inv.type || "Invoice").replace(/\s+/g, "_")}.html`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

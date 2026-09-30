@@ -6,8 +6,11 @@ import { mockClients } from "./mockClients";
 import { isClientCreatedByUser } from "./hooks/useSalesClients";
 import { useApiInvoices } from "../../hooks/useApiInvoices";
 import { useApiClients } from "../../hooks/useApiClients";
+import { generateInvoiceHTML, getPlaceOfSupplyWithCode } from "../../utils/invoiceGenerator";
 
-const INVOICE_TABS = ["All Invoices", "Proforma Invoices", "Tax Invoices"];
+export { generateInvoiceHTML, getPlaceOfSupplyWithCode };
+
+const INVOICE_TABS = ["All Invoices", "Proforma Invoices", "Tax Invoices", "GST Invoices"];
 
 const formatCurrency = (val) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val || 0);
@@ -24,324 +27,18 @@ const formatDateDisplay = (dateStr) => {
 };
 
 const generateInvoiceId = (type, existingInvoices) => {
-  const isProforma = (type || "").toLowerCase().includes("proforma");
-  const prefix = isProforma ? "PI" : "INV";
   const now = new Date();
-  const dateStamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-  const count = existingInvoices.length + 1;
-  return `${prefix}-${dateStamp}-${String(count).padStart(3, "0")}`;
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const datePrefix = `INV-${yyyy}${mm}${dd}-`;
+  const todayInvoices = (existingInvoices || []).filter((inv) => {
+    const invId = inv.invoiceNo || inv.id || "";
+    return invId.startsWith(datePrefix);
+  });
+  const count = todayInvoices.length + 1;
+  return `${datePrefix}${String(count).padStart(3, "0")}`;
 };
-
-export function generateInvoiceHTML(invoice) {
-  const quantity = Number(invoice.quantity) || 1;
-  const rate = Number(invoice.rate || invoice.pitchedAmount || invoice.amount || 0);
-  const taxableAmount = quantity * rate;
-  const gstPercent = Number(invoice.gstPercent) !== undefined ? Number(invoice.gstPercent) : 18;
-  const totalGst = taxableAmount * (gstPercent / 100);
-  const totalAmount = invoice.totalAmount ? Number(invoice.totalAmount) : (taxableAmount + totalGst);
-
-  const isIgst = (invoice.placeOfSupply || "Uttar Pradesh").trim().toLowerCase() !== "uttar pradesh";
-  const isProforma = (invoice.type || "").toLowerCase().includes("proforma");
-  const docTitle = isProforma ? "PROFORMA INVOICE" : "TAX INVOICE";
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${invoice.id} - ${docTitle}</title>
-  <style>
-    @page { size: A4; margin: 12mm; }
-    * { box-sizing: border-box; }
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      color: #000;
-      margin: 0;
-      padding: 15px;
-      position: relative;
-      background: #fff;
-    }
-    .watermark {
-      position: fixed;
-      top: 45%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-30deg);
-      font-size: 85px;
-      font-weight: bold;
-      color: rgba(0, 0, 0, 0.035);
-      white-space: nowrap;
-      pointer-events: none;
-      z-index: 0;
-      font-family: Arial, sans-serif;
-    }
-    .content {
-      position: relative;
-      z-index: 1;
-    }
-    .header-company {
-      text-align: center;
-      margin-bottom: 18px;
-    }
-    .company-title {
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      margin: 0 0 4px 0;
-      color: #000;
-    }
-    .company-subtitle {
-      font-size: 13px;
-      margin: 0 0 6px 0;
-      color: #333;
-      font-weight: 500;
-    }
-    .company-details {
-      font-size: 11px;
-      line-height: 1.45;
-      color: #222;
-    }
-    .doc-title {
-      text-align: center;
-      font-size: 22px;
-      font-weight: 800;
-      color: #0066cc;
-      letter-spacing: 1px;
-      margin: 18px 0 14px 0;
-      text-transform: uppercase;
-    }
-    .meta-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 12px;
-      font-size: 11.5px;
-    }
-    .meta-table td {
-      border: 1px solid #000;
-      padding: 6px 10px;
-    }
-    .meta-label {
-      font-weight: bold;
-      width: 15%;
-      background: #fafafa;
-    }
-    .meta-val {
-      width: 35%;
-    }
-    .billed-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 18px;
-      font-size: 11.5px;
-    }
-    .billed-table td {
-      border: 1px solid #000;
-      padding: 10px;
-      vertical-align: top;
-      width: 50%;
-    }
-    .billed-header {
-      font-weight: bold;
-      font-size: 12.5px;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .billed-name {
-      font-weight: bold;
-      font-size: 12.5px;
-      margin-bottom: 4px;
-      color: #000;
-    }
-    .billed-text {
-      line-height: 1.45;
-      color: #111;
-    }
-    .item-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 0px;
-      font-size: 11.5px;
-    }
-    .item-table th {
-      background-color: #000;
-      color: #fff;
-      padding: 8px 10px;
-      font-weight: bold;
-      text-align: left;
-      border: 1px solid #000;
-    }
-    .item-table td {
-      border: 1px solid #000;
-      padding: 8px 10px;
-    }
-    .text-center { text-align: center; }
-    .text-right { text-align: right; }
-    .totals-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 18px;
-      font-size: 11.5px;
-    }
-    .totals-table td {
-      border: 1px solid #000;
-      padding: 6px 10px;
-    }
-    .total-row-black td {
-      background-color: #000;
-      color: #fff;
-      font-weight: bold;
-      font-size: 12.5px;
-    }
-    .note-box {
-      background-color: #f8f9fa;
-      border: 1px solid #e2e8f0;
-      padding: 9px 12px;
-      font-size: 11px;
-      font-style: italic;
-      color: #444;
-      margin-bottom: 22px;
-      line-height: 1.4;
-    }
-    .footer-text {
-      text-align: center;
-      font-size: 10.5px;
-      color: #555;
-      line-height: 1.5;
-    }
-    .footer-thanks {
-      font-weight: bold;
-      margin-top: 4px;
-      color: #222;
-    }
-  </style>
-</head>
-<body>
-  <div class="watermark">Agnivridhi India</div>
-  <div class="content">
-    <div class="header-company">
-      <div class="company-title">AGNIVRIDHI INDIA</div>
-      <div class="company-subtitle">Business Consultancy & Advisory Services</div>
-      <div class="company-details">
-        A-116, Urbtech Trade Centre, Sector-132, Chhaprauli Bengar<br>
-        Gautam Buddha Nagar, Dadri, Uttar Pradesh - 201304, India<br>
-        Email: account@agnivridhiindia.com<br>
-        GSTIN: 09ABCCA3869R1ZU | PAN: ABCCA3869R | CIN: U70200UP2025PTC218739
-      </div>
-    </div>
-
-    <div class="doc-title">${docTitle}</div>
-
-    <table class="meta-table">
-      <tr>
-        <td class="meta-label">Invoice No:</td>
-        <td class="meta-val"><strong>${invoice.id}</strong></td>
-        <td class="meta-label">Invoice Date:</td>
-        <td class="meta-val">${formatDateDisplay(invoice.issueDate)}</td>
-      </tr>
-      <tr>
-        <td class="meta-label">Page:</td>
-        <td class="meta-val">1 of 1</td>
-        <td class="meta-label">${invoice.dueDate ? "Due Date:" : ""}</td>
-        <td class="meta-val">${invoice.dueDate ? formatDateDisplay(invoice.dueDate) : ""}</td>
-      </tr>
-    </table>
-
-    <table class="billed-table">
-      <tr>
-        <td>
-          <div class="billed-header">BILLED TO</div>
-          <div class="billed-name">${invoice.clientName || "Client"}</div>
-          <div class="billed-text">
-            ${invoice.contactPerson ? `${invoice.contactPerson}<br>` : ""}
-            ${invoice.address ? `${invoice.address}<br>` : ""}
-            ${[invoice.city, invoice.state].filter(Boolean).join(", ")}${invoice.pincode ? ` - ${invoice.pincode}` : ""}<br>
-            GSTIN: ${invoice.gstin || "None"}<br>
-            Contact: ${invoice.mobile || "N/A"}
-          </div>
-        </td>
-        <td>
-          <div class="billed-header">BILLED FROM</div>
-          <div class="billed-name">AGNIVRIDHI INDIA</div>
-          <div class="billed-text">
-            A-116, Urbtech Trade Centre, Sector-132<br>
-            Chhaprauli Bengar, Gautam Buddha Nagar<br>
-            Dadri, Uttar Pradesh - 201304, India<br>
-            GSTIN: 09ABCCA3869R1ZU<br>
-            Email: account@agnivridhiindia.com
-          </div>
-        </td>
-      </tr>
-    </table>
-
-    <table class="item-table">
-      <thead>
-        <tr>
-          <th style="width: 5%; text-align: center;">#</th>
-          <th style="width: 45%;">Description</th>
-          <th style="width: 15%; text-align: center;">HSN/SAC</th>
-          <th style="width: 10%; text-align: center;">Qty</th>
-          <th style="width: 12.5%; text-align: right;">Rate (Rs.)</th>
-          <th style="width: 12.5%; text-align: right;">Amount (Rs.)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="text-center">1</td>
-          <td>${invoice.description || "Service"}</td>
-          <td class="text-center">${invoice.hsnSac || "998372"}</td>
-          <td class="text-center">${quantity}</td>
-          <td class="text-right">${rate.toFixed(2)}</td>
-          <td class="text-right">${taxableAmount.toFixed(2)}</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <table class="totals-table">
-      <tr>
-        <td style="width: 65%; border: none;"></td>
-        <td style="width: 20%; font-weight: bold;">Taxable Amount:</td>
-        <td style="width: 15%; text-align: right;">Rs. ${taxableAmount.toFixed(2)}</td>
-      </tr>
-      ${isIgst ? `
-      <tr>
-        <td style="border: none;"></td>
-        <td style="font-weight: bold;">IGST @ ${gstPercent}%:</td>
-        <td style="text-align: right;">Rs. ${totalGst.toFixed(2)}</td>
-      </tr>
-      ` : `
-      <tr>
-        <td style="border: none;"></td>
-        <td style="font-weight: bold;">CGST @ ${(gstPercent / 2).toFixed(1)}%:</td>
-        <td style="text-align: right;">Rs. ${(totalGst / 2).toFixed(2)}</td>
-      </tr>
-      <tr>
-        <td style="border: none;"></td>
-        <td style="font-weight: bold;">SGST @ ${(gstPercent / 2).toFixed(1)}%:</td>
-        <td style="text-align: right;">Rs. ${(totalGst / 2).toFixed(2)}</td>
-      </tr>
-      `}
-      <tr class="total-row-black">
-        <td style="border: none; background: transparent;"></td>
-        <td style="font-weight: bold;">Total Amount:</td>
-        <td style="text-align: right;">Rs. ${totalAmount.toFixed(2)}</td>
-      </tr>
-    </table>
-
-    <div class="note-box">
-      ${isProforma ?
-      'Note: This is a Proforma Invoice issued for estimation and documentation purposes only. It is not a demand for payment and is subject to change at the time of final Tax Invoice.' :
-      'Note: This is an official Tax Invoice issued by Agnivridhi India. Payment due within 15 days of issuance.'
-    }
-    </div>
-
-    <div class="footer-text">
-      This is an electronically generated document, no signature is required.<br>
-      Terms & Conditions: Payment due within 15 days. All disputes subject to jurisdiction of courts in Noida. Agnivridhi India<br>
-      <div class="footer-thanks">Thank you for your business!</div>
-    </div>
-  </div>
-</body>
-</html>`;
-}
 
 function CreateInvoiceModal({ clients, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
@@ -354,15 +51,18 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
     state: "",
     pincode: "",
     gstin: "",
+    pan: "",
+    email: "",
     mobile: "",
+    phone: "",
     issueDate: new Date().toISOString().split("T")[0],
     dueDate: "",
     description: "",
-    hsnSac: "998372",
+    hsnSac: "998311",
     gstPercent: 18,
     quantity: 1,
     rate: 10000,
-    placeOfSupply: "Uttar Pradesh",
+    placeOfSupply: "Telangana (36)",
     notes: "",
   });
 
@@ -427,23 +127,33 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
       const pincodeVal = client.pincode || client.pin || client.zip || parsedAddr.pincode || "";
 
       const gstinVal = docData.gstNumber || client.gstNumber || client.gstin || client.gstNo || client.gst || "";
+      let panVal = docData.companyPan || docData.panNumber || client.companyPan || client.panNumber || "";
+      if (!panVal && gstinVal && gstinVal.length >= 12) {
+        panVal = gstinVal.substring(2, 12).toUpperCase();
+      }
+      const emailVal = client.email || docData.email || "";
       const mobileVal = docData.contactNumber || client.phone || client.mobile || client.contactPhone || "";
       const descVal = docData.fundingPurpose || docData.companyDescription || client.scheme || client.serviceName || client.serviceType || "";
 
-      // Use totalPayment (GST-inclusive consultancy fee shown in sales dashboard)
-      // Base rate = totalPayment / 1.18 so that base + 18% GST = totalPayment exactly.
-      // Fall back to pitchedMoney, pitchedAmount, amount if totalPayment not set.
+      // Determine Place of Supply with area/state code (like Telangana (36))
+      const placeOfSupplyVal = getPlaceOfSupplyWithCode(stateVal || fullAddr, fullAddr, gstinVal);
+
+      // For GST Invoice (cash payment), rate is the full raw total without dividing by 1.18.
+      // For Tax invoice, base rate is stripped of 18% GST (rawTotal / 1.18) so that base + 18% GST = totalPayment.
       const rawTotal =
         parseFloat(client.totalPayment) ||
         parseFloat(client.pitchedMoney) ||
         parseFloat(client.pitchedAmount) ||
         parseFloat(client.amount) ||
         0;
-      // Derive base rate by stripping GST from the total
-      const baseRate = rawTotal > 0 ? Math.round(rawTotal / 1.18) : 10000;
+      const isCurrentGstInvoice = formData.type === "GST Invoice";
+      const baseRate = rawTotal > 0
+        ? (isCurrentGstInvoice ? rawTotal : Math.round(rawTotal / 1.18))
+        : 10000;
 
       setFormData((prev) => ({
         ...prev,
+        rawClientTotal: rawTotal,
         selectedClientId: clientId,
         clientName: clientNameVal,
         contactPerson: contactPersonVal,
@@ -452,10 +162,13 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
         state: stateVal,
         pincode: pincodeVal,
         gstin: gstinVal,
+        pan: panVal,
+        email: emailVal,
         mobile: mobileVal,
+        phone: mobileVal,
         rate: baseRate,
-        gstPercent: 18,
-        placeOfSupply: stateVal || prev.placeOfSupply || "Uttar Pradesh",
+        gstPercent: isCurrentGstInvoice ? 0 : 18,
+        placeOfSupply: placeOfSupplyVal,
         description: descVal || prev.description || "",
       }));
     } else {
@@ -468,6 +181,23 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === "type") {
+      const isGstInv = value === "GST Invoice";
+      setFormData((prev) => {
+        const newGstPercent = isGstInv ? 0 : 18;
+        let newRate = prev.rate;
+        if (prev.rawClientTotal) {
+          newRate = isGstInv ? prev.rawClientTotal : Math.round(prev.rawClientTotal / 1.18);
+        }
+        return {
+          ...prev,
+          type: value,
+          gstPercent: newGstPercent,
+          rate: newRate,
+        };
+      });
+      return;
+    }
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -483,8 +213,8 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
     e?.preventDefault();
     setValidationError("");
 
-    if (formData.type === "Tax Invoice" && !formData.selectedClientId && !formData.clientName) {
-      setValidationError("Target Client selection or Client Name is required for Tax Invoice.");
+    if ((formData.type === "Tax Invoice" || formData.type === "GST Invoice") && !formData.selectedClientId && !formData.clientName) {
+      setValidationError("Target Client selection or Client Name is required for Tax / GST Invoice.");
       return;
     }
 
@@ -561,9 +291,10 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
             >
               <option value="Proforma Invoice">Proforma Invoice</option>
               <option value="Tax Invoice">Tax Invoice</option>
+              <option value="GST Invoice">GST Invoice (Cash Payment - No GST)</option>
             </select>
             <small style={{ display: "block", color: "#667085", fontSize: 11.5, marginTop: 4, lineHeight: 1.3 }}>
-              📋 <strong>Proforma</strong>: For pending/partial payment (estimate). <strong>Tax Invoice</strong>: For fully paid clients only.
+              📋 <strong>Proforma</strong>: Estimate (no paid stamp). <strong>Tax Invoice</strong>: Online with 18% GST. <strong>GST Invoice</strong>: Cash payment without GST.
             </small>
           </div>
 
@@ -917,14 +648,15 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
 
 function InvoiceDetailsModal({ invoice, onClose, onDownload }) {
   if (!invoice) return null;
+  const isProforma = (invoice.type || "").toLowerCase().includes("proforma");
+  const isGstInvoice = (invoice.type || "").toLowerCase().includes("gst") && !(invoice.type || "").toLowerCase().includes("tax");
   const quantity = Number(invoice.quantity) || 1;
   const rate = Number(invoice.rate) || 0;
   const taxableAmount = quantity * rate;
-  const gstPercent = Number(invoice.gstPercent) || 0;
-  const totalGst = taxableAmount * (gstPercent / 100);
-  const totalAmount = taxableAmount + totalGst;
+  const gstPercent = isGstInvoice ? 0 : (Number(invoice.gstPercent) || 0);
+  const totalGst = isGstInvoice ? 0 : (taxableAmount * (gstPercent / 100));
+  const totalAmount = isGstInvoice ? taxableAmount : (taxableAmount + totalGst);
   const isIgst = (invoice.placeOfSupply || "Uttar Pradesh").trim().toLowerCase() !== "uttar pradesh";
-  const isProforma = (invoice.type || "").toLowerCase().includes("proforma");
 
   return (
     <Modal onClose={onClose} closeLabel="Close">
@@ -957,8 +689,13 @@ function InvoiceDetailsModal({ invoice, onClose, onDownload }) {
             <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, display: "block" }}>
               Type
             </span>
-            <strong style={{ fontSize: 14, marginTop: 2, display: "block", color: isProforma ? "#0066cc" : "#16a34a" }}>
-              {isProforma ? "Proforma Invoice" : "Tax Invoice"}
+            <strong style={{
+              fontSize: 14,
+              marginTop: 2,
+              display: "block",
+              color: isProforma ? "#0066cc" : isGstInvoice ? "#b45309" : "#16a34a"
+            }}>
+              {invoice.type || (isProforma ? "Proforma Invoice" : "Tax Invoice")}
             </strong>
           </div>
         </div>
@@ -1098,6 +835,7 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
 
     if (activeTab === "Proforma Invoices") return userInvoices.filter((i) => (i.type || "").toLowerCase().includes("proforma"));
     if (activeTab === "Tax Invoices") return userInvoices.filter((i) => (i.type || "").toLowerCase().includes("tax"));
+    if (activeTab === "GST Invoices") return userInvoices.filter((i) => (i.type || "").toLowerCase().includes("gst") && !(i.type || "").toLowerCase().includes("tax"));
     return userInvoices;
   }, [invoices, activeTab, currentUserEmail, currentSalesName, userRole, salesClientsList]);
 
@@ -1116,9 +854,8 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
 
     const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${invoice.id}_Agnivridhi_${(invoice.type || "Invoice").replace(/\s+/g, "_")}.html`;
+    const cleanId = (invoice.id || "Invoice").replace(/\//g, "-");
+    link.download = `${cleanId}_Agnivridhi_${(invoice.type || "Invoice").replace(/\s+/g, "_")}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1131,6 +868,8 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
   const addInvoice = async (newInvoiceData) => {
     const isProformaType = (newInvoiceData.type || "").toLowerCase().includes("proforma") ||
       (newInvoiceData.type || "").toLowerCase().includes("performa");
+    const isGstInvoiceType = (newInvoiceData.type || "").toLowerCase().includes("gst") &&
+      !(newInvoiceData.type || "").toLowerCase().includes("tax");
     const invoiceType = isProformaType ? "PROFORMA" : "TAX";
 
     // Resolve actual DB client by UUID or email
@@ -1145,7 +884,7 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
     // User typed client details manually → generate PDF locally, no API needed.
     // This is valid for Proforma (estimate) invoices.
     if (isProformaType && !clientId) {
-      const localId = `PI-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, "0")}`;
+      const localId = generateInvoiceId("Proforma Invoice", invoices);
       const localInvoice = { ...newInvoiceData, id: localId, type: "Proforma Invoice" };
       downloadInvoice(localInvoice);
       setNotification(`Proforma Invoice ${localId} generated. Select a client to also save it to the database.`);
@@ -1154,18 +893,19 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
       return;
     }
 
-    // ── TAX Invoice or Proforma with DB client → save via API ──────────────
+    // ── TAX Invoice or GST Invoice without DB client ──────────────────────
     if (!clientId) {
-      setNotification("Please select a client from the dropdown to create a Tax Invoice.");
+      setNotification(`Please select a client from the dropdown to create a ${isGstInvoiceType ? "GST Invoice" : "Tax Invoice"}.`);
       setTimeout(() => setNotification(""), 5000);
       return;
     }
 
     try {
+      const isCashPayment = isGstInvoiceType;
       const rawAmount = Number(newInvoiceData.taxableAmount) || 0;
-      const gstAmount = Number(newInvoiceData.totalGst) || 0;
-      const rawTotal = Number(newInvoiceData.totalAmount) || (rawAmount + gstAmount);
-      const gstRate = Number(newInvoiceData.gstPercent || 18) / 100;
+      const gstAmount = isCashPayment ? 0 : (Number(newInvoiceData.totalGst) || 0);
+      const rawTotal = isCashPayment ? rawAmount : (Number(newInvoiceData.totalAmount) || (rawAmount + gstAmount));
+      const gstRate = isCashPayment ? 0 : (Number(newInvoiceData.gstPercent || 18) / 100);
 
       const payload = {
         clientId,
@@ -1176,7 +916,7 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
         ...(newInvoiceData.dueDate
           ? { dueDate: new Date(newInvoiceData.dueDate).toISOString() }
           : {}),
-        paymentMode: "ONLINE",
+        paymentMode: isCashPayment ? "OFFLINE" : "ONLINE",
         rawAmount,
         gstRate,
         gstAmount,
@@ -1198,14 +938,23 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
       if (res.ok) {
         const savedInvoice = await res.json();
         // Auto-download PDF after saving
+        const displayType = isProformaType
+          ? "Proforma Invoice"
+          : isGstInvoiceType
+          ? "GST Invoice"
+          : "Tax Invoice";
+
         const invoiceForPdf = {
           ...newInvoiceData,
           id: savedInvoice?.invoiceNo || `${invoiceType === "TAX" ? "INV" : "PI"}-${Date.now()}`,
-          type: invoiceType === "TAX" ? "Tax Invoice" : "Proforma Invoice",
+          type: displayType,
+          gstPercent: isCashPayment ? 0 : (Number(newInvoiceData.gstPercent) || 18),
+          totalGst: isCashPayment ? 0 : (Number(newInvoiceData.totalGst) || 0),
+          totalAmount: isCashPayment ? rawAmount : (Number(newInvoiceData.totalAmount) || rawAmount),
         };
         downloadInvoice(invoiceForPdf);
         refreshInvoices();
-        setNotification(`${invoiceType === "TAX" ? "Tax Invoice" : "Proforma Invoice"} created and saved.`);
+        setNotification(`${displayType} created and saved.`);
         setTimeout(() => setNotification(""), 4200);
         setShowCreateModal(false);
       } else {
@@ -1260,7 +1009,9 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
               ? invoices.length
               : tab === "Proforma Invoices"
                 ? invoices.filter((i) => (i.type || "").toLowerCase().includes("proforma")).length
-                : invoices.filter((i) => (i.type || "").toLowerCase().includes("tax")).length;
+                : tab === "GST Invoices"
+                  ? invoices.filter((i) => (i.type || "").toLowerCase().includes("gst") && !(i.type || "").toLowerCase().includes("tax")).length
+                  : invoices.filter((i) => (i.type || "").toLowerCase().includes("tax")).length;
 
           return (
             <button
@@ -1307,7 +1058,8 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
             <tbody>
               {filteredInvoices.map((invoice) => {
                 const rate = Number(invoice.rate || invoice.pitchedAmount || invoice.amount || 0);
-                const gst = Number(invoice.gstPercent) !== undefined ? Number(invoice.gstPercent) : 18;
+                const isGstInv = (invoice.type || "").toLowerCase().includes("gst") && !(invoice.type || "").toLowerCase().includes("tax");
+                const gst = isGstInv ? 0 : (Number(invoice.gstPercent) !== undefined ? Number(invoice.gstPercent) : 18);
                 const total = invoice.totalAmount ? Number(invoice.totalAmount) : (rate * (1 + gst / 100));
                 return (
                   <tr key={invoice.id}>
@@ -1319,8 +1071,16 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
                         borderRadius: 4,
                         fontSize: 11.5,
                         fontWeight: 600,
-                        background: (invoice.type || "").toLowerCase().includes("proforma") ? "#e0f2fe" : "#dcfce7",
-                        color: (invoice.type || "").toLowerCase().includes("proforma") ? "#0369a1" : "#15803d"
+                        background: (invoice.type || "").toLowerCase().includes("proforma")
+                          ? "#e0f2fe"
+                          : isGstInv
+                            ? "#fef3c7"
+                            : "#dcfce7",
+                        color: (invoice.type || "").toLowerCase().includes("proforma")
+                          ? "#0369a1"
+                          : isGstInv
+                            ? "#b45309"
+                            : "#15803d"
                       }}>
                         {invoice.type}
                       </span>

@@ -196,7 +196,7 @@ export async function executeWorkflowDecision(
             stage: currentStage,
             remarks: managerRemarks || "Request rejected.",
           },
-        }).catch(() => {});
+        }).catch(() => { });
 
         return {
           statusCode: 200,
@@ -217,7 +217,7 @@ export async function executeWorkflowDecision(
           stage: currentStage,
           remarks: managerRemarks || "Approved at stage.",
         },
-      }).catch(() => {});
+      }).catch(() => { });
 
       const nextChainIndex = currentChainIndex + 1;
       const isFinalApproval = nextChainIndex >= approvalChain.length;
@@ -551,7 +551,7 @@ export async function executeWorkflowDecision(
           stage: "APPLIED",
           remarks: "Changes committed to database upon final authorization.",
         },
-      }).catch(() => {});
+      }).catch(() => { });
 
       return {
         statusCode: 200,
