@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import HeaderSearch from "../../components/dashboard/HeaderSearch";
+import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 
@@ -15,7 +15,7 @@ import ManagerRevenuePage from "./ManagerRevenuePage";
 import ManagerReportsPage from "./ManagerReportsPage";
 import "./manager.css";
 
-import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, mergeSecondaryClients } from "../../utils/branchHelper";
+import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, mergeSecondaryClients, syncTeamHierarchyFromDB } from "../../utils/branchHelper";
 import { normalizeSchemeName, isSameClientScheme } from "../Sales/hooks/useSalesClients";
 import { isMockClient } from "../../utils/revenueCalculator";
 import { apiFetch } from "../../services/apiClient";
@@ -59,10 +59,6 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsAutoScrollPaused, setNotificationsAutoScrollPaused] = useState(false);
-  const [query, setQuery] = useState("");
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const u = localStorage.getItem("agni_user");
@@ -74,13 +70,14 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
     return getManagerBranchDetails(userEmail || currentUser?.email || currentUser?.branch?.name || "");
   }, [userEmail, currentUser]);
 
-  const managerName = currentUser?.fullName || (userEmail?.toLowerCase().includes("ananya") ? "Ananya Sen" : branchInfo.managerName);
-  const managedBranch = currentUser?.branch?.name || branchInfo.branchName;
+  const managerName = currentUser?.fullName || branchInfo.managerName;
+  const managedBranch = currentUser?.branch?.name || (typeof currentUser?.branch === "string" ? currentUser.branch : "") || branchInfo.branchName;
   const managedRegion = currentUser?.region || currentUser?.branch?.region || branchInfo.region;
 
-  // Sync logged in user profile from API
+  // Sync logged in user profile & team hierarchy from API
   useEffect(() => {
     let isMounted = true;
+    syncTeamHierarchyFromDB();
     async function syncMe() {
       try {
         const res = await apiFetch("/auth/me");
@@ -230,9 +227,6 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
     });
   };
 
-  const notificationWrapRef = useRef(null);
-  const notificationsListRef = useRef(null);
-  const notificationsPauseTimer = useRef(null);
 
   const [dbEmployees, setDbEmployees] = useState([]);
 
@@ -361,63 +355,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
     [branchTeam]
   );
 
-  // Close notifications on outside click
-  useEffect(() => {
-    function handleOutsideClick(event) {
-      if (
-        notificationsOpen &&
-        notificationWrapRef.current &&
-        !notificationWrapRef.current.contains(event.target)
-      ) {
-        setNotificationsOpen(false);
-      }
-    }
 
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [notificationsOpen]);
-
-  // Notifications auto-scroll
-  useEffect(() => {
-    if (!notificationsOpen) return undefined;
-    const list = notificationsListRef.current;
-    if (!list) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      if (notificationsAutoScrollPaused || !list) return;
-      const maxScroll = list.scrollHeight - list.clientHeight;
-      if (maxScroll <= 0) return;
-
-      const nextScrollTop = Math.min(list.scrollTop + 86, maxScroll);
-      if (list.scrollTop >= maxScroll - 2) {
-        list.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        list.scrollTo({ top: nextScrollTop, behavior: "smooth" });
-      }
-    }, 2600);
-
-    return () => window.clearInterval(intervalId);
-  }, [notificationsOpen, notificationsAutoScrollPaused]);
-
-  useEffect(() => {
-    return () => {
-      if (notificationsPauseTimer.current) {
-        window.clearTimeout(notificationsPauseTimer.current);
-      }
-    };
-  }, []);
-
-  function handleNotificationsListScroll() {
-    if (notificationsPauseTimer.current) {
-      window.clearTimeout(notificationsPauseTimer.current);
-    }
-
-    setNotificationsAutoScrollPaused(true);
-    notificationsPauseTimer.current = window.setTimeout(() => {
-      setNotificationsAutoScrollPaused(false);
-      notificationsPauseTimer.current = null;
-    }, 3000);
-  }
 
   return (
     <main className={`owner-dashboard ${dark ? "dashboard-dark" : ""}`}>
@@ -435,68 +373,18 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
 
       <section className="dashboard-content">
         <DashboardHeader
-          ref={notificationWrapRef}
           eyebrow="Manager workspace"
           title={`Welcome back, ${managerName}`}
           copy="Monitor your team, track pipeline momentum, and keep client work moving forward."
           className="owner-dashboard-top"
         >
           <div className="top-actions owner-top-actions">
-            <HeaderSearch
-              query={query}
-              setQuery={setQuery}
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-              placeholder="Search team, deals or reports..."
+            <NotificationBell
+              role="Manager"
+              userEmail={userEmail || currentUser?.email || branchInfo.managerEmail}
+              userName={managerName}
+              branch={managedBranch}
             />
-            <div className="notification-wrap">
-              <button
-                className="notification"
-                type="button"
-                onClick={() => setNotificationsOpen((open) => !open)}
-                aria-label="Notifications"
-              >
-                <Icon name="bell" size={16} />
-                <i />
-              </button>
-              {notificationsOpen && (
-                <section className="notifications-popover" aria-label="Notifications">
-                  <header>
-                    <h2>Notifications</h2>
-                    <span>{managerNotices.length > 0 ? managerNotices.length : 3} new</span>
-                  </header>
-                  <div
-                    className="notifications-scroll"
-                    ref={notificationsListRef}
-                    onScroll={handleNotificationsListScroll}
-                  >
-                    {managerNotices.map((n, idx) => (
-                      <article key={n.id || idx}>
-                        <span className={`notice-dot ${n.dotColor || "coral"}`} />
-                        <div>
-                          <strong>{n.title}</strong>
-                          <p>{n.message}</p>
-                        </div>
-                      </article>
-                    ))}
-                    <article>
-                      <span className="notice-dot violet" />
-                      <div>
-                        <strong>Daily standup ready</strong>
-                        <p>Review today's agenda before the 9am call.</p>
-                      </div>
-                    </article>
-                    <article>
-                      <span className="notice-dot green" />
-                      <div>
-                        <strong>New deal assigned</strong>
-                        <p>Lucas Scott registered new client pending approval.</p>
-                      </div>
-                    </article>
-                  </div>
-                </section>
-              )}
-            </div>
             <UserProfileMenu
               user={{
                 name: managerName || "Enterprise Manager",

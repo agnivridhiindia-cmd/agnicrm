@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import HeaderSearch from "../../components/dashboard/HeaderSearch";
+import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
@@ -77,73 +77,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsAutoScrollPaused, setNotificationsAutoScrollPaused] = useState(false);
-  const [query, setQuery] = useState("");
   const [toastMessage, setToastMessage] = useState("");
-
-  const notificationWrapRef = useRef(null);
-  const notificationsListRef = useRef(null);
-  const notificationsPauseTimer = useRef(null);
-
-  // Close notifications on click outside
-  useEffect(() => {
-    function handleOutsideClick(event) {
-      if (
-        notificationsOpen &&
-        notificationWrapRef.current &&
-        !notificationWrapRef.current.contains(event.target)
-      ) {
-        setNotificationsOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [notificationsOpen]);
-
-  // Notifications auto-scroll
-  useEffect(() => {
-    if (!notificationsOpen) return undefined;
-    const list = notificationsListRef.current;
-    if (!list) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      if (notificationsAutoScrollPaused || !list) return;
-      const maxScroll = list.scrollHeight - list.clientHeight;
-      if (maxScroll <= 0) return;
-
-      const nextScrollTop = Math.min(list.scrollTop + 86, maxScroll);
-      if (list.scrollTop >= maxScroll - 2) {
-        list.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        list.scrollTo({ top: nextScrollTop, behavior: 'smooth' });
-      }
-    }, 2600);
-
-    return () => window.clearInterval(intervalId);
-  }, [notificationsOpen, notificationsAutoScrollPaused]);
-
-  useEffect(() => {
-    return () => {
-      if (notificationsPauseTimer.current) {
-        window.clearTimeout(notificationsPauseTimer.current);
-      }
-    };
-  }, []);
-
-  function handleNotificationsListScroll() {
-    if (notificationsPauseTimer.current) {
-      window.clearTimeout(notificationsPauseTimer.current);
-    }
-
-    setNotificationsAutoScrollPaused(true);
-    notificationsPauseTimer.current = window.setTimeout(() => {
-      setNotificationsAutoScrollPaused(false);
-      notificationsPauseTimer.current = null;
-    }, 3000);
-  }
 
   // Owner Name derived from userEmail
   const ownerName = useMemo(() => {
@@ -803,55 +737,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
           className="owner-dashboard-top"
         >
           <div className="top-actions owner-top-actions">
-            <HeaderSearch
-              query={query}
-              setQuery={setQuery}
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-              placeholder="Search reports, clients or teams..."
-            />
-
-            <div className="notification-wrap" ref={notificationWrapRef}>
-              <button
-                className="notification"
-                type="button"
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                aria-label="Notifications"
-              >
-                <Icon name="bell" size={16} />
-                <i />
-              </button>
-              {notificationsOpen && (
-                <section className="notifications-popover" aria-label="Notifications">
-                  <header>
-                    <h2>Notifications</h2>
-                    <span>{notifications.length} new</span>
-                  </header>
-                  <div
-                    ref={notificationsListRef}
-                    className="notifications-scroll"
-                    onScroll={handleNotificationsListScroll}
-                  >
-                    {notifications.map((notice) => (
-                      <article key={notice.title}>
-                        <span
-                          className={`notice-dot ${notice.tone === "#aa83eb"
-                              ? "violet"
-                              : notice.tone === "#88cda4"
-                                ? "green"
-                                : "coral"
-                            }`}
-                        />
-                        <div>
-                          <strong>{notice.title}</strong>
-                          <p>{notice.detail}</p>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
+            <NotificationBell role="Owner" userEmail={userEmail} userName={ownerName} />
 
             <UserProfileMenu
               user={{

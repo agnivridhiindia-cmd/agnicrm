@@ -8,6 +8,7 @@ import {
   deleteEmployeeService,
   getDeletedEmployeesService,
   restoreEmployeeService,
+  getTeamHierarchyService,
 } from "../services/employee.service";
 
 const createEmployeeSchema = z.object({
@@ -84,6 +85,19 @@ export async function restoreEmployee(
   try {
     const employeeId = String(req.params.id);
     const result = await restoreEmployeeService(employeeId);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getTeamHierarchy(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const result = await getTeamHierarchyService();
     return res.status(result.statusCode).json(result);
   } catch (error) {
     next(error);

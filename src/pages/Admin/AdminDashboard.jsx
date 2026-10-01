@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import HeaderSearch from "../../components/dashboard/HeaderSearch";
+import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 import {
@@ -84,12 +84,7 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const [toastMessage, setToastMessage] = useState("");
-
-  const notificationWrapRef = useRef(null);
 
   // Admin Name & Branch Details
   const adminName = useMemo(() => {
@@ -606,44 +601,12 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
           className="admin-dashboard-top"
         >
           <div className="top-actions">
-            <HeaderSearch
-              query={query}
-              setQuery={setQuery}
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-              placeholder="Search client applications..."
+            <NotificationBell
+              role="Admin"
+              userEmail={userEmail}
+              userName={adminName}
+              branch={selectedBranch}
             />
-
-            <div className="notification-wrap" ref={notificationWrapRef}>
-              <button
-                className="notification"
-                type="button"
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                aria-label="Branch Notifications"
-              >
-                <Icon name="bell" size={16} />
-                <i />
-              </button>
-              {notificationsOpen && (
-                <section className="notifications-popover" aria-label="Notifications">
-                  <header>
-                    <h2>Branch Alerts</h2>
-                    <span>{metrics.inProgress} In Progress</span>
-                  </header>
-                  <div className="notifications-scroll">
-                    {branchClients.slice(0, 4).map((c) => (
-                      <article key={c.id}>
-                        <span className="notice-dot green" />
-                        <div>
-                          <strong>{c.name}</strong>
-                          <p>Status: {c.applicationStatus} ({c.progress}% - {(c.completedSteps || []).length}/5 points)</p>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
 
             <UserProfileMenu
               user={{

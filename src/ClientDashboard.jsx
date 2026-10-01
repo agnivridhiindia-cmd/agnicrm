@@ -8,10 +8,8 @@ import EligibilityPage from "./pages/EligibilityPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import { getTrackerState, getSchemeCompletedStages, getClientAllSchemeTrackers, getClientCompositeKey, isClientPrimaryScheme, isPaymentDemandOrSettlement, getCanonicalSchemeName } from "./utils/schemeTracker";
-import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord } from "./utils/branchHelper";
+import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, repairClientStorageData, syncTeamHierarchyFromDB } from "./utils/branchHelper";
 import ClientInstallButton from "./components/ClientInstallButton";
-
-/* ── Icon Registry ── */
 const dashboardIcons = {
   dashboard: (
     <>
@@ -287,7 +285,6 @@ const chartPoints = [
 export default function Dashboard({ onSignOut, userEmail }) {
   const [activeNav, setActiveNav] = React.useState("Dashboard");
   const [dark, setDark] = React.useState(false);
-  const [searchOpen, setSearchOpen] = React.useState(false);
   const [schemeQuery, setSchemeQuery] = React.useState("");
   const [submittedQuery, setSubmittedQuery] = React.useState("");
   const [notificationsOpen, setNotificationsOpen] = React.useState(false);
@@ -312,6 +309,8 @@ export default function Dashboard({ onSignOut, userEmail }) {
   const [dbProfile, setDbProfile] = React.useState(null);
 
   React.useEffect(() => {
+    repairClientStorageData();
+    syncTeamHierarchyFromDB();
     async function fetchMyProfileFromDB() {
       try {
         const response = await apiFetch("/clients/my-profile");
@@ -382,7 +381,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       status: "Active",
       relationshipManager: "Kansish",
       managerRole: "Enterprise Account Lead",
-      salesRepresentative: dbProfile?.salesPerson?.fullName || dbProfile?.owner || "Riya Mukherjee",
+      salesRepresentative: dbProfile?.salesPerson?.fullName || dbProfile?.owner || "Lucas Scott",
       salesRole: "Senior Sales Lead",
       branch: "West Regional Branch",
       memberSince: "14 June 2024",
@@ -598,64 +597,84 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
   // Dynamic Dedicated Account Leadership calculation (Sales Manager of that particular branch & Sales Representative)
   const dedicatedTeam = React.useMemo(() => {
-    let salesRep = dbProfile?.salesPerson?.fullName || dbProfile?.owner || "";
-    let salesManager = dbProfile?.salesManager || "";
-    let clientBranchRaw = dbProfile?.branch || "";
+    // 1. Direct from PostgreSQL database profile (highest priority)
+    const dbSalesManager = dbProfile?.salesManager;
+    const dbSalesPerson = dbProfile?.salesPerson;
+    const dbBranch = dbProfile?.branch;
+
+    let salesRep =
+      dbSalesPerson?.fullName ||
+      dbSalesPerson?.name ||
+      dbProfile?.salesRepresentativeName ||
+      (typeof dbSalesPerson === "string" ? dbSalesPerson : "") ||
+      dbProfile?.owner ||
+      "";
+    let salesRepPhone = dbSalesPerson?.phone || dbProfile?.salesRepresentativePhone || "";
+
+    let salesManager =
+      dbSalesManager?.fullName ||
+      dbSalesManager?.name ||
+      dbProfile?.salesManagerName ||
+      (typeof dbSalesManager === "string" ? dbSalesManager : "") ||
+      "";
+    let salesManagerPhone = dbSalesManager?.phone || dbProfile?.salesManagerPhone || "";
+
+    let clientBranchRaw = dbBranch || dbProfile?.branchName || "";
     let clientBranch = typeof clientBranchRaw === "string" ? clientBranchRaw : (clientBranchRaw?.name || "");
 
-    // Look up client details from localStorage branch/sales clients
-    try {
-      const saved = localStorage.getItem("agni_branch_clients") || localStorage.getItem("agni_sales_clients");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          let rawMatch = parsed.find((c) => c.email && userEmail && c.email.toLowerCase() === userEmail.toLowerCase())
-            || parsed.find((c) => c.company && clientInfo?.companyName && c.company.toLowerCase().includes(clientInfo.companyName.toLowerCase()));
-
-          if (rawMatch) {
-            const match = sanitizeClientRecord(rawMatch);
-            if (!salesRep) {
-              const sr = match.assignedSalesPerson || match.owner || match.salesRepresentative || match.salesperson;
-              salesRep = typeof sr === "string" ? sr : (sr?.name || "");
-            }
-            if (!salesManager) {
-              const sm = match.salesManager || match.managerName || match.reportingManager;
-              salesManager = typeof sm === "string" ? sm : (sm?.name || "");
-            }
-            if (!clientBranch) {
-              const cb = match.branch || match.branchName;
-              clientBranch = typeof cb === "string" ? cb : (cb?.name || "");
+    // 2. Fallback to client stored records only if DB profile fields are not yet resolved
+    if (!salesRep || !salesManager || !clientBranch) {
+      try {
+        const saved = localStorage.getItem("agni_branch_clients") || localStorage.getItem("agni_sales_clients");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const rawMatch =
+              parsed.find((c) => c.email && userEmail && c.email.toLowerCase() === userEmail.toLowerCase()) ||
+              parsed.find((c) => c.company && clientInfo?.companyName && c.company.toLowerCase().includes(clientInfo.companyName.toLowerCase()));
+            if (rawMatch) {
+              const match = sanitizeClientRecord(rawMatch);
+              if (!salesRep) {
+                const sr = match.assignedSalesPerson || match.owner || match.salesRepresentative || match.salesperson;
+                salesRep = typeof sr === "string" ? sr : (sr?.name || "");
+              }
+              if (!salesManager) {
+                const sm = match.salesManager || match.managerName || match.reportingManager;
+                salesManager = typeof sm === "string" ? sm : (sm?.name || "");
+              }
+              if (!clientBranch) {
+                const cb = match.branch || match.branchName;
+                clientBranch = typeof cb === "string" ? cb : (cb?.name || "");
+              }
             }
           }
         }
-      }
-    } catch (e) { }
-
-    const isHeena = (userEmail && userEmail.toLowerCase().includes("heena")) || (clientInfo?.companyName && clientInfo.companyName.toLowerCase().includes("heena"));
-    if (isHeena) {
-      salesRep = "Rohan Gupta";
-      clientBranch = "North Zone (Delhi)";
-      salesManager = "Ananya Sen";
+      } catch (e) {}
     }
 
-    // Resolve branch details from branchHelper safely
+    // 3. Resolve using dynamic database hierarchy
     const branchDetails = getManagerBranchDetails(salesRep || clientBranch || userEmail);
+    if (!salesRep) salesRep = branchDetails.salespersons?.[0] || "Lucas Scott";
+    if (!salesManager) salesManager = branchDetails.managerName || "Eli Brooks";
+    if (!salesManagerPhone) salesManagerPhone = branchDetails.managerPhone || "+91 91234 00222";
+    if (!clientBranch) clientBranch = branchDetails.branchName || "West Zone (Mumbai)";
 
-    const mgrStr = (typeof salesManager === "string" && salesManager.trim()) ? salesManager.trim() : (branchDetails?.managerName || "Ananya Sen");
-    const repStr = normalizeSalesPersonName((typeof salesRep === "string" && salesRep.trim()) ? salesRep.trim() : (branchDetails?.salespersons?.[0] || "Rohan Gupta"));
+    const repStr = normalizeSalesPersonName(salesRep);
+    const mgrStr = (typeof salesManager === "string" && salesManager.trim()) ? salesManager.trim() : (branchDetails.managerName || "Eli Brooks");
 
-    const mgrInitials = typeof mgrStr === "string" ? mgrStr.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().substring(0, 2) : "AS";
-    const repInitials = typeof repStr === "string" ? repStr.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().substring(0, 2) : "RG";
+    const mgrInitials = typeof mgrStr === "string" ? mgrStr.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().substring(0, 2) : "EB";
+    const repInitials = typeof repStr === "string" ? repStr.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().substring(0, 2) : "LS";
 
     return {
       managerName: mgrStr,
       managerRole: "Sales Manager",
-      managerInitials: mgrInitials || "AS",
-      managerPhone: "+91 98111 22335",
+      managerInitials: mgrInitials || "EB",
+      managerPhone: salesManagerPhone || branchDetails.managerPhone || "+91 91234 00222",
       salesRepName: repStr,
       salesRepRole: "Sales Representative",
-      salesRepInitials: repInitials || "RG",
-      branchName: branchDetails?.branchName || "North Zone (Delhi)",
+      salesRepInitials: repInitials || "LS",
+      salesRepPhone: salesRepPhone || "+91 98205 55670",
+      branchName: clientBranch || branchDetails.branchName || "West Zone (Mumbai)",
     };
   }, [dbProfile, userEmail, clientInfo]);
 
@@ -899,9 +918,8 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
             const compName = clientInfo?.companyName || dbProfile?.companyName || pendingMatch?.company || pendingMatch?.name || `${formattedHandle} Enterprise`;
             const repName = dbProfile?.representativeName || clientInfo?.contactPerson || pendingMatch?.contactPerson || pendingMatch?.name || formattedHandle;
-            const phoneNum = dbProfile?.contactNumber || clientInfo?.phone || pendingMatch?.phone || "+91 98765 43210";
-            const ownerName = pendingMatch?.owner || pendingMatch?.salesPerson || "Riya Mukherjee";
-            const ownerEmail = pendingMatch?.ownerEmail || pendingMatch?.salesPersonEmail || "riya.sales@agni.com";
+            const ownerName = dbProfile?.salesPerson?.fullName || pendingMatch?.owner || pendingMatch?.salesPerson || "Lucas Scott";
+            const ownerEmail = dbProfile?.salesPerson?.email || pendingMatch?.ownerEmail || pendingMatch?.salesPersonEmail || "lucas@agni.com";
             const bDetails = getManagerBranchDetails(ownerEmail || ownerName);
 
             const newRec = {
@@ -1319,6 +1337,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
   const [clearedNotifications, setClearedNotifications] = React.useState(false);
 
+  const handleMarkAllRead = React.useCallback(() => {
+    setUnreadNotifCount(0);
+  }, []);
+
   const handleClearNotifications = React.useCallback(() => {
     setUnreadNotifCount(0);
     setClearedNotifications(true);
@@ -1512,16 +1534,27 @@ export default function Dashboard({ onSignOut, userEmail }) {
                 {notificationsOpen && (
                   <section className="cd-popover cd-notif-popover">
                     <header className="cd-notif-popover-header">
-                      <h2>Notifications</h2>
-                      {notificationsList.length > 0 && (
-                        <button
-                          type="button"
-                          className="cd-mark-read-btn"
-                          onClick={handleClearNotifications}
-                        >
-                          Clear all
-                        </button>
-                      )}
+                      <h2>Notifications {unreadNotifCount > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: '#f97316', marginLeft: 6 }}>({unreadNotifCount} unread)</span>}</h2>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        {unreadNotifCount > 0 && (
+                          <button
+                            type="button"
+                            className="cd-mark-read-btn"
+                            onClick={handleMarkAllRead}
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                        {notificationsList.length > 0 && (
+                          <button
+                            type="button"
+                            className="cd-mark-read-btn"
+                            onClick={handleClearNotifications}
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
                     </header>
                     <div className="cd-notif-list">
                       {notificationsList.length === 0 ? (

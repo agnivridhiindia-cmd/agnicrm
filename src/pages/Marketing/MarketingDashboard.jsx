@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import HeaderSearch from "../../components/dashboard/HeaderSearch";
+import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 
@@ -48,10 +48,6 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsAutoScrollPaused, setNotificationsAutoScrollPaused] = useState(false);
-  const [query, setQuery] = useState("");
 
   // Shared state for Marketing clients
   const [createdClients, setCreatedClients] = useState(initialMarketingCreatedClients);
@@ -62,10 +58,6 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
     setPreselectedService(serviceOrName);
     handleNavChange("Client");
   };
-
-  const notificationWrapRef = useRef(null);
-  const notificationsListRef = useRef(null);
-  const notificationsPauseTimer = useRef(null);
 
   const marketingLeadName = useMemo(() => {
     if (!userEmail) return "Marketing Lead";
@@ -82,41 +74,7 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
     setCreatedClients((prev) => [newClient, ...prev]);
   };
 
-  // Notifications outside click handler
-  useEffect(() => {
-    function handleOutsideClick(event) {
-      if (
-        notificationsOpen &&
-        notificationWrapRef.current &&
-        !notificationWrapRef.current.contains(event.target)
-      ) {
-        setNotificationsOpen(false);
-      }
-    }
 
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [notificationsOpen]);
-
-  // Notifications auto-scroll
-  useEffect(() => {
-    if (!notificationsOpen) return undefined;
-    const list = notificationsListRef.current;
-    if (!list) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      if (notificationsAutoScrollPaused || !list) return;
-      const maxScroll = list.scrollHeight - list.clientHeight;
-      if (maxScroll <= 0) return;
-      if (list.scrollTop >= maxScroll - 4) {
-        list.scrollTop = 0;
-      } else {
-        list.scrollTop += 1;
-      }
-    }, 45);
-
-    return () => window.clearInterval(intervalId);
-  }, [notificationsOpen, notificationsAutoScrollPaused]);
 
   const [departmentNotifs, setDepartmentNotifs] = useState([]);
 
@@ -164,15 +122,7 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
     } catch (e) {}
   };
 
-  const handleNotificationsListScroll = () => {
-    setNotificationsAutoScrollPaused(true);
-    if (notificationsPauseTimer.current) {
-      window.clearTimeout(notificationsPauseTimer.current);
-    }
-    notificationsPauseTimer.current = window.setTimeout(() => {
-      setNotificationsAutoScrollPaused(false);
-    }, 2000);
-  };
+
 
   return (
     <main className={`owner-dashboard marketing-dashboard ${dark ? "dashboard-dark" : ""}`}>
@@ -196,59 +146,11 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
           eyebrow="MARKETING OPERATIONS &amp; CLIENT SERVICES"
         >
           <div className="owner-top-actions">
-            <HeaderSearch
-              query={query}
-              setQuery={setQuery}
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-              placeholder="Search marketing services, clients..."
+            <NotificationBell
+              role="Marketing"
+              userEmail={userEmail}
+              userName={marketingLeadName}
             />
-            <div className="notification-wrap">
-              <button
-                className="notification"
-                type="button"
-                onClick={() => setNotificationsOpen((open) => !open)}
-                aria-label="Notifications"
-              >
-                <Icon name="bell" size={16} />
-                <i />
-              </button>
-              {notificationsOpen && (
-                <section className="notifications-popover" aria-label="Notifications">
-                  <header>
-                    <h2>Marketing Alerts</h2>
-                    <span>3 active</span>
-                  </header>
-                  <div
-                    className="notifications-scroll"
-                    ref={notificationsListRef}
-                    onScroll={handleNotificationsListScroll}
-                  >
-                    <article>
-                      <span className="notice-dot green" />
-                      <div>
-                        <strong>New Marketing Client Onboarded</strong>
-                        <p>Apex Healthcare AI enrolled for multi-channel performance ads.</p>
-                      </div>
-                    </article>
-                    <article>
-                      <span className="notice-dot coral" />
-                      <div>
-                        <strong>Sales Marketing Pitch Received</strong>
-                        <p>East branch rep pitched B2B Funnels to Eastern Steel Infra.</p>
-                      </div>
-                    </article>
-                    <article>
-                      <span className="notice-dot violet" />
-                      <div>
-                        <strong>Service Catalog Live</strong>
-                        <p>6 enterprise marketing service lines available with 18% GST auto-calc.</p>
-                      </div>
-                    </article>
-                  </div>
-                </section>
-              )}
-            </div>
 
             <UserProfileMenu
               user={{

@@ -4,6 +4,7 @@ import AuthScreen from "./Auth/AuthScreen";
 import { apiFetch } from "../services/apiClient";
 import { useAuth } from "../context/AuthContext";
 import { initRealtimeService, closeRealtimeService } from "../services/realtimeService";
+import { repairClientStorageData } from "../utils/branchHelper";
 
 const ClientDashboard = lazy(() => import("../ClientDashboard"));
 const DocumentForm = lazy(() => import("./Documents/DocumentForm"));
@@ -236,6 +237,8 @@ export function clearAllSavedClients() {
         localStorage.removeItem("agni_remember_email");
       }
     } catch (e) { }
+
+    repairClientStorageData();
 
     window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new Event("agni_clients_updated"));

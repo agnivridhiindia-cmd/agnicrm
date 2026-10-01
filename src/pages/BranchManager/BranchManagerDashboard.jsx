@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import HeaderSearch from "../../components/dashboard/HeaderSearch";
+import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 
@@ -72,8 +72,6 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [query, setQuery] = useState("");
 
   // States
   const [clients, setClients] = useState([]);
@@ -188,12 +186,11 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
           className="sales-dashboard-top"
         >
           <div className="top-actions">
-            <HeaderSearch
-              query={query}
-              setQuery={setQuery}
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-              placeholder="Search clients, leads, or deals..."
+            <NotificationBell
+              role="Branch Manager"
+              userEmail={userEmail || branchInfo.branchManagerEmail}
+              userName={salesPersonName}
+              branch={managedBranch}
             />
             <UserProfileMenu
               user={{

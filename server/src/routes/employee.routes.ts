@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticateJWT, authorizeRoles } from "../middlewares/auth.middleware";
+import { authenticateJWT, optionalAuthenticateJWT, authorizeRoles } from "../middlewares/auth.middleware";
 import { Role } from "@prisma/client";
 import {
   createEmployee,
@@ -7,9 +7,13 @@ import {
   deleteEmployee,
   getDeletedEmployees,
   restoreEmployee,
+  getTeamHierarchy,
 } from "../controllers/employee.controller";
 
 const router = Router();
+
+// GET /api/v1/employees/hierarchy — full branch team structure straight from database
+router.get("/hierarchy", optionalAuthenticateJWT, getTeamHierarchy);
 
 router.use(authenticateJWT);
 

@@ -1,7 +1,7 @@
 import React from "react";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import HeaderSearch from "../../components/dashboard/HeaderSearch";
+import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
@@ -30,20 +30,10 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
     setActiveNav,
     dark,
     setDark,
-    searchOpen,
-    setSearchOpen,
-    notificationsOpen,
-    setNotificationsOpen,
-    query,
-    setQuery,
     toastMessage,
     setToastMessage,
     showToast,
     salesPersonName,
-    notificationsList,
-    notificationWrapRef,
-    notificationsListRef,
-    handleNotificationsListScroll,
   } = useSalesDashboard(userEmail);
 
   const {
@@ -105,55 +95,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
           className="sales-dashboard-top"
         >
           <div className="top-actions">
-            <HeaderSearch
-              query={query}
-              setQuery={setQuery}
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-              placeholder="Search clients, leads, or deals..."
-            />
-
-            <div className="notification-wrap" ref={notificationWrapRef}>
-              <button
-                className="notification"
-                type="button"
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                aria-label="Notifications"
-              >
-                <Icon name="bell" size={16} />
-                <i />
-              </button>
-              {notificationsOpen && (
-                <section className="notifications-popover" aria-label="Notifications">
-                  <header>
-                    <h2>Notifications</h2>
-                    <span>{notificationsList.length} new</span>
-                  </header>
-                  <div
-                    ref={notificationsListRef}
-                    className="notifications-scroll"
-                    onScroll={handleNotificationsListScroll}
-                  >
-                    {notificationsList.map((notice, idx) => (
-                      <article key={notice.id || notice.title + idx}>
-                        <span
-                          className={`notice-dot ${notice.tone === '#aa83eb'
-                            ? 'violet'
-                            : notice.tone === '#88cda4'
-                              ? 'green'
-                              : 'coral'
-                            }`}
-                        />
-                        <div>
-                          <strong>{notice.title}</strong>
-                          <p>{notice.detail}</p>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
+            <NotificationBell role="Sales" userEmail={userEmail} userName={salesPersonName} />
             <UserProfileMenu
               user={{
                 name: salesPersonName,

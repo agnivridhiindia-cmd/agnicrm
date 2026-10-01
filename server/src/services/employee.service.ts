@@ -295,3 +295,64 @@ export async function restoreEmployeeService(employeeId: string) {
     message: `Employee "${user.fullName}" restored to active status.`,
   };
 }
+
+export async function getTeamHierarchyService() {
+  const branches = await prisma.branch.findMany({
+    orderBy: { name: "asc" },
+    include: {
+      users: {
+        where: { isDeleted: false },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          role: true,
+          branchId: true,
+          reportingManagerId: true,
+          reportingManager: {
+            select: { id: true, fullName: true, email: true, phone: true, role: true },
+          },
+        },
+      },
+    },
+  });
+
+  const hierarchy = branches.map((b) => {
+    const branchManager = b.users.find((u) => u.role === Role.BRANCH_MANAGER) || null;
+    const salesManager = b.users.find((u) => u.role === Role.MANAGER) || null;
+    const salesPersons = b.users.filter((u) => u.role === Role.SALES_PERSON);
+
+    return {
+      id: b.id,
+      name: b.name,
+      code: b.code,
+      region: b.region,
+      city: b.city,
+      branchManager: branchManager
+        ? { id: branchManager.id, name: branchManager.fullName, email: branchManager.email, phone: branchManager.phone }
+        : null,
+      salesManager: salesManager
+        ? { id: salesManager.id, name: salesManager.fullName, email: salesManager.email, phone: salesManager.phone }
+        : null,
+      salesPersons: salesPersons.map((s) => ({
+        id: s.id,
+        name: s.fullName,
+        email: s.email,
+        phone: s.phone,
+        reportingManager: s.reportingManager
+          ? { id: s.reportingManager.id, name: s.reportingManager.fullName, email: s.reportingManager.email, phone: s.reportingManager.phone }
+          : salesManager
+          ? { id: salesManager.id, name: salesManager.fullName, email: salesManager.email, phone: salesManager.phone }
+          : null,
+      })),
+    };
+  });
+
+  return {
+    success: true,
+    statusCode: 200,
+    hierarchy,
+    data: hierarchy,
+  };
+}

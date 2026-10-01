@@ -165,7 +165,7 @@ export const initialSalesPitchedITClients = [
     phone: "+91 91234 88776",
     address: "24 Park Street, Kolkata",
     branch: "East",
-    salesPerson: "Lucas Scott",
+    salesPerson: "Sourav Das",
     serviceType: "IT",
     serviceName: "Cybersecurity Vulnerability & Pen-Test Audit",
     amount: "45000",

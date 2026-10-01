@@ -165,7 +165,7 @@ export const initialSalesPitchedMarketingClients = [
     phone: "+91 91234 55443",
     address: "12 Park Street, Kolkata",
     branch: "East",
-    salesPerson: "Lucas Scott",
+    salesPerson: "Sourav Das",
     serviceType: "Marketing",
     serviceName: "Social Media Management & Brand Community",
     amount: "36000",

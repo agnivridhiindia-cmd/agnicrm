@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import DashboardSidebar from "../../components/dashboard/DashboardSidebar";
 import DashboardHeader from "../../components/dashboard/DashboardHeader";
-import HeaderSearch from "../../components/dashboard/HeaderSearch";
+import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 
@@ -48,10 +48,6 @@ export default function ITDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsAutoScrollPaused, setNotificationsAutoScrollPaused] = useState(false);
-  const [query, setQuery] = useState("");
 
   // Shared state for IT clients
   const [createdClients, setCreatedClients] = useState(initialITCreatedClients);
@@ -62,10 +58,6 @@ export default function ITDashboard({ onSignOut, userEmail }) {
     setPreselectedService(serviceOrName);
     handleNavChange("Client");
   };
-
-  const notificationWrapRef = useRef(null);
-  const notificationsListRef = useRef(null);
-  const notificationsPauseTimer = useRef(null);
 
   const itLeadName = useMemo(() => {
     if (!userEmail) return "IT Administrator";
@@ -83,43 +75,7 @@ export default function ITDashboard({ onSignOut, userEmail }) {
     setCreatedClients((prev) => [newClient, ...prev]);
   };
 
-  // Notifications outside click handler
-  useEffect(() => {
-    function handleOutsideClick(event) {
-      if (
-        notificationsOpen &&
-        notificationWrapRef.current &&
-        !notificationWrapRef.current.contains(event.target)
-      ) {
-        setNotificationsOpen(false);
-      }
-    }
 
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [notificationsOpen]);
-
-  // Notifications auto-scroll
-  useEffect(() => {
-    if (!notificationsOpen) return undefined;
-    const list = notificationsListRef.current;
-    if (!list) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      if (notificationsAutoScrollPaused || !list) return;
-      const maxScroll = list.scrollHeight - list.clientHeight;
-      if (maxScroll <= 0) return;
-
-      const nextScrollTop = Math.min(list.scrollTop + 86, maxScroll);
-      if (list.scrollTop >= maxScroll - 2) {
-        list.scrollTo({ top: 0, behavior: "smooth" });
-      } else {
-        list.scrollTo({ top: nextScrollTop, behavior: "smooth" });
-      }
-    }, 2600);
-
-    return () => window.clearInterval(intervalId);
-  }, [notificationsOpen, notificationsAutoScrollPaused]);
 
   const [departmentNotifs, setDepartmentNotifs] = useState([]);
 
@@ -167,17 +123,7 @@ export default function ITDashboard({ onSignOut, userEmail }) {
     } catch (e) {}
   };
 
-  function handleNotificationsListScroll() {
-    if (notificationsPauseTimer.current) {
-      window.clearTimeout(notificationsPauseTimer.current);
-    }
 
-    setNotificationsAutoScrollPaused(true);
-    notificationsPauseTimer.current = window.setTimeout(() => {
-      setNotificationsAutoScrollPaused(false);
-      notificationsPauseTimer.current = null;
-    }, 3000);
-  }
 
   return (
     <main className={`owner-dashboard it-dashboard ${dark ? "dashboard-dark" : ""}`}>
@@ -196,66 +142,17 @@ export default function ITDashboard({ onSignOut, userEmail }) {
 
       <section className="dashboard-content">
         <DashboardHeader
-          ref={notificationWrapRef}
           eyebrow="IT Operations &amp; Client Services"
           title={`Hello, ${itLeadName}`}
           copy="Enterprise IT client onboarding, branch sales request tracking, and company IT service catalog."
           className="owner-dashboard-top"
         >
           <div className="top-actions owner-top-actions">
-            <HeaderSearch
-              query={query}
-              setQuery={setQuery}
-              isOpen={searchOpen}
-              setIsOpen={setSearchOpen}
-              placeholder="Search IT clients, services, branches..."
+            <NotificationBell
+              role="IT"
+              userEmail={userEmail}
+              userName={itLeadName}
             />
-            <div className="notification-wrap">
-              <button
-                className="notification"
-                type="button"
-                onClick={() => setNotificationsOpen((open) => !open)}
-                aria-label="Notifications"
-              >
-                <Icon name="bell" size={16} />
-                <i />
-              </button>
-              {notificationsOpen && (
-                <section className="notifications-popover" aria-label="Notifications">
-                  <header>
-                    <h2>System Alerts</h2>
-                    <span>3 active</span>
-                  </header>
-                  <div
-                    className="notifications-scroll"
-                    ref={notificationsListRef}
-                    onScroll={handleNotificationsListScroll}
-                  >
-                    <article>
-                      <span className="notice-dot green" />
-                      <div>
-                        <strong>New IT Client Onboarded</strong>
-                        <p>Horizon FinTech Labs configured on 24/7 SLA retainer.</p>
-                      </div>
-                    </article>
-                    <article>
-                      <span className="notice-dot coral" />
-                      <div>
-                        <strong>Sales IT Pitch Received</strong>
-                        <p>East branch rep pitched Cybersecurity Audit to Bengal BioPharma.</p>
-                      </div>
-                    </article>
-                    <article>
-                      <span className="notice-dot violet" />
-                      <div>
-                        <strong>Service Catalog Refreshed</strong>
-                        <p>MDM Device Fleet Management added with zero-touch enrollment.</p>
-                      </div>
-                    </article>
-                  </div>
-                </section>
-              )}
-            </div>
             <UserProfileMenu
               user={{
                 name: itLeadName || "Aakash Varma",

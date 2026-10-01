@@ -128,7 +128,19 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
     where: whereClause,
     include: {
       branch: true,
-      salesPerson: { select: { id: true, fullName: true, email: true } },
+      salesPerson: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          branchId: true,
+          branch: true,
+          reportingManager: {
+            select: { id: true, fullName: true, email: true, phone: true, role: true },
+          },
+        },
+      },
       originalSalesPerson: { select: { id: true, fullName: true, email: true } },
       lastSalesPerson: { select: { id: true, fullName: true, email: true } },
       deletedByUser: { select: { id: true, fullName: true, email: true } },
@@ -157,7 +169,16 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
     cachedUsers = { timestamp: now, data: allUsers };
   }
   const branchMap = new Map(allBranches.map((b) => [b.id, b]));
-  const userMap = new Map(allUsers.map((u) => [u.id, u]));
+  const userMap = new Map(allUsers.map((u) => [u.id, u.fullName]));
+
+  let allManagers: any[] = [];
+  try {
+    allManagers = await prisma.user.findMany({
+      where: { role: Role.MANAGER, isDeleted: false },
+      select: { id: true, fullName: true, email: true, phone: true, branchId: true },
+    });
+  } catch (e) { }
+  const branchManagerMap = new Map(allManagers.map((m) => [m.branchId, m]));
 
   const cleanedClients = clients.map((c) => {
     const isSec = (c as any).isPrimary === false || (c as any).processType === "secondary" || (c.serviceName && !c.serviceName.toLowerCase().includes("pmegp"));
@@ -199,6 +220,9 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
       toBranch: log.toBranchId ? branchMap.get(log.toBranchId)?.name || null : null,
     }));
 
+    // Real-time sales manager directly from reportingManager relation in PostgreSQL
+    const sm = c.salesPerson?.reportingManager || branchManagerMap.get(c.branchId || c.salesPerson?.branchId || "") || null;
+
     return {
       ...c,
       companyName: compName,
@@ -216,6 +240,15 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
       deletedByUser: c.deletedByUser,
       deleteReason: c.deleteReason,
       transferLogs: enrichedLogs,
+      salesManager: sm?.fullName || null,
+      salesManagerEmail: sm?.email || null,
+      salesManagerPhone: sm?.phone || null,
+      salesRepresentative: c.salesPerson?.fullName || null,
+      salesRepresentativeEmail: c.salesPerson?.email || null,
+      salesRepresentativePhone: c.salesPerson?.phone || null,
+      branchName: c.branch?.name || null,
+      branchCode: c.branch?.code || null,
+      branchRegion: c.branch?.region || null,
     };
   });
 
@@ -480,7 +513,19 @@ export async function getMyProfileService(user: AuthenticatedUser) {
       invoices: { where: { isDeleted: false } },
       documents: { where: { isDeleted: false } },
       branch: true,
-      salesPerson: { select: { id: true, fullName: true, email: true } },
+      salesPerson: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          branchId: true,
+          branch: true,
+          reportingManager: {
+            select: { id: true, fullName: true, email: true, phone: true, role: true },
+          },
+        },
+      },
       schemes: { where: { isDeleted: false } },
     },
   });
@@ -512,6 +557,18 @@ export async function getMyProfileService(user: AuthenticatedUser) {
 
   const resolvedDueDate = clients.find((c) => c.dueDate)?.dueDate || client.dueDate || null;
 
+  // Resolve Sales Manager dynamically directly from reportingManager relation in DB
+  const effectiveBranchId = client.branchId || client.salesPerson?.branchId || null;
+  let sm = client.salesPerson?.reportingManager || null;
+  if (!sm && effectiveBranchId) {
+    try {
+      sm = await prisma.user.findFirst({
+        where: { branchId: effectiveBranchId, role: Role.MANAGER, isDeleted: false },
+        select: { id: true, fullName: true, email: true, phone: true, role: true },
+      });
+    } catch (e) {}
+  }
+
   return {
     success: true,
     statusCode: 200,
@@ -522,6 +579,32 @@ export async function getMyProfileService(user: AuthenticatedUser) {
       computedTotalLoan: totalLoan,
       documentStatus: effectiveDocStatus,
       approvalStatus: effectiveApprovalStatus,
+      salesManager: sm
+        ? {
+            id: sm.id,
+            fullName: sm.fullName,
+            name: sm.fullName,
+            email: sm.email,
+            phone: sm.phone,
+          }
+        : null,
+      salesManagerName: sm?.fullName || null,
+      salesManagerEmail: sm?.email || null,
+      salesManagerPhone: sm?.phone || null,
+      salesPerson: client.salesPerson
+        ? {
+            id: client.salesPerson.id,
+            fullName: client.salesPerson.fullName,
+            name: client.salesPerson.fullName,
+            email: client.salesPerson.email,
+            phone: client.salesPerson.phone,
+          }
+        : null,
+      salesRepresentativeName: client.salesPerson?.fullName || null,
+      salesRepresentativeEmail: client.salesPerson?.email || null,
+      salesRepresentativePhone: client.salesPerson?.phone || null,
+      branch: client.branch || client.salesPerson?.branch || null,
+      branchName: client.branch?.name || client.salesPerson?.branch?.name || null,
       allServices: clients.map((c) => {
         const reqAmt = c.fundingRequirement ? Number(c.fundingRequirement) : 0;
         const reqStr = `₹${reqAmt.toLocaleString("en-IN")}`;
