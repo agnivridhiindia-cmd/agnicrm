@@ -43,7 +43,7 @@ export async function apiFetch(endpoint, options = {}) {
     }
   }
 
-  const timeoutMs = options.timeout !== undefined ? options.timeout : 15000;
+  const timeoutMs = options.timeout !== undefined ? options.timeout : 45000;
   let customSignal = options.signal;
   let timeoutController = null;
   let timeoutId = null;

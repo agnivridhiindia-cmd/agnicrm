@@ -25,17 +25,20 @@ app.use(
       // Allow requests with no origin (e.g. mobile apps, curl, postman)
       if (!origin) return callback(null, true);
       
-      // Check allowed origins list, vercel deployments, localtunnel, or local development pattern
+      const cleanOrigin = origin.replace(/\/+$/, "");
       const isAllowed =
+        ENV.ALLOWED_ORIGINS.includes(cleanOrigin) ||
         ENV.ALLOWED_ORIGINS.includes(origin) ||
         ENV.NODE_ENV === "development" ||
-        /\.vercel\.app$/.test(origin) ||
-        /\.loca\.lt$/.test(origin) ||
-        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+        /\.vercel\.app$/.test(cleanOrigin) ||
+        /\.onrender\.com$/.test(cleanOrigin) ||
+        /\.loca\.lt$/.test(cleanOrigin) ||
+        /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin);
 
       if (isAllowed) {
         return callback(null, true);
       }
+      logger.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
       return callback(null, false);
     },
     credentials: true,
@@ -107,11 +110,16 @@ app.get("/health", healthCheckHandler);
 // Global Error Handler Middleware
 app.use(errorHandler);
 
-app.listen(PORT, "0.0.0.0", () => {
+import { ensureProductionSeed } from "./utils/autoSeed";
+
+app.listen(PORT, "0.0.0.0", async () => {
   logger.info(`🚀 Agni CRM Backend API running on http://localhost:${PORT} (pool: 20 conn)`, {
     environment: ENV.NODE_ENV,
     port: PORT,
     allowedOrigins: ENV.ALLOWED_ORIGINS,
   });
+
+  // Automatically guarantee Owner account & essential schema entries in production DB (Neon/Supabase)
+  await ensureProductionSeed();
 });
 
