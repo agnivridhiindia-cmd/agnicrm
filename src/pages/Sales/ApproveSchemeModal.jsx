@@ -82,21 +82,25 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
   const inputStyle = {
     padding: "10px 14px",
     borderRadius: 8,
-    background: "rgba(15, 23, 42, 0.6)",
-    border: "1px solid rgba(255, 255, 255, 0.15)",
-    color: "#fff",
+    background: "#ffffff",
+    border: "1px solid #cbd5e1",
+    color: "#1e293b",
     fontSize: 14,
     outline: "none",
     width: "100%",
     boxSizing: "border-box",
   };
 
-  const labelStyle = { fontSize: 13, fontWeight: 600, color: "#e2e8f0" };
+  const labelStyle = { fontSize: 13, fontWeight: 600, color: "#334155" };
 
   return (
-    <Modal title={`Approve ${isLoanScheme ? "Scheme Enrollment" : "Service Request"}`} onClose={onClose}>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <p style={{ margin: 0, color: "#94a3b8", fontSize: 14 }}>
+    <Modal
+      title={`Approve ${isLoanScheme ? "Scheme Enrollment" : "Service Request"}`}
+      onClose={onClose}
+      className="sales-request-modal"
+    >
+      <form className="sales-request-approval-form" onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <p style={{ margin: 0, color: "#64748b", fontSize: 14, lineHeight: 1.5 }}>
           Please provide the commercials for the {isLoanScheme ? "scheme enrollment" : "service request"} requested
           by <strong>{request?.clientName}</strong> for <strong>{request?.schemeName}</strong>.
         </p>
@@ -123,8 +127,8 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
             onChange={(e) => setPaymentMode(e.target.value)}
             style={{ ...inputStyle, cursor: "pointer" }}
           >
-            <option value="Online"  style={{ background: "#0f172a" }}>Online (18% GST Applicable)</option>
-            <option value="Offline" style={{ background: "#0f172a" }}>Offline (No GST)</option>
+            <option value="Online">Online (18% GST Applicable)</option>
+            <option value="Offline">Offline (No GST)</option>
           </select>
         </div>
 
@@ -133,13 +137,15 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
           <div style={{
             padding: "10px 14px",
             borderRadius: 8,
-            background: "rgba(16, 185, 129, 0.1)",
-            border: "1px solid rgba(16, 185, 129, 0.3)",
-            color: "#a7f3d0",
+            background: "#ecfdf5",
+            border: "1px solid #a7f3d0",
+            color: "#166534",
             fontSize: 13,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
           }}>
             <span>
               Base: {INR(basePitched)}{isOnline ? ` + GST (18%): ${INR(gstAmount)}` : " (No GST)"}
@@ -158,8 +164,8 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
             style={{
               ...inputStyle,
               border: received > totalPayable && totalPayable > 0
-                ? "1px solid rgba(239,68,68,0.6)"
-                : "1px solid rgba(255,255,255,0.15)",
+                ? "1px solid #dc2626"
+                : "1px solid #cbd5e1",
             }}
             placeholder="Enter amount collected so far"
             min="0"
@@ -176,18 +182,18 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
           <div style={{
             borderRadius: 10,
             border: "1px solid rgba(99,102,241,0.3)",
-            background: "rgba(99,102,241,0.07)",
+            background: "#f8faff",
             overflow: "hidden",
           }}>
             {/* Header */}
             <div style={{
               padding: "8px 14px",
-              background: "rgba(99,102,241,0.15)",
-              borderBottom: "1px solid rgba(99,102,241,0.2)",
+              background: "#eef2ff",
+              borderBottom: "1px solid #dbe3ff",
               fontSize: 12,
               fontWeight: 700,
               letterSpacing: "0.06em",
-              color: "#a5b4fc",
+              color: "#4338ca",
               textTransform: "uppercase",
             }}>
               Payment Summary
@@ -198,25 +204,25 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
               {
                 label: "Total Payable",
                 value: INR(totalPayable),
-                color: "#e2e8f0",
+                color: "#334155",
                 bold: false,
               },
               {
                 label: "Amount Received",
                 value: INR(received),
-                color: received >= totalPayable && totalPayable > 0 ? "#34d399" : "#fbbf24",
+                color: received >= totalPayable && totalPayable > 0 ? "#15803d" : "#b45309",
                 bold: false,
               },
               {
                 label: "Amount Pending",
                 value: INR(pending),
-                color: pending === 0 ? "#34d399" : "#f87171",
+                color: pending === 0 ? "#15803d" : "#b91c1c",
                 bold: true,
               },
               ...(received > 0 ? [{
                 label: "Net Revenue (ex-GST)",
                 value: INR(netRevenue),
-                color: "#818cf8",
+                color: "#4338ca",
                 bold: false,
                 hint: "= Received ÷ 1.18",
               }] : []),
@@ -226,12 +232,12 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
                 justifyContent: "space-between",
                 alignItems: "center",
                 padding: "9px 14px",
-                borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                borderBottom: i < arr.length - 1 ? "1px solid #e2e8f0" : "none",
               }}>
-                <span style={{ fontSize: 13, color: "#94a3b8" }}>
+                <span style={{ fontSize: 13, color: "#475569" }}>
                   {row.label}
                   {row.hint && (
-                    <span style={{ marginLeft: 6, fontSize: 11, color: "#6366f1", opacity: 0.8 }}>
+                    <span style={{ marginLeft: 6, fontSize: 11, color: "#4338ca" }}>
                       {row.hint}
                     </span>
                   )}
@@ -272,9 +278,9 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
             style={{
               padding: "8px 18px",
               borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "transparent",
-              color: "#e2e8f0",
+              border: "1px solid #cbd5e1",
+              background: "#ffffff",
+              color: "#334155",
               cursor: "pointer",
               fontWeight: 600,
             }}

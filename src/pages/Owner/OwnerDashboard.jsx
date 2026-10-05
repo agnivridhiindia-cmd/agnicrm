@@ -24,7 +24,6 @@ import OwnerEmployeesPage from "./OwnerEmployeesPage";
 import OwnerRevenuePage from "./OwnerRevenuePage";
 import OwnerInvoicePage from "./OwnerInvoicePage";
 import OwnerRequestsPage from "./OwnerRequestsPage";
-import OwnerReportsPage from "./OwnerReportsPage";
 import OwnerAgreementPage from "./OwnerAgreementPage";
 import OwnerClientInfoModal from "./OwnerClientInfoModal";
 import OwnerEmployeeInfoModal from "./OwnerEmployeeInfoModal";
@@ -54,9 +53,6 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     agreements: "Agreement",
     revenue: "Revenue",
     revenues: "Revenue",
-    reports: "Reports",
-    report: "Reports",
-    analytics: "Reports",
     employees: "Employees",
     employee: "Employees",
     team: "Employees",
@@ -992,30 +988,6 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 requestsList={requestsList}
                 onOpenRequestDecision={setSelectedRequest}
                 onCancelRequest={handleCancelRequest}
-              />
-            }
-          />
-          <Route
-            path="reports"
-            element={
-              <OwnerReportsPage
-                employeesList={employeesList}
-              />
-            }
-          />
-          <Route
-            path="report"
-            element={
-              <OwnerReportsPage
-                employeesList={employeesList}
-              />
-            }
-          />
-          <Route
-            path="analytics"
-            element={
-              <OwnerReportsPage
-                employeesList={employeesList}
               />
             }
           />

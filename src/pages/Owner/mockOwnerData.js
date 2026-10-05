@@ -9,7 +9,6 @@ export const navItems = [
   { icon: "revenue", label: "Revenue" },
   { icon: "invoice", label: "Invoice" },
   { icon: "requests", label: "Requests" },
-  { icon: "reports", label: "Reports" },
 ];
 
 export const revenueKpiCards = [

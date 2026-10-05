@@ -12,6 +12,7 @@ import { sanitizeClientRecord, mergeSecondaryClients } from "../../../utils/bran
 import { apiFetch } from "../../../services/apiClient";
 
 export function useSalesClients(salesPersonName, onClientAdded) {
+  const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientSearch, setClientSearch] = useState("");
@@ -210,6 +211,58 @@ export function useSalesClients(salesPersonName, onClientAdded) {
     { label: "Quota progress", value: quotaMetrics.progress, trend: "+0%", description: "Towards target", accent: "#9a74e9", icon: "revenue" },
     { label: "Incentive", value: quotaMetrics.incentive, trend: "+0%", description: "Earned this month", accent: "#f2aa38", icon: "incentive" },
   ], [totalActiveClients, totalClosedDeals, quotaMetrics]);
+
+  const monthlyQuotaChartData = useMemo(() => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const acquiredData = Array(12).fill(0);
+
+    clients.forEach((client) => {
+      const invoices = Array.isArray(client.invoices) ? client.invoices : [];
+      const payments = Array.isArray(client.payments) && client.payments.length > 0
+        ? client.payments
+        : invoices.flatMap((invoice) => Array.isArray(invoice.payments) ? invoice.payments : []);
+
+      if (payments.length > 0) {
+        payments.forEach((payment) => {
+          const status = String(payment.status || "SUCCESS").toUpperCase();
+          if (status === "FAILED" || status === "PENDING" || status === "CANCELLED") return;
+
+          const paymentDate = new Date(payment.paymentDate || payment.date || payment.createdAt || "");
+          const grossAmount = Number(payment.amount || payment.paidAmount || 0);
+          if (
+            !Number.isFinite(paymentDate.getTime()) ||
+            String(paymentDate.getFullYear()) !== selectedYear ||
+            grossAmount <= 0
+          ) return;
+
+          acquiredData[paymentDate.getMonth()] += Math.round(grossAmount / 1.18);
+        });
+        return;
+      }
+
+      const invoicePayments = invoices.reduce(
+        (sum, invoice) => sum + Number(invoice.paymentReceived || 0),
+        0,
+      );
+      const grossAmount = Math.max(Number(client.paymentReceived || 0), invoicePayments);
+      const paymentDate = new Date(
+        client.lastPaymentDate || client.paymentDate || client.updatedAt || client.createdAt || "",
+      );
+      if (
+        !Number.isFinite(paymentDate.getTime()) ||
+        String(paymentDate.getFullYear()) !== selectedYear ||
+        grossAmount <= 0
+      ) return;
+
+      acquiredData[paymentDate.getMonth()] += Math.round(grossAmount / 1.18);
+    });
+
+    return {
+      months,
+      quotaData: months.map(() => 80000),
+      acquiredData,
+    };
+  }, [clients, selectedYear]);
 
   const handleNewClientChange = (event) => {
     const { name, value } = event.target;
@@ -498,6 +551,10 @@ export function useSalesClients(salesPersonName, onClientAdded) {
     setNewClient,
     filteredClients,
     kpiCards,
+    quotaMetrics,
+    selectedYear,
+    setSelectedYear,
+    monthlyQuotaChartData,
     handleNewClientChange,
     handleClearClientForm,
     handleAddClient,

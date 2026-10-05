@@ -64,6 +64,8 @@ export default function DashboardSidebar({
             key={item.label}
             type="button"
             className={activeNav === item.label ? "selected" : ""}
+            aria-label={item.label}
+            aria-current={activeNav === item.label ? "page" : undefined}
             onClick={() => onNavChange(item.label)}
           >
             <span className="sidebar-nav-icon-wrap">

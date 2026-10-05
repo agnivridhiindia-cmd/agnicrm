@@ -1,10 +1,10 @@
 import React from 'react';
 import Icon from './Icon';
 
-export default function Modal({ title, children, footer, onClose, closeLabel }) {
+export default function Modal({ title, children, footer, onClose, closeLabel, className = "" }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal-content">
+      <div className={`modal-content ${className}`.trim()}>
         <header className="modal-header">
           <div>
             <h3>{title}</h3>

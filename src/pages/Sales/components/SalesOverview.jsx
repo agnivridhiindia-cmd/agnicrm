@@ -31,7 +31,7 @@ export default function SalesOverview({ kpiCards, monthlyQuotaChartData, selecte
               <p className="eyebrow" style={{ margin: "0 0 6px" }}>Monthly quota</p>
               <h2 style={{ margin: 0 }}>Monthly quota ({selectedYear})</h2>
               <p className="dashboard-copy" style={{ margin: "6px 0 0", maxWidth: "100%" }}>
-                Quota target (₹80,000) vs actual sales acquired (excl. 18% GST).
+                Monthly quota (₹80,000) vs this employee’s sales (excl. 18% GST).
               </p>
             </div>
 

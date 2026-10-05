@@ -173,6 +173,7 @@ export default function ManagerReportsPage({ branchTeam = [], managedRegion = "E
           <div style={{ marginTop: 12 }}>
             <PerformanceChart
               series={selectedPerformanceEmployee.series}
+              quotaData={selectedPerformanceEmployee.series.map(() => 80000)}
               label={`Annual Performance: ${selectedPerformanceEmployee.name}`}
             />
           </div>

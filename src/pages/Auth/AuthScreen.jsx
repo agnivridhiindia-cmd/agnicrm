@@ -1,8 +1,7 @@
 import React from "react";
-import Brand from "../../components/Brand";
 import Icon from "../../components/Icon";
 import { apiFetch } from "../../services/apiClient";
-import { useAuth } from "../../context/AuthContext";
+import "./AuthScreen.css";
 
 const ROLE_MAP = {
   OWNER: "Owner",
@@ -15,14 +14,11 @@ const ROLE_MAP = {
   CLIENT: "Client",
 };
 
-// Seed accounts fallback map in case backend port is blocked
 const MOCK_USERS = {
   "owner@agni.com": "Owner",
   "client@company.com": "Client",
   "chaddionpants@gmail.com": "Client",
   "sanjay@delhiapex.com": "Client",
-
-  // --- BRANCH 1 (MUMBAI) ---
   "ariana@agni.com": "Branch Manager",
   "eli@agni.com": "Manager",
   "mia@agni.com": "Sales Person",
@@ -33,8 +29,6 @@ const MOCK_USERS = {
   "chloe@agni.com": "Marketing",
   "admin@agni.com": "Admin",
   "priya.admin@agni.com": "Admin",
-
-  // --- BRANCH 2 (DELHI) ---
   "rajesh.bm@agni.com": "Branch Manager",
   "ananya.sm@agni.com": "Manager",
   "rohan.sales@agni.com": "Sales Person",
@@ -45,8 +39,6 @@ const MOCK_USERS = {
   "sanya.mkt@agni.com": "Marketing",
   "amit.admin@agni.com": "Admin",
   "simran.admin@agni.com": "Admin",
-
-  // --- BRANCH 3 (BENGALURU) ---
   "suresh.bm@agni.com": "Branch Manager",
   "karthik.sm@agni.com": "Manager",
   "arjun.sales@agni.com": "Sales Person",
@@ -57,8 +49,6 @@ const MOCK_USERS = {
   "tarun.mkt@agni.com": "Marketing",
   "lakshmi.admin@agni.com": "Admin",
   "rahul.admin@agni.com": "Admin",
-
-  // --- BRANCH 4 (KOLKATA) ---
   "subhash.bm@agni.com": "Branch Manager",
   "debolina.sm@agni.com": "Manager",
   "sourav.sales@agni.com": "Sales Person",
@@ -71,17 +61,28 @@ const MOCK_USERS = {
   "moumita.admin@agni.com": "Admin",
 };
 
+const DEMO_PASSWORD = "password123";
+const DEFAULT_DEMO_EMAIL = "owner@agni.com";
+
+const loginFeatures = [
+  { icon: "clients", label: "Manage Leads" },
+  { icon: "document", label: "Track Clients" },
+  { icon: "reports", label: "Monitor Projects" },
+  { icon: "checkCircle", label: "Improve Productivity" },
+];
+
 export default function AuthScreen({ onLogin }) {
-  const [email, setEmail] = React.useState("");
+  const rememberedEmail = localStorage.getItem("agni_remember_email") || "";
+  const [email, setEmail] = React.useState(rememberedEmail);
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
-  const [rememberMe, setRememberMe] = React.useState(false);
+  const [rememberMe, setRememberMe] = React.useState(Boolean(rememberedEmail));
   const [errorMsg, setErrorMsg] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleQuickSelect = (accEmail) => {
-    setEmail(accEmail);
-    setPassword("password123");
+  const handleQuickSelect = (accountEmail) => {
+    setEmail(accountEmail);
+    setPassword(DEMO_PASSWORD);
     setErrorMsg("");
   };
 
@@ -95,6 +96,8 @@ export default function AuthScreen({ onLogin }) {
 
     if (rememberMe && targetEmail) {
       localStorage.setItem("agni_remember_email", targetEmail);
+    } else {
+      localStorage.removeItem("agni_remember_email");
     }
 
     let isNetworkError = false;
@@ -105,7 +108,7 @@ export default function AuthScreen({ onLogin }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: targetEmail, password: targetPassword }),
       });
-    } catch (networkErr) {
+    } catch {
       isNetworkError = true;
     }
 
@@ -135,7 +138,6 @@ export default function AuthScreen({ onLogin }) {
       return;
     }
 
-    // Only if backend server is completely unreachable (network offline), allow mock user login
     console.warn("Backend API unreachable, checking mock user demo login...");
     if (targetEmail && MOCK_USERS[targetEmail]) {
       const fallbackRole = MOCK_USERS[targetEmail];
@@ -150,231 +152,91 @@ export default function AuthScreen({ onLogin }) {
     setErrorMsg("Network error: Unable to reach Agni CRM API server.");
   }
 
-  const isApprovedClientInStorage = (targetEmail) => {
-    if (!targetEmail) return false;
-    const cleanEmail = targetEmail.trim().toLowerCase();
-    try {
-      const savedSales = localStorage.getItem("agni_sales_clients");
-      if (savedSales) {
-        const parsed = JSON.parse(savedSales);
-        if (Array.isArray(parsed) && parsed.some((c) => c.email && c.email.trim().toLowerCase() === cleanEmail)) {
-          return true;
-        }
-      }
-      const savedBranch = localStorage.getItem("agni_branch_clients");
-      if (savedBranch) {
-        const parsed = JSON.parse(savedBranch);
-        if (Array.isArray(parsed) && parsed.some((c) => c.email && c.email.trim().toLowerCase() === cleanEmail)) {
-          return true;
-        }
-      }
-    } catch (e) {}
-    return false;
-  };
-
   return (
-    <main id="top" className="auth-page">
-      <section className="showcase" aria-label="Agni CRM introduction">
-        <div className="mesh mesh-one" />
-        <div className="mesh mesh-two" />
-        <div className="showcase-inner">
-          <Brand />
-          <div className="showcase-copy">
-            <p className="eyebrow">
-              <span /> THE RELATIONSHIP OS
-            </p>
+    <main id="top" className="agn-auth-page">
+      <section className="agn-auth-showcase" aria-label="Agnivridhi India CRM">
+        <div className="agn-auth-showcase-shade" />
+        <div className="agn-auth-showcase-inner">
+          <a className="agn-auth-brand" href="#top" aria-label="Agnivridhi India">
+            <img src="/logo-horizontal-dark.png" alt="Agnivridhi India" />
+          </a>
+
+          <div className="agn-auth-message">
+            <p className="agn-auth-eyebrow">YOUR GROWTH PARTNER</p>
             <h1>
-              Make every customer
+              Make every client
               <br />
-              interaction <em>count.</em>
+              interaction <span>count.</span>
             </h1>
-            <p className="lede">
-              One focused workspace for your team to turn conversations into
-              lasting customer relationships.
+            <p className="agn-auth-lede">
+              A unified CRM to manage your leads, clients, projects and team.
             </p>
           </div>
-          <div className="activity-card">
-            <div className="activity-top">
-              <span className="pulse" /> Live activity{" "}
-              <span className="activity-more">•••</span>
-            </div>
-            <div className="activity-row">
-              <div className="avatar avatar-purple">A</div>
-              <div>
-                <strong>Acme Inc.</strong>
-                <small>
-                  Deal moved to <b>Proposal</b>
-                </small>
+
+          <div className="agn-auth-features" aria-label="CRM features">
+            {loginFeatures.map((feature) => (
+              <div className="agn-auth-feature" key={feature.label}>
+                <span className="agn-auth-feature-icon">
+                  <Icon name={feature.icon} size={25} />
+                </span>
+                <span>{feature.label}</span>
               </div>
-              <time>Now</time>
-            </div>
-            <div className="activity-row">
-              <div className="avatar avatar-coral">M</div>
-              <div>
-                <strong>Maria Santos</strong>
-                <small>New lead assigned to you</small>
-              </div>
-              <time>2m</time>
-            </div>
-            <div className="activity-row">
-              <div className="avatar avatar-blue">S</div>
-              <div>
-                <strong>Summit Co.</strong>
-                <small>Meeting confirmed for today</small>
-              </div>
-              <time>18m</time>
-            </div>
+            ))}
           </div>
-          <div className="trusted">
-            <div className="trusted-avatars">
-              <span>J</span>
-              <span>K</span>
-              <span>R</span>
-              <span>+</span>
-            </div>
-            <p>
-              Trusted by growing teams
-              <br />
-              <b>around the world</b>
-            </p>
+
+          <div className="agn-auth-signoff">
+            <span />
+            <p>PEOPLE&nbsp;&nbsp; PROCESS&nbsp;&nbsp; GROWTH</p>
           </div>
         </div>
-        <p className="copyright">© 2026 Agni CRM. Built for momentum.</p>
       </section>
 
-      <section className="auth-area" aria-labelledby="form-title">
-        <div className="mobile-brand">
-          <Brand />
-        </div>
-        <div className="auth-panel" style={{ maxWidth: 460, width: "100%" }}>
-          <div className="form-intro">
-            <p className="eyebrow">WELCOME BACK</p>
-            <h2 id="form-title">Sign in to your account</h2>
-            <p>Enter credentials or click a staff role below for 1-click access.</p>
-          </div>
+      <section className="agn-auth-area" aria-labelledby="auth-title">
+        <div className="agn-auth-panel">
+          <img className="agn-auth-form-logo" src="/logo-horizontal.png" alt="Agnivridhi India" />
+          <p className="agn-auth-welcome">WELCOME BACK</p>
+          <h2 id="auth-title">Sign in to your account</h2>
+          <p className="agn-auth-description">
+            Access your Agnivridhi India CRM and continue building stronger client relationships.
+          </p>
 
-          {/* Quick Seed Accounts Dropdown Selector */}
-          <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#9a74e9", textTransform: "uppercase", display: "block", marginBottom: 6 }}>
-              ⚡ Quick Select Seed Account (4 Branches & All Roles)
-            </label>
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleQuickSelect(e.target.value);
-                }
-              }}
-              value={email}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: 10,
-                background: "#0f172a",
-                color: "#f8fafc",
-                border: "1px solid rgba(154, 116, 233, 0.4)",
-                fontSize: 13,
-                fontWeight: 600,
-                outline: "none",
-                cursor: "pointer",
-                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
-              }}
-            >
-              <option value="">-- Choose Account to Auto-Fill Credentials --</option>
-
-              <optgroup label="👑 PAN-INDIA OWNER">
-                <option value="owner@agni.com">Devika Shah (Owner) — owner@agni.com</option>
-              </optgroup>
-
-              <optgroup label="👥 CLIENT ACCOUNTS">
-                <option value="client@company.com">Rajesh Sharma (Sunrise Ent.) — client@company.com</option>
-                <option value="chaddionpants@gmail.com">Chad D. Pants (Chaddi Ent.) — chaddionpants@gmail.com</option>
-                <option value="sanjay@delhiapex.com">Sanjay Singhania (Delhi Apex) — sanjay@delhiapex.com</option>
-              </optgroup>
-
-              <optgroup label="🏛️ BRANCH 1: WEST ZONE (MUMBAI)">
-                <option value="ariana@agni.com">Ariana Lee — [Branch Manager] ariana@agni.com</option>
-                <option value="eli@agni.com">Eli Brooks — [Sales Manager] eli@agni.com</option>
-                <option value="mia@agni.com">Mia Rose — [Salesperson] mia@agni.com</option>
-                <option value="lucas@agni.com">Lucas Scott — [Salesperson] lucas@agni.com</option>
-                <option value="noah@agni.com">Noah Kim — [IT Lead] noah@agni.com</option>
-                <option value="sophia.it@agni.com">Sophia Patel — [IT Specialist] sophia.it@agni.com</option>
-                <option value="daniel@agni.com">Daniel Cruz — [Marketing Lead] daniel@agni.com</option>
-                <option value="chloe@agni.com">Chloe Bennett — [Marketing Assoc] chloe@agni.com</option>
-                <option value="admin@agni.com">Vikramaditya Roy — [Admin Lead] admin@agni.com</option>
-                <option value="priya.admin@agni.com">Priya Nair — [Admin Officer] priya.admin@agni.com</option>
-              </optgroup>
-
-              <optgroup label="🏛️ BRANCH 2: NORTH ZONE (DELHI)">
-                <option value="rajesh.bm@agni.com">Rajesh Khanna — [Branch Manager] rajesh.bm@agni.com</option>
-                <option value="ananya.sm@agni.com">Ananya Sen — [Sales Manager] ananya.sm@agni.com</option>
-                <option value="rohan.sales@agni.com">Rohan Gupta — [Salesperson] rohan.sales@agni.com</option>
-                <option value="kavya.sales@agni.com">Kavya Sharma — [Salesperson] kavya.sales@agni.com</option>
-                <option value="arjun.sales@agni.com">Arjun Hegde — [Salesperson] arjun.sales@agni.com</option>
-                <option value="aarav.it@agni.com">Aarav Mehta — [IT Lead] aarav.it@agni.com</option>
-                <option value="ishaan.it@agni.com">Ishaan Verma — [Sys Admin] ishaan.it@agni.com</option>
-                <option value="neha.mkt@agni.com">Neha Kapoor — [Marketing Lead] neha.mkt@agni.com</option>
-                <option value="sanya.mkt@agni.com">Sanya Malhotra — [Digital Specialist] sanya.mkt@agni.com</option>
-                <option value="amit.admin@agni.com">Amit Joshi — [Admin Lead] amit.admin@agni.com</option>
-                <option value="simran.admin@agni.com">Simran Kaur — [Admin Officer] simran.admin@agni.com</option>
-              </optgroup>
-
-              <optgroup label="🏛️ BRANCH 3: SOUTH ZONE (BENGALURU)">
-                <option value="suresh.bm@agni.com">Suresh Reddy — [Branch Manager] suresh.bm@agni.com</option>
-                <option value="karthik.sm@agni.com">Karthik Iyer — [Sales Manager] karthik.sm@agni.com</option>
-                <option value="deepa.sales@agni.com">Deepa Rao — [Salesperson] deepa.sales@agni.com</option>
-                <option value="vikram.it@agni.com">Vikram Rao — [Cloud Architect] vikram.it@agni.com</option>
-                <option value="niharika.it@agni.com">Niharika Bhat — [IT Lead] niharika.it@agni.com</option>
-                <option value="pooja.mkt@agni.com">Pooja Menon — [Marketing Lead] pooja.mkt@agni.com</option>
-                <option value="tarun.mkt@agni.com">Tarun Kumar — [Campaign Lead] tarun.mkt@agni.com</option>
-                <option value="lakshmi.admin@agni.com">Lakshmi Narayanan — [Admin Lead] lakshmi.admin@agni.com</option>
-                <option value="rahul.admin@agni.com">Rahul Gowda — [Admin Officer] rahul.admin@agni.com</option>
-              </optgroup>
-
-              <optgroup label="🏛️ BRANCH 4: EAST ZONE (KOLKATA)">
-                <option value="subhash.bm@agni.com">Subhash Banerjee — [Branch Manager] subhash.bm@agni.com</option>
-                <option value="debolina.sm@agni.com">Debolina Roy — [Sales Manager] debolina.sm@agni.com</option>
-                <option value="sourav.sales@agni.com">Sourav Das — [Salesperson] sourav.sales@agni.com</option>
-                <option value="riya.sales@agni.com">Riya Mukherjee — [Salesperson] riya.sales@agni.com</option>
-                <option value="arindam.it@agni.com">Arindam Bose — [IT Lead] arindam.it@agni.com</option>
-                <option value="swati.it@agni.com">Swati Ganguly — [Network Eng] swati.it@agni.com</option>
-                <option value="tanmoy.mkt@agni.com">Tanmoy Dutta — [Marketing Lead] tanmoy.mkt@agni.com</option>
-                <option value="sneha.mkt@agni.com">Sneha Ghosh — [Brand Assoc] sneha.mkt@agni.com</option>
-                <option value="pronab.admin@agni.com">Pronab Paul — [Admin Lead] pronab.admin@agni.com</option>
-                <option value="moumita.admin@agni.com">Moumita Kar — [Admin Officer] moumita.admin@agni.com</option>
-              </optgroup>
-            </select>
-          </div>
-
-          <form onSubmit={submit} autoComplete="off">
-            <label className="field-label">
-              Work email
-              <input
-                name="email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
-            </label>
-
-            <label className="field-label">
-              Password
-              <span className="password-wrap">
+          <form className="agn-auth-form" onSubmit={submit} autoComplete="on">
+            <label className="agn-auth-field" htmlFor="auth-email">
+              <span>Work email</span>
+              <span className="agn-auth-input-wrap">
+                <Icon name="mail" size={17} />
                 <input
+                  id="auth-email"
+                  name="email"
+                  type="email"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </span>
+            </label>
+
+            <label className="agn-auth-field" htmlFor="auth-password">
+              <span>Password</span>
+              <span className="agn-auth-input-wrap">
+                <Icon name="roles" size={17} />
+                <input
+                  id="auth-password"
                   name="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   autoComplete="current-password"
-                  minLength="6"
+                  minLength={6}
                   required
                 />
                 <button
+                  className="agn-auth-password-toggle"
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((visible) => !visible)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   <Icon name={showPassword ? "eyeOff" : "eye"} size={18} />
@@ -382,50 +244,68 @@ export default function AuthScreen({ onLogin }) {
               </span>
             </label>
 
-            <div className="form-options">
-              <label className="check-label">
+            <div className="agn-auth-options">
+              <label className="agn-auth-remember">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(event) => setRememberMe(event.target.checked)}
                 />
-                <span />
-                Remember me
+                <span>Remember me</span>
               </label>
-              <a href="#forgot">Forgot password?</a>
+              <button
+                className="agn-auth-forgot"
+                type="button"
+                onClick={() => setErrorMsg("Please contact your administrator to reset your password.")}
+              >
+                Forgot password?
+              </button>
             </div>
 
             {errorMsg && (
-              <div
-                style={{
-                  color: "#ef4444",
-                  background: "rgba(239, 68, 68, 0.1)",
-                  border: "1px solid rgba(239, 68, 68, 0.2)",
-                  padding: "10px 14px",
-                  borderRadius: "8px",
-                  fontSize: "13px",
-                  marginBottom: "16px",
-                }}
-                role="alert"
-              >
-                ⚠️ {errorMsg}
+              <div className="agn-auth-error" role="alert">
+                {errorMsg}
               </div>
             )}
 
-            <button className="primary-button" type="submit" disabled={isLoading}>
-              {isLoading ? "Authenticating..." : "Sign in to Agni"}
-              <Icon name="arrow" size={18} />
+            <button className="agn-auth-submit" type="submit" disabled={isLoading}>
+              <span>{isLoading ? "Signing in..." : "Sign in to Agnivridhi"}</span>
+              <Icon name="arrow" size={17} />
             </button>
           </form>
+
+          {import.meta.env.DEV && (
+            <section className="agn-auth-demo" aria-label="Development test credentials">
+              <p className="agn-auth-demo-title">Development test credentials</p>
+              <dl className="agn-auth-demo-credentials">
+                <div>
+                  <dt>Email</dt>
+                  <dd>{DEFAULT_DEMO_EMAIL}</dd>
+                </div>
+                <div>
+                  <dt>Password</dt>
+                  <dd>{DEMO_PASSWORD}</dd>
+                </div>
+              </dl>
+              <label>
+                <span className="agn-auth-demo-label">Or choose a role to fill the form</span>
+                <select defaultValue="" onChange={(event) => event.target.value && handleQuickSelect(event.target.value)}>
+                  <option value="" disabled>Choose a role account</option>
+                  {Object.entries(MOCK_USERS).map(([accountEmail, role]) => (
+                    <option value={accountEmail} key={accountEmail}>
+                      {role} - {accountEmail}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+          )}
         </div>
-        <p className="secure">
-          <span>
-            <Icon name="check" size={14} />
-          </span>
-          Your data is encrypted and authenticated via PostgreSQL &amp; JWT
+        <p className="agn-auth-secure">
+          <Icon name="checkCircle" size={15} />
+          Secure access to your Agnivridhi India workspace
         </p>
       </section>
     </main>
   );
 }
-

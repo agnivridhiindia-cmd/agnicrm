@@ -36,6 +36,140 @@
   border-bottom: 1px solid rgba(140, 95, 248, 0.12);
 }
 
+.modal-content.sales-request-modal {
+  width: min(860px, 94vw);
+  max-width: 860px;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24) !important;
+}
+
+.dashboard-dark .modal-content.sales-request-modal {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border-color: #e2e8f0 !important;
+}
+
+.modal-content.sales-request-modal .modal-header {
+  border-bottom-color: #e2e8f0;
+}
+
+.modal-content.sales-request-modal .modal-header h3 {
+  color: #0f172a !important;
+}
+
+.modal-content.sales-request-modal .modal-body {
+  gap: 16px;
+}
+
+.sales-request-dossier {
+  width: 100%;
+}
+
+.sales-request-approval-form input,
+.sales-request-approval-form select {
+  min-height: 46px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.sales-request-approval-form input:focus,
+.sales-request-approval-form select:focus {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.16);
+}
+
+.sales-request-approval-form input::placeholder {
+  color: #94a3b8;
+}
+
+.sales-request-approval-form select option {
+  background: #ffffff;
+  color: #1e293b;
+}
+
+.sales-request-approval-form button {
+  min-height: 42px;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.sales-request-approval-form button:hover {
+  transform: translateY(-1px);
+}
+
+.sales-request-approval-form button:focus-visible,
+.modal-content.sales-request-modal button:focus-visible {
+  outline: 3px solid rgba(139, 92, 246, 0.35);
+  outline-offset: 2px;
+}
+
+.sales-request-meta-grid > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sales-request-change-grid > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .modal-backdrop:has(.modal-content.sales-request-modal) {
+    padding: 12px;
+  }
+
+  .modal-content.sales-request-modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 24px);
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .modal-content.sales-request-modal .modal-header {
+    align-items: flex-start;
+    gap: 10px;
+    padding-right: 0;
+  }
+
+  .modal-content.sales-request-modal .modal-header > div {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .modal-content.sales-request-modal .modal-header > button {
+    flex: 0 0 auto;
+  }
+
+  .modal-content.sales-request-modal .modal-header h3 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+    overflow-wrap: break-word;
+  }
+
+  .sales-request-meta-grid,
+  .sales-request-financial-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sales-request-change-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sales-request-change-grid > span {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+
+  .sales-request-approval-form > div:last-child {
+    flex-wrap: wrap;
+  }
+
+  .sales-request-approval-form > div:last-child button {
+    flex: 1 1 auto;
+  }
+}
+
 .sales-clients-view,
 .sales-page-view {
   display: flex;
