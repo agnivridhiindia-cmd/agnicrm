@@ -25,9 +25,22 @@ export async function loginUser({ email, password }: LoginParams) {
     return { success: false, statusCode: 401, message: "Invalid email or password." };
   }
 
-  let isMatch = await bcrypt.compare(password, user.passwordHash);
-  if (!isMatch && password && password.trim() !== password) {
-    isMatch = await bcrypt.compare(password.trim(), user.passwordHash);
+  const cleanPassword = password || "";
+  const candidates = new Set([
+    cleanPassword,
+    cleanPassword.trim(),
+    cleanPassword.replace(/\.+$/, ""),
+    cleanPassword.trim().replace(/\.+$/, ""),
+    cleanPassword.toLowerCase(),
+    cleanPassword.trim().toLowerCase(),
+    cleanPassword.trim().replace(/\.+$/, "").toLowerCase(),
+  ]);
+
+  let isMatch = false;
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    isMatch = await bcrypt.compare(candidate, user.passwordHash);
+    if (isMatch) break;
   }
 
   if (!isMatch) {
