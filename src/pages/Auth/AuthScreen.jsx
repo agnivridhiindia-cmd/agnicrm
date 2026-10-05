@@ -36,7 +36,7 @@ export default function AuthScreen({ onLogin }) {
     setIsLoading(true);
 
     const targetEmail = email.trim().toLowerCase();
-    const targetPassword = password;
+    const targetPassword = password.trim();
 
     if (rememberMe && targetEmail) {
       localStorage.setItem("agni_remember_email", targetEmail);

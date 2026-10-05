@@ -3,23 +3,35 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma";
 import { ENV } from "../config/env";
 
+import { logger } from "../utils/logger";
+
 export interface LoginParams {
   email: string;
   password: string;
 }
 
 export async function loginUser({ email, password }: LoginParams) {
+  const normalizedEmail = (email || "").trim().toLowerCase();
   const user = await prisma.user.findFirst({
-    where: { email, isDeleted: false },
+    where: {
+      email: { equals: normalizedEmail, mode: "insensitive" },
+      isDeleted: false,
+    },
     include: { branch: true },
   });
 
   if (!user) {
+    logger.warn(`[AUTH] Login failed: User not found for email: ${normalizedEmail}`);
     return { success: false, statusCode: 401, message: "Invalid email or password." };
   }
 
-  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  let isMatch = await bcrypt.compare(password, user.passwordHash);
+  if (!isMatch && password && password.trim() !== password) {
+    isMatch = await bcrypt.compare(password.trim(), user.passwordHash);
+  }
+
   if (!isMatch) {
+    logger.warn(`[AUTH] Login failed: Incorrect password for user: ${normalizedEmail}`);
     return { success: false, statusCode: 401, message: "Invalid email or password." };
   }
 

@@ -160,14 +160,15 @@ export function clearAllSavedClients() {
 
   const MOCK_EMAIL_FRAGMENTS = [
     "121221@gmail.com", "sharmaji@gmail.com", "vanshikayadavji@gmail.com",
-    "mishraji@gmail.com",
+    "mishraji@gmail.com", "lucas", "agni.com", "eli@", "ariana@", "mia@",
+    "feedusmomos", "rajput", "yash@", "bar@",
   ];
   const MOCK_NAME_FRAGMENTS = [
     "workshala", "yash ear", "bright retail", "urban foods", "nova textiles",
     "peak logistics", "crest pharma", "riverstone", "acme", "techsolutions",
     "nexus", "starlight", "zenith", "summit", "horizon",
     "community", "microsoft", "yadav dairy farm", "vanshika",
-    "abhishek", "sengar", "bar",
+    "abhishek", "sengar", "bar", "lucas",
   ];
 
   const isMockEmail = (email) => {
@@ -192,8 +193,8 @@ export function clearAllSavedClients() {
       if (keyLower.includes("agni_scheme_stages_")) continue;
 
       const isMockKey = MOCK_EMAIL_FRAGMENTS.some((f) => keyLower.includes(f));
-      // Also remove kshitiz007 session
-      const isStaleSession = keyLower.includes("kshitiz007") || keyLower.includes("community_") || keyLower.includes("microsoft_");
+      // Also remove stale mock sessions
+      const isStaleSession = keyLower.includes("kshitiz007") || keyLower.includes("community_") || keyLower.includes("microsoft_") || keyLower.includes("lucas") || keyLower.includes("agni.com");
       if (isMockKey || isStaleSession) {
         keysToRemove.push(key);
       }
@@ -227,13 +228,24 @@ export function clearAllSavedClients() {
       } catch (e) { }
     });
 
-    // ── Remove stale kshitiz007 session if active ──────────────────────────────
+    // ── Remove stale sessions if active ──────────────────────────────
     try {
       const activeEmail = (localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
-      if (activeEmail.includes("kshitiz007")) {
+      if (
+        activeEmail.includes("lucas") ||
+        activeEmail.includes("agni.com") ||
+        activeEmail.includes("feedus") ||
+        activeEmail.includes("rajput") ||
+        activeEmail.includes("yash") ||
+        activeEmail.includes("bar@") ||
+        activeEmail.includes("kshitiz007")
+      ) {
         localStorage.removeItem("agni_token");
+        localStorage.removeItem("agni_user");
         localStorage.removeItem("agni_user_email");
         localStorage.removeItem("agni_user_role");
+        localStorage.removeItem("agni_role");
+        localStorage.removeItem("agni_email");
         localStorage.removeItem("agni_remember_email");
       }
     } catch (e) { }
@@ -245,6 +257,17 @@ export function clearAllSavedClients() {
     window.dispatchEvent(new Event("agni_pending_updated"));
   } catch (e) { }
 }
+
+const ROLE_MAP = {
+  OWNER: "Owner",
+  ADMIN: "Admin",
+  BRANCH_MANAGER: "Branch Manager",
+  MANAGER: "Manager",
+  SALES_PERSON: "Sales Person",
+  IT: "IT",
+  MARKETING: "Marketing",
+  CLIENT: "Client",
+};
 
 export default function App() {
   const navigate = useNavigate();
@@ -268,14 +291,47 @@ export default function App() {
   };
 
   React.useEffect(() => {
+    // Purge mock clients and stale sessions on mount
+    clearAllSavedClients();
+
     if (typeof window !== "undefined") {
       window.clearAllCreatedClients = clearAllSavedClients;
     }
 
-    const checkAuth = () => {
-      // If user directly visits /auth or /login with an intent to authenticate or switch accounts,
-      // allow them to see the auth screen cleanly without forced bounce-back
-      if (window.location.pathname === "/auth") {
+    const checkAuth = async () => {
+      // If user directly visits /auth or /login, allow seeing the auth screen cleanly
+      if (window.location.pathname === "/auth" || window.location.pathname === "/login") {
+        const token = localStorage.getItem("agni_token");
+        const storedRole = localStorage.getItem("agni_user_role");
+        if (!token || !storedRole) {
+          localStorage.removeItem("agni_user_email");
+          localStorage.removeItem("agni_user_role");
+          localStorage.removeItem("agni_role");
+          localStorage.removeItem("agni_user");
+          localStorage.removeItem("agni_email");
+          localStorage.removeItem("agni_token");
+          setUserRole("");
+          setUserEmail("");
+          return;
+        }
+      }
+
+      const storedToken = localStorage.getItem("agni_token");
+      const storedRole = localStorage.getItem("agni_user_role");
+      const storedEmail = (localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
+
+      // Without token or with mock email, wipe and reject
+      if (
+        !storedToken ||
+        !storedRole ||
+        !storedEmail ||
+        storedEmail.includes("lucas") ||
+        storedEmail.includes("agni.com") ||
+        storedEmail.includes("feedus") ||
+        storedEmail.includes("rajput") ||
+        storedEmail.includes("yash@") ||
+        storedEmail.includes("bar@")
+      ) {
         localStorage.removeItem("agni_user_email");
         localStorage.removeItem("agni_user_role");
         localStorage.removeItem("agni_role");
@@ -284,24 +340,47 @@ export default function App() {
         localStorage.removeItem("agni_token");
         setUserRole("");
         setUserEmail("");
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/auth") {
+          navigate("/login", { replace: true });
+        }
         return;
       }
 
-      const storedRole = localStorage.getItem("agni_user_role");
-      const storedEmail = localStorage.getItem("agni_user_email");
+      // Authoritative verification against PostgreSQL backend
+      try {
+        const res = await apiFetch("/auth/me");
+        if (!res.ok) {
+          // Token is invalid or user no longer exists in DB!
+          localStorage.removeItem("agni_user_email");
+          localStorage.removeItem("agni_user_role");
+          localStorage.removeItem("agni_role");
+          localStorage.removeItem("agni_user");
+          localStorage.removeItem("agni_email");
+          localStorage.removeItem("agni_token");
+          setUserRole("");
+          setUserEmail("");
+          navigate("/login", { replace: true });
+          return;
+        }
 
-      if (storedRole && storedEmail) {
+        const data = await res.json();
+        if (data.success && data.user) {
+          const rawRole = data.user.role;
+          const mappedRole = ROLE_MAP[rawRole] || rawRole || storedRole;
+          setUserRole(mappedRole);
+          setUserEmail(data.user.email);
+          if (window.location.pathname === "/" || window.location.pathname === "/login") {
+            const targetPath = rolePathMap[mappedRole] || "/login";
+            navigate(targetPath, { replace: true });
+          }
+        }
+      } catch (err) {
+        // Network failure fallback
         setUserRole(storedRole);
         setUserEmail(storedEmail);
         if (window.location.pathname === "/" || window.location.pathname === "/login") {
           const targetPath = rolePathMap[storedRole] || "/login";
           navigate(targetPath, { replace: true });
-        }
-      } else {
-        setUserRole("");
-        setUserEmail("");
-        if (window.location.pathname !== "/login" && window.location.pathname !== "/auth") {
-          navigate("/login", { replace: true });
         }
       }
     };
