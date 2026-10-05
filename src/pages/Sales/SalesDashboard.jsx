@@ -160,6 +160,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
 
         {activeNav === "Requests" && (
           <SalesRequests
+            clients={clients}
             userEmail={userEmail}
             userRole={localStorage.getItem("agni_user_role")}
             salesPersonName={salesPersonName}

@@ -701,10 +701,42 @@ export function isSameClientScheme(c1 = {}, c2 = {}) {
   return e1 === e2 && s1 === s2;
 }
 
-export function isClientCreatedByUser(client = {}, userEmailOrName = "") {
-  if (!client || !userEmailOrName) return true;
-  const target = String(userEmailOrName).toLowerCase().trim();
-  const owner = String(client.owner || client.salesRep || client.salesPerson || "").toLowerCase().trim();
-  const email = String(client.email || "").toLowerCase().trim();
-  return owner.includes(target) || target.includes(owner) || email === target;
+export function isClientCreatedByUser(client = {}, userEmailOrName = "", userEmail = "") {
+  if (!client) return false;
+  if (!userEmailOrName && !userEmail) return true;
+
+  const targetName = String(userEmailOrName || "").toLowerCase().trim();
+  const targetEmail = String(userEmail || "").toLowerCase().trim();
+
+  // Extract all possible salesperson identifiers from client
+  const spObj = typeof client.salesPerson === "object" && client.salesPerson !== null ? client.salesPerson : {};
+  const salesPersonFullName = String(spObj.fullName || spObj.name || "").toLowerCase().trim();
+  const salesPersonEmail = String(spObj.email || client.salesPersonEmail || "").toLowerCase().trim();
+  const salesPersonId = String(spObj.id || client.salesPersonId || "").toLowerCase().trim();
+
+  const owner = String(client.owner || client.salesRep || (typeof client.salesPerson === "string" ? client.salesPerson : "") || "").toLowerCase().trim();
+  const clientEmail = String(client.email || "").toLowerCase().trim();
+
+  if (targetEmail) {
+    if (salesPersonEmail && (salesPersonEmail === targetEmail || salesPersonEmail.includes(targetEmail) || targetEmail.includes(salesPersonEmail))) return true;
+    if (clientEmail === targetEmail) return true;
+  }
+
+  if (targetName) {
+    if (targetName.includes("@")) {
+      if (salesPersonEmail && (salesPersonEmail === targetName || salesPersonEmail.includes(targetName) || targetName.includes(salesPersonEmail))) return true;
+      if (clientEmail === targetName) return true;
+    }
+    if (salesPersonFullName && (salesPersonFullName.includes(targetName) || targetName.includes(salesPersonFullName))) return true;
+    if (owner && (owner.includes(targetName) || targetName.includes(owner))) return true;
+    if (salesPersonId && targetName === salesPersonId) return true;
+  }
+
+  // If client record has no salesperson info at all, don't arbitrarily hide it
+  if (!salesPersonFullName && !salesPersonEmail && !salesPersonId && !owner) {
+    return true;
+  }
+
+  return false;
 }
+

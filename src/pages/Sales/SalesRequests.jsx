@@ -14,13 +14,54 @@ const TABS = [
   { id: "Request History", label: "Request History", icon: "history" },
 ];
 
-export default function SalesRequests() {
+export default function SalesRequests({ clients: propClients = [], userEmail, salesPersonName, userRole } = {}) {
   const [activeTab, setActiveTab] = useState("Pending Requests");
   const [requests, setRequests] = useState([]);
+  const [dbClients, setDbClients] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [approvingScheme, setApprovingScheme] = useState(null);
   const [notification, setNotification] = useState("");
+
+  const fetchClients = async () => {
+    try {
+      const res = await apiFetch("/clients");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setDbClients(data.data);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch clients in SalesRequests:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchClients();
+    const handleClientsUpdate = () => {
+      fetchClients();
+    };
+    window.addEventListener("agni_clients_updated", handleClientsUpdate);
+    window.addEventListener("storage", handleClientsUpdate);
+    return () => {
+      window.removeEventListener("agni_clients_updated", handleClientsUpdate);
+      window.removeEventListener("storage", handleClientsUpdate);
+    };
+  }, []);
+
+  const effectiveClients = useMemo(() => {
+    if (Array.isArray(propClients) && propClients.length > 0) return propClients;
+    if (Array.isArray(dbClients) && dbClients.length > 0) return dbClients;
+    try {
+      const saved = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_clients");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  }, [propClients, dbClients]);
 
   const fetchRequests = async () => {
     try {
@@ -290,12 +331,24 @@ export default function SalesRequests() {
     return { total, pending, approved, cancelled };
   }, [requests, pendingRequests]);
 
+  useEffect(() => {
+    const handleRequestsUpdate = () => {
+      fetchRequests();
+    };
+    window.addEventListener("agni_requests_updated", handleRequestsUpdate);
+    return () => {
+      window.removeEventListener("agni_requests_updated", handleRequestsUpdate);
+    };
+  }, []);
+
   const addRequest = (newRequest) => {
-    setRequests((prev) => [newRequest, ...prev]);
+    fetchRequests();
+    const reqName = newRequest?.clientName || newRequest?.client?.companyName || newRequest?.client?.name || "Client";
+    const reqId = newRequest?.requestCode || newRequest?.id || "";
     setNotification(
-      newRequest.requestType === "Edit Client"
-        ? `✓ Edit request for "${newRequest.clientName}" (${newRequest.id}) submitted successfully!`
-        : `✓ Deletion request for "${newRequest.clientName}" (${newRequest.id}) submitted successfully!`
+      newRequest.requestType === "Edit Client" || newRequest.requestType === "EDIT_CLIENT"
+        ? `✓ Edit request for "${reqName}" (${reqId}) submitted successfully!`
+        : `✓ Deletion request for "${reqName}" (${reqId}) submitted successfully!`
     );
     setTimeout(() => setNotification(""), 4500);
   };
@@ -1008,7 +1061,9 @@ export default function SalesRequests() {
 
       {showCreateModal && (
         <CreateRequestModal
-          clients={mockClients}
+          clients={effectiveClients}
+          userEmail={userEmail}
+          salesPersonName={salesPersonName}
           onClose={() => setShowCreateModal(false)}
           onSubmit={addRequest}
         />

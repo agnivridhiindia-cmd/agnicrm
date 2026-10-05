@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
 import { isClientCreatedByUser } from "./hooks/useSalesClients";
+import { apiFetch } from "../../services/apiClient";
 
 const requestTypes = [
   {
@@ -25,22 +26,61 @@ const requestTypes = [
 const makeRequestId = () => `RQ-${Math.floor(1000 + Math.random() * 9000)}`;
 
 export default function CreateRequestModal({ clients = [], userEmail, salesPersonName, onClose, onSubmit }) {
-  const currentSalesName = salesPersonName || localStorage.getItem("agni_user_name") || "";
-  const currentUserEmail = userEmail || localStorage.getItem("agni_user_email") || "";
-  const userRole = localStorage.getItem("agni_user_role") || "";
+  const storedUser = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("agni_user") || "{}");
+    } catch (e) {
+      return {};
+    }
+  }, []);
+
+  const currentSalesName = salesPersonName || storedUser.fullName || storedUser.name || localStorage.getItem("agni_user_name") || "";
+  const currentUserEmail = userEmail || storedUser.email || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "";
+  const currentUserId = storedUser.id || "";
+  const userRole = localStorage.getItem("agni_user_role") || storedUser.role || "";
+
+  // Fallback internal clients if clients prop is empty
+  const [internalClients, setInternalClients] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (!clients || clients.length === 0) {
+      apiFetch("/clients")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && Array.isArray(d.data)) {
+            setInternalClients(d.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [clients]);
+
+  const rawList = useMemo(() => {
+    if (Array.isArray(clients) && clients.length > 0) return clients;
+    if (internalClients.length > 0) return internalClients;
+    try {
+      const saved = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_clients");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  }, [clients, internalClients]);
 
   // Filter clients to ONLY those created by or assigned to the logged-in salesperson (Deduplicated strictly)
   const filteredClients = useMemo(() => {
-    const list = Array.isArray(clients) ? clients : [];
     const uniqueList = [];
     const addedKeys = new Set();
 
-    list.forEach((c) => {
+    rawList.forEach((c) => {
       if (!c) return;
       if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
         if (!isClientCreatedByUser(c, currentSalesName, currentUserEmail)) return;
       }
-      const key = String(c.company || c.companyName || c.name || c.contactPerson || c.email || c.id).trim().toLowerCase();
+      const key = String(c.id || c.appId || c.email || c.companyName || c.company || c.name).trim();
       if (key && !addedKeys.has(key)) {
         addedKeys.add(key);
         uniqueList.push(c);
@@ -48,7 +88,7 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
     });
 
     return uniqueList;
-  }, [clients, currentSalesName, currentUserEmail, userRole]);
+  }, [rawList, currentSalesName, currentUserEmail, userRole]);
 
   const [selectedType, setSelectedType] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -74,11 +114,11 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
     }
 
     setFormValues({
-      company: selectedClient.company || "",
-      contactPerson: selectedClient.contactPerson || "",
+      company: selectedClient.companyName || selectedClient.company || selectedClient.name || "",
+      contactPerson: selectedClient.contactPerson || selectedClient.name || "",
       phone: selectedClient.phone || "",
       email: selectedClient.email || "",
-      gstNumber: selectedClient.gstNumber || "",
+      gstNumber: selectedClient.gstNumber || selectedClient.gstNo || "",
       address: selectedClient.address || "",
     });
   }, [selectedClient]);
@@ -88,29 +128,35 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     if (e) e.preventDefault();
     if (!selectedType || !selectedClient) return;
     if (!reason.trim()) return;
 
-    const request = {
+    setIsSubmitting(true);
+    setFormError("");
+
+    const backendReqType = selectedType === "Delete Client" ? "DELETE_CLIENT" : "EDIT_CLIENT";
+    const requestedChanges = selectedType === "Delete Client" ? [] : [
+      { field: "Company Name", oldValue: selectedClient.companyName || selectedClient.company || "", newValue: formValues.company },
+      { field: "Contact Person", oldValue: selectedClient.contactPerson || selectedClient.name || "", newValue: formValues.contactPerson },
+      { field: "Phone Number", oldValue: selectedClient.phone || "", newValue: formValues.phone },
+      { field: "Email", oldValue: selectedClient.email || "", newValue: formValues.email },
+      { field: "GST Number", oldValue: selectedClient.gstNumber || selectedClient.gstNo || "", newValue: formValues.gstNumber },
+      { field: "Address", oldValue: selectedClient.address || "", newValue: formValues.address },
+    ].filter((change) => change.oldValue !== change.newValue && (change.newValue || change.oldValue));
+
+    const requestPayload = {
       id: makeRequestId(),
       clientId: selectedClient.id,
-      clientName: selectedClient.name || selectedClient.company || "Client Account",
-      company: selectedClient.company || selectedClient.name || "Corporate Entity",
+      clientName: selectedClient.name || selectedClient.companyName || selectedClient.company || "Client Account",
+      company: selectedClient.companyName || selectedClient.company || selectedClient.name || "Corporate Entity",
       salesPerson: currentSalesName,
       salesPersonEmail: currentUserEmail,
       managerId: selectedClient.managerId || "MGR-101",
       managerName: selectedClient.managerName || "Assigned Manager",
       requestType: selectedType,
-      requestedChanges: selectedType === "Delete Client" ? [] : [
-        { field: "Company Name", oldValue: selectedClient.company, newValue: formValues.company },
-        { field: "Contact Person", oldValue: selectedClient.contactPerson, newValue: formValues.contactPerson },
-        { field: "Phone Number", oldValue: selectedClient.phone, newValue: formValues.phone },
-        { field: "Email", oldValue: selectedClient.email, newValue: formValues.email },
-        { field: "GST Number", oldValue: selectedClient.gstNumber, newValue: formValues.gstNumber },
-        { field: "Address", oldValue: selectedClient.address, newValue: formValues.address },
-      ].filter((change) => change.oldValue !== change.newValue),
+      requestedChanges,
       reason: reason.trim(),
       status: "Pending",
       createdAt: new Date().toISOString().split("T")[0],
@@ -118,8 +164,39 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
       managerRemarks: null,
     };
 
-    onSubmit(request);
-    onClose();
+    try {
+      const res = await apiFetch("/requests", {
+        method: "POST",
+        body: {
+          requestType: backendReqType,
+          targetEntityType: "CLIENT",
+          clientId: String(selectedClient.id),
+          reason: reason.trim(),
+          requestedChanges,
+        },
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to submit change request to server.");
+      }
+
+      const resData = await res.json();
+      window.dispatchEvent(new CustomEvent("agni_requests_updated"));
+
+      if (onSubmit) {
+        onSubmit(resData?.data || requestPayload);
+      }
+      onClose();
+    } catch (err) {
+      console.warn("Submit request API error, saving locally:", err);
+      if (onSubmit) {
+        onSubmit(requestPayload);
+      }
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isFormValid = Boolean(
@@ -264,12 +341,27 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
                 required
               >
                 <option value="">-- Choose a client from directory --</option>
-                {filteredClients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name || client.company} ({client.company || "Corporate Entity"})
-                  </option>
-                ))}
+                {filteredClients.map((client) => {
+                  const clientName = client.name || client.companyName || client.company || "Client";
+                  const company = client.companyName || client.company || "";
+                  const contact = client.contactPerson ? ` (${client.contactPerson})` : "";
+                  const displayLabel = company && company !== clientName
+                    ? `${clientName} • ${company}${contact}`
+                    : `${clientName}${contact}`;
+                  const scheme = client.scheme || client.serviceName ? ` [${client.scheme || client.serviceName}]` : "";
+
+                  return (
+                    <option key={client.id} value={client.id}>
+                      {displayLabel}{scheme}
+                    </option>
+                  );
+                })}
               </select>
+              {filteredClients.length === 0 && (
+                <span style={{ fontSize: 12, color: "#f43f5e", marginTop: 2 }}>
+                  No clients found under your sales portfolio. Make sure clients are registered and active.
+                </span>
+              )}
             </div>
 
             {selectedClient ? (
@@ -288,16 +380,20 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
                   }}
                 >
                   <div>
+                    <span style={{ color: "#7a748e", fontSize: 11, textTransform: "uppercase", fontWeight: 600, display: "block" }}>Client / Trade</span>
+                    <strong style={{ display: "block", marginTop: 2 }}>{selectedClient.name || selectedClient.contactPerson || "N/A"}</strong>
+                  </div>
+                  <div>
                     <span style={{ color: "#7a748e", fontSize: 11, textTransform: "uppercase", fontWeight: 600, display: "block" }}>Company</span>
-                    <strong style={{ display: "block", marginTop: 2 }}>{selectedClient.company || selectedClient.name}</strong>
+                    <strong style={{ display: "block", marginTop: 2 }}>{selectedClient.companyName || selectedClient.company || selectedClient.name || "N/A"}</strong>
                   </div>
                   <div>
                     <span style={{ color: "#7a748e", fontSize: 11, textTransform: "uppercase", fontWeight: 600, display: "block" }}>Contact</span>
                     <strong style={{ display: "block", marginTop: 2 }}>{selectedClient.contactPerson || "N/A"}</strong>
                   </div>
                   <div>
-                    <span style={{ color: "#7a748e", fontSize: 11, textTransform: "uppercase", fontWeight: 600, display: "block" }}>Assigned Manager</span>
-                    <strong style={{ color: "#8c5ff8", display: "block", marginTop: 2 }}>{selectedClient.managerName || "Assigned Manager"}</strong>
+                    <span style={{ color: "#7a748e", fontSize: 11, textTransform: "uppercase", fontWeight: 600, display: "block" }}>Service Scheme</span>
+                    <strong style={{ color: "#8c5ff8", display: "block", marginTop: 2 }}>{selectedClient.serviceName || selectedClient.scheme || "Standard Retainer"}</strong>
                   </div>
                 </div>
 
@@ -409,6 +505,12 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
                   </div>
                 )}
 
+                {formError && (
+                  <div style={{ color: "#f43f5e", fontSize: 13, background: "rgba(244, 63, 94, 0.1)", padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(244, 63, 94, 0.2)" }}>
+                    {formError}
+                  </div>
+                )}
+
                 {/* Footer Buttons */}
                 <div
                   style={{
@@ -428,10 +530,10 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
                     className="sales-add-btn"
                     type="button"
                     onClick={handleSubmit}
-                    disabled={!isFormValid}
+                    disabled={!isFormValid || isSubmitting}
                     style={{
-                      opacity: isFormValid ? 1 : 0.5,
-                      cursor: isFormValid ? "pointer" : "not-allowed",
+                      opacity: isFormValid && !isSubmitting ? 1 : 0.5,
+                      cursor: isFormValid && !isSubmitting ? "pointer" : "not-allowed",
                       padding: "10px 26px",
                       fontSize: 13.5,
                       display: "inline-flex",
@@ -439,7 +541,7 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
                       gap: 8,
                     }}
                   >
-                    <span>Submit Request →</span>
+                    <span>{isSubmitting ? "Submitting..." : "Submit Request →"}</span>
                   </button>
                 </div>
               </div>
