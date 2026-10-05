@@ -138,7 +138,11 @@ export async function executeWorkflowDecision(
     : 0;
 
   // 3. Authorization check
-  if (!isUserAuthorizedForStage(user.role, currentStage)) {
+  const isAuthorized =
+    isUserAuthorizedForStage(user.role, currentStage) ||
+    (existingRequest.requestType === "NEW_SERVICE" && (user.role === Role.SALES_PERSON || String(user.role) === "SALES_PERSON"));
+
+  if (!isAuthorized) {
     return {
       success: false,
       statusCode: 403,

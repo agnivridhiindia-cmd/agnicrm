@@ -8,7 +8,7 @@ import { useApiClients } from "../../hooks/useApiClients";
 import { isClientCreatedByUser } from "./hooks/useSalesClients";
 import { isMockClient } from "../../utils/revenueCalculator";
 
-const PAYMENT_TABS = ["All Records", "Payment Requests", "Completed Payments"];
+const PAYMENT_TABS = ["All Records", "Payment Requests", "Settlement Approvals", "Completed Payments"];
 const PAYMENT_MODES = ["Bank Transfer", "UPI", "Cheque", "Online Gateway"];
 
 const initialPayments = [];
@@ -17,6 +17,8 @@ const statusBadge = {
   Paid: "#10b981",
   Requested: "#f59e0b",
   Pending: "#f59e0b",
+  "Awaiting Sales Approval": "#8c5ff8",
+  "Awaiting Approval": "#8c5ff8",
   Overdue: "#f43f5e",
   Cancelled: "#7c8490",
 };
@@ -296,8 +298,9 @@ function CreatePaymentRequestModal({ clients = [], onClose, onSubmit }) {
   );
 }
 
-function PaymentDetailsModal({ payment, onClose, onDownload }) {
+function PaymentDetailsModal({ payment, onClose, onDownload, onApprove, onReject }) {
   if (!payment) return null;
+  const isAwaiting = String(payment.status || "").toLowerCase().includes("awaiting");
 
   return (
     <Modal title={`Payment Record Details — ${payment.id}`} onClose={onClose} closeLabel="Close">
@@ -337,14 +340,14 @@ function PaymentDetailsModal({ payment, onClose, onDownload }) {
                   alignItems: "center",
                   padding: "4px 12px",
                   borderRadius: 999,
-                  background: `${statusBadge[payment.status] || "#f59e0b"}22`,
-                  color: statusBadge[payment.status] || "#f59e0b",
+                  background: isAwaiting ? "rgba(140, 95, 248, 0.15)" : `${statusBadge[payment.status] || "#f59e0b"}22`,
+                  color: isAwaiting ? "#8c5ff8" : (statusBadge[payment.status] || "#f59e0b"),
                   fontWeight: 700,
                   fontSize: 12,
                   marginTop: 2,
                 }}
               >
-                {payment.status}
+                {isAwaiting ? "Awaiting Sales Approval" : payment.status}
               </span>
             </div>
           </div>
@@ -393,11 +396,41 @@ function PaymentDetailsModal({ payment, onClose, onDownload }) {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 6 }}>
-          <button className="sales-btn-secondary" type="button" onClick={() => onDownload(payment)} style={{ padding: "9px 18px" }}>
-            📥 Download Receipt
-          </button>
-          <button className="sales-add-btn" type="button" onClick={onClose} style={{ padding: "9px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
+          {isAwaiting && onApprove && (
+            <>
+              <button
+                type="button"
+                className="sales-add-btn"
+                style={{ background: "#10b981", borderColor: "#10b981", padding: "9px 20px" }}
+                onClick={() => {
+                  onApprove(payment);
+                  onClose();
+                }}
+              >
+                <span>✓ Approve Settlement</span>
+              </button>
+              {onReject && (
+                <button
+                  type="button"
+                  className="sales-btn-secondary"
+                  style={{ color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.4)", padding: "9px 18px" }}
+                  onClick={() => {
+                    onReject(payment);
+                    onClose();
+                  }}
+                >
+                  <span>✕ Reject</span>
+                </button>
+              )}
+            </>
+          )}
+          {payment.status === "Paid" && (
+            <button className="sales-btn-secondary" type="button" onClick={() => onDownload(payment)} style={{ padding: "9px 18px" }}>
+              📥 Download Receipt
+            </button>
+          )}
+          <button className="sales-btn-secondary" type="button" onClick={onClose} style={{ padding: "9px 24px" }}>
             <span>Close</span>
           </button>
         </div>
@@ -525,7 +558,14 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
       }
 
       // Tab filter
-      if (activeTab === "Payment Requests" && !(p.type === "Payment Request" || p.status === "Requested")) {
+      const isSettlement = String(p.status || "").toLowerCase().includes("awaiting");
+      if (activeTab === "Payment Requests") {
+        if (isSettlement) return false;
+        if (!(p.type === "Payment Request" || p.status === "Requested" || p.status === "Pending")) {
+          return false;
+        }
+      }
+      if (activeTab === "Settlement Approvals" && !isSettlement) {
         return false;
       }
       if (activeTab === "Completed Payments" && p.status !== "Paid") {
@@ -644,6 +684,252 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
     try {
       const pId = typeof paymentTarget === "object" ? paymentTarget.id : paymentTarget;
       const targetPay = payments.find((p) => String(p.id) === String(pId)) || paymentTarget;
+      const cleanPayId = String(pId || "").replace(/^SETTLE-/, "");
+      const targetAmount = Number(targetPay?.amount || 0);
+      const targetEmail = String(targetPay?.clientEmail || "").toLowerCase().trim();
+      const targetComp = String(targetPay?.clientCompany || targetPay?.clientName || "").toLowerCase().trim();
+      const targetId = String(targetPay?.clientId || "").toLowerCase().trim();
+      const txnRef = targetPay?.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
+
+      const updatePaymentStatusLocal = (key) => {
+        try {
+          const saved = localStorage.getItem(key);
+          if (!saved) return;
+          const list = JSON.parse(saved);
+          if (!Array.isArray(list)) return;
+          const updated = list.map((p) => {
+            const curPId = String(p.id || p.paymentId || "");
+            const matches =
+              curPId === String(pId) ||
+              curPId === cleanPayId ||
+              curPId.replace(/^SETTLE-/, "") === cleanPayId ||
+              (targetEmail && String(p.clientEmail || "").toLowerCase().trim() === targetEmail && Number(p.amount) === targetAmount);
+
+            if (matches) {
+              return {
+                ...p,
+                status: "Paid",
+                transactionRef: txnRef,
+                paidAt: new Date().toISOString(),
+              };
+            }
+            return p;
+          });
+          localStorage.setItem(key, JSON.stringify(updated));
+        } catch (e) {}
+      };
+
+      updatePaymentStatusLocal("agni_sales_payments");
+      updatePaymentStatusLocal("agni_payment_demands");
+      updatePaymentStatusLocal("agni_client_requests");
+      if (targetEmail) {
+        updatePaymentStatusLocal(`agni_payment_demands_${targetEmail}`);
+      }
+
+      // Also mark as approved in agni_pending_payment_settlement_requests
+      try {
+        const savedSettles = localStorage.getItem("agni_pending_payment_settlement_requests");
+        if (savedSettles) {
+          const sList = JSON.parse(savedSettles);
+          if (Array.isArray(sList)) {
+            const updatedSettles = sList.map((s) => {
+              const sPId = String(s.paymentId || s.rawId || s.id || "");
+              if (sPId === String(pId) || sPId === cleanPayId || (targetEmail && String(s.clientEmail || "").toLowerCase().trim() === targetEmail && Number(s.amount) === targetAmount)) {
+                return { ...s, status: "Approved", decisionDate: new Date().toISOString() };
+              }
+              return s;
+            });
+            localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify(updatedSettles));
+          }
+        }
+      } catch (e) {}
+
+      // Update backend database client record via PATCH /clients/:id
+      let dbClients = [];
+      try {
+        const res = await apiFetch("/clients");
+        if (res.ok) {
+          const resJson = await res.json();
+          if (Array.isArray(resJson.data)) dbClients = resJson.data;
+        }
+      } catch (e) {}
+
+      const foundDbClient =
+        (targetId && targetId !== "1" ? dbClients.find((c) => String(c.id || "").toLowerCase().trim() === targetId) : null) ||
+        dbClients.find((c) => {
+          const cEmail = String(c.email || "").toLowerCase().trim();
+          const curPend = Math.max(0, Number(c.totalPayment || c.amount || 0) - Number(c.paymentReceived || 0));
+          return targetEmail && cEmail === targetEmail && Math.abs(curPend - targetAmount) < 5;
+        }) ||
+        dbClients.find((c) => {
+          const cCompany = String(c.companyName || c.name || "").toLowerCase().trim();
+          const curPend = Math.max(0, Number(c.totalPayment || c.amount || 0) - Number(c.paymentReceived || 0));
+          return targetComp && (cCompany.includes(targetComp) || targetComp.includes(cCompany)) && Math.abs(curPend - targetAmount) < 5;
+        }) ||
+        dbClients.find((c) => {
+          const cEmail = String(c.email || "").toLowerCase().trim();
+          return targetEmail && cEmail === targetEmail;
+        }) ||
+        dbClients.find((c) => {
+          const cCompany = String(c.companyName || c.name || "").toLowerCase().trim();
+          return targetComp && (cCompany.includes(targetComp) || targetComp.includes(cCompany));
+        });
+
+      let newRec = targetAmount;
+      let newPend = 0;
+
+      if (foundDbClient) {
+        const curRec = parseFloat(String(foundDbClient.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+        const curTot = parseFloat(String(foundDbClient.totalPayment || foundDbClient.amount || 0).replace(/[^0-9.]/g, "")) || (curRec + targetAmount);
+        newRec = Math.min(curTot, curRec + targetAmount);
+        newPend = Math.max(0, curTot - newRec);
+
+        try {
+          await apiFetch(`/clients/${foundDbClient.id}`, {
+            method: "PATCH",
+            body: { paymentReceived: newRec },
+          });
+        } catch (err) {
+          console.warn("Could not patch client paymentReceived from SalesPayments:", err);
+        }
+
+        if (foundDbClient.invoices && foundDbClient.invoices.length > 0) {
+          const activeInv = foundDbClient.invoices.find((inv) => inv.status !== "PAID") || foundDbClient.invoices[0];
+          if (activeInv && activeInv.id) {
+            try {
+              await apiFetch(`/invoices/${activeInv.id}/payments`, {
+                method: "POST",
+                body: {
+                  amount: targetAmount,
+                  paymentMode: targetPay?.paymentMode || "ONLINE",
+                  referenceNumber: txnRef,
+                  remarks: "Settlement approved by sales representative",
+                },
+              });
+            } catch (invErr) {}
+          }
+        }
+      }
+
+      // Update client caches in localStorage
+      const resolvedClientId = foundDbClient ? String(foundDbClient.id || "").toLowerCase().trim() : (targetId !== "1" ? targetId : "");
+      ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
+        try {
+          const saved = localStorage.getItem(key);
+          let list = saved ? JSON.parse(saved) : (dbClients.length > 0 ? dbClients : []);
+          if (Array.isArray(list)) {
+            let matched = false;
+            list = list.map((c) => {
+              const cId = String(c.id || "").toLowerCase().trim();
+              const cEmail = String(c.email || "").toLowerCase().trim();
+              const cCompany = String(c.company || c.name || c.companyName || "").toLowerCase().trim();
+              const curPend = Math.max(0, Number(c.totalPayment || c.amount || 0) - Number(c.paymentReceived || 0));
+
+              const isMatch =
+                (resolvedClientId && cId === resolvedClientId) ||
+                (!resolvedClientId && (
+                  (targetEmail && cEmail === targetEmail && Math.abs(curPend - targetAmount) < 5) ||
+                  (targetComp && (cCompany.includes(targetComp) || targetComp.includes(cCompany)) && Math.abs(curPend - targetAmount) < 5) ||
+                  (list.length === 1)
+                ));
+
+              if (isMatch) {
+                matched = true;
+                const cRec = parseFloat(String(c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+                const cTot = parseFloat(String(c.totalPayment || c.amount || 0).replace(/[^0-9.]/g, "")) || (cRec + targetAmount);
+                const updatedRec = Math.min(cTot, Math.max(newRec, cRec + targetAmount));
+                const updatedPend = Math.max(0, cTot - updatedRec);
+                return {
+                  ...c,
+                  paymentReceived: String(updatedRec),
+                  paymentPending: String(updatedPend),
+                };
+              }
+              return c;
+            });
+
+            if (!matched && (targetEmail || targetComp)) {
+              list.push({
+                id: resolvedClientId || `client-${Date.now()}`,
+                name: targetPay?.clientName || targetComp,
+                company: targetComp,
+                companyName: targetComp,
+                email: targetEmail,
+                paymentReceived: String(newRec),
+                paymentPending: String(newPend),
+                totalPayment: String(newRec + newPend),
+              });
+            }
+            localStorage.setItem(key, JSON.stringify(list));
+          }
+        } catch (e) {}
+      });
+
+      // Sync with backend invoice payment API if an invoice is linked
+      const invId = targetPay?.relatedInvoiceId || targetPay?.invoiceId || targetPay?.relatedInvoice;
+      if (invId && invId !== "dummy") {
+        try {
+          await apiFetch(`/invoices/${invId}/payments`, {
+            method: "POST",
+            body: {
+              amount: targetAmount,
+              paymentMode: targetPay?.paymentMode || "ONLINE",
+              referenceNumber: txnRef,
+              remarks: "Settled by sales representative",
+            },
+          });
+        } catch (apiErr) {
+          console.warn("Could not sync invoice payment with API:", apiErr);
+        }
+      }
+
+      window.dispatchEvent(new Event("agni_invoices_updated"));
+      window.dispatchEvent(new Event("agni_payments_updated"));
+      window.dispatchEvent(new Event("agni_requests_updated"));
+      window.dispatchEvent(new Event("agni_pending_updated"));
+      window.dispatchEvent(new Event("agni_clients_updated"));
+      window.dispatchEvent(new Event("storage"));
+
+      refreshPayments();
+      setNotification(`✓ Payment ${pId} marked as Settled & Paid successfully.`);
+    } catch (e) {
+      console.warn("Could not mark payment as paid:", e);
+    } finally {
+      setTimeout(() => setNotification(""), 4200);
+    }
+  };
+
+  const approvePaymentSettlement = async (paymentTarget) => {
+    const pId = typeof paymentTarget === "object" ? paymentTarget.id : paymentTarget;
+    const targetPay = payments.find((p) => String(p.id) === String(pId)) || paymentTarget;
+    await markAsPaid(targetPay);
+
+    // Also update any matching pending payment settlement requests in localStorage
+    try {
+      const saved = localStorage.getItem("agni_pending_payment_settlement_requests");
+      if (saved) {
+        let list = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          const cleanPayId = String(pId || "").replace(/^SETTLE-/, "");
+          list = list.map((s) => {
+            const sPId = String(s.paymentId || s.rawId || s.id || "");
+            return sPId === String(pId) || sPId === cleanPayId || s.id === pId
+              ? { ...s, status: "Approved", decisionDate: new Date().toISOString() }
+              : s;
+          });
+          localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify(list));
+        }
+      }
+    } catch (e) {}
+
+    window.dispatchEvent(new Event("agni_requests_updated"));
+    setNotification(`✓ Settlement of ${formatCurrency(targetPay?.amount || 0)} for ${targetPay?.clientName || 'Client'} approved! Official receipt released.`);
+  };
+
+  const rejectPaymentSettlement = (paymentTarget) => {
+    try {
+      const pId = typeof paymentTarget === "object" ? paymentTarget.id : paymentTarget;
+      const targetPay = payments.find((p) => String(p.id) === String(pId)) || paymentTarget;
 
       const updatePaymentStatusLocal = (key) => {
         try {
@@ -655,9 +941,10 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
             if (String(p.id) === String(pId)) {
               return {
                 ...p,
-                status: "Paid",
-                transactionRef: p.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`,
-                paidAt: new Date().toISOString(),
+                status: "Requested",
+                transactionRef: undefined,
+                rejectionReason: "Settlement verification rejected by sales representative.",
+                rejectedAt: new Date().toISOString(),
               };
             }
             return p;
@@ -673,37 +960,30 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         updatePaymentStatusLocal(`agni_payment_demands_${targetPay.clientEmail.toLowerCase().trim()}`);
       }
 
-      if (targetPay && targetPay.amount) {
-        updateClientPaymentMetrics(targetPay.clientId || targetPay.clientEmail || targetPay.clientCompany, Number(targetPay.amount), "MARK_PAID");
-      }
-
-      // Sync with backend invoice payment API if an invoice is linked
-      const invId = targetPay?.relatedInvoiceId || targetPay?.invoiceId || targetPay?.relatedInvoice;
-      if (invId && invId !== "dummy") {
-        try {
-          await apiFetch(`/invoices/${invId}/payments`, {
-            method: "POST",
-            body: {
-              amount: Number(targetPay.amount || 0),
-              paymentMode: targetPay.paymentMode || "ONLINE",
-              referenceNumber: targetPay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`,
-              remarks: "Settled by sales representative",
-            },
-          });
-        } catch (apiErr) {
-          console.warn("Could not sync invoice payment with API:", apiErr);
+      // Also update any matching pending payment settlement requests in localStorage
+      try {
+        const saved = localStorage.getItem("agni_pending_payment_settlement_requests");
+        if (saved) {
+          let list = JSON.parse(saved);
+          if (Array.isArray(list)) {
+            list = list.map((s) =>
+              String(s.paymentId) === String(pId) || s.id === pId
+                ? { ...s, status: "Declined", decisionDate: new Date().toISOString() }
+                : s
+            );
+            localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify(list));
+          }
         }
-      }
+      } catch (e) {}
 
-      window.dispatchEvent(new Event("agni_invoices_updated"));
       window.dispatchEvent(new Event("agni_payments_updated"));
-      window.dispatchEvent(new Event("agni_clients_updated"));
+      window.dispatchEvent(new Event("agni_requests_updated"));
       window.dispatchEvent(new Event("storage"));
 
       refreshPayments();
-      setNotification(`✓ Payment ${pId} marked as Settled & Paid successfully.`);
+      setNotification(`Payment settlement for ${targetPay?.clientName || pId} rejected. Demand returned to pending for client.`);
     } catch (e) {
-      console.warn("Could not mark payment as paid:", e);
+      console.warn("Could not reject settlement:", e);
     } finally {
       setTimeout(() => setNotification(""), 4200);
     }
@@ -823,11 +1103,14 @@ Thank you for choosing AgniCRM.
         <div className="sales-tabs-switcher">
           {PAYMENT_TABS.map((tab) => {
             const isActive = activeTab === tab;
+            const isSettlement = (p) => String(p.status || "").toLowerCase().includes("awaiting");
             const count =
               tab === "All Records"
                 ? userPayments.length
                 : tab === "Payment Requests"
-                ? userPayments.filter((p) => p.type === "Payment Request" || p.status === "Requested").length
+                ? userPayments.filter((p) => (p.type === "Payment Request" || p.status === "Requested" || p.status === "Pending") && !isSettlement(p)).length
+                : tab === "Settlement Approvals"
+                ? userPayments.filter(isSettlement).length
                 : userPayments.filter((p) => p.status === "Paid").length;
 
             return (
@@ -931,15 +1214,30 @@ Thank you for choosing AgniCRM.
                     <span style={{ fontSize: 12.5, color: "#7a748e" }}>{payment.date || payment.dueDate}</span>
                   </td>
                   <td>
-                    <span
-                      className={`stage-tag ${payment.status === "Paid" ? "active" : "prospect"}`}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor" }} />
-                      {payment.status}
-                    </span>
+                    {String(payment.status || "").toLowerCase().includes("awaiting") ? (
+                      <span
+                        className="stage-tag"
+                        style={{
+                          background: "rgba(140, 95, 248, 0.12)",
+                          color: "#8c5ff8",
+                          borderColor: "rgba(140, 95, 248, 0.3)",
+                          fontWeight: 700,
+                        }}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: 999, background: "#8c5ff8" }} />
+                        Awaiting Approval
+                      </span>
+                    ) : (
+                      <span
+                        className={`stage-tag ${payment.status === "Paid" ? "active" : "prospect"}`}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor" }} />
+                        {payment.status}
+                      </span>
+                    )}
                   </td>
                   <td style={{ textAlign: "right" }}>
-                    <div style={{ display: "inline-flex", gap: 8 }}>
+                    <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
                       <button
                         type="button"
                         className="sales-view-btn"
@@ -948,7 +1246,29 @@ Thank you for choosing AgniCRM.
                         <Icon name="eye" size={13} />
                         <span>View</span>
                       </button>
-                      {payment.status === "Requested" && (
+                      {String(payment.status || "").toLowerCase().includes("awaiting") && (
+                        <>
+                          <button
+                            type="button"
+                            className="sales-settle-btn"
+                            style={{ background: "#10b981", borderColor: "#10b981", color: "#ffffff", fontWeight: 700 }}
+                            onClick={() => approvePaymentSettlement(payment)}
+                            title="Verify and approve payment settlement"
+                          >
+                            <span>✓ Approve</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="sales-btn-secondary"
+                            style={{ color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.4)", padding: "5px 10px", fontSize: 12 }}
+                            onClick={() => rejectPaymentSettlement(payment)}
+                            title="Reject payment settlement"
+                          >
+                            <span>✕</span>
+                          </button>
+                        </>
+                      )}
+                      {(payment.status === "Requested" || payment.status === "Pending") && !String(payment.status || "").toLowerCase().includes("awaiting") && (
                         <button
                           type="button"
                           className="sales-settle-btn"
@@ -986,6 +1306,8 @@ Thank you for choosing AgniCRM.
           payment={selectedPayment}
           onClose={() => setSelectedPayment(null)}
           onDownload={downloadReceipt}
+          onApprove={approvePaymentSettlement}
+          onReject={rejectPaymentSettlement}
         />
       )}
     </section>

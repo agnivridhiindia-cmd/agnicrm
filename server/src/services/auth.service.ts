@@ -241,6 +241,7 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
       rawRole: u.role,
       branch: u.branch ? u.branch.name : (u.region || "West Zone (Mumbai)"),
       branchId: u.branchId,
+      quota: (u as any).quota?.toString() || null,
       originBranchId: u.originBranchId,
       originBranch: originBranchName,
       initialManagerId: u.initialManagerId,

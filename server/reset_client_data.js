@@ -29,6 +29,9 @@ async function resetClientData() {
     const deletedActivityLogs = await prisma.activityLog.deleteMany();
     console.log(`✅ Deleted ${deletedActivityLogs.count} activity logs.`);
 
+    const deletedTransferLogs = await prisma.clientTransferLog.deleteMany();
+    console.log(`✅ Deleted ${deletedTransferLogs.count} client transfer logs.`);
+
     const deletedClients = await prisma.client.deleteMany();
     console.log(`✅ Deleted ${deletedClients.count} clients.`);
 

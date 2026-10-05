@@ -42,7 +42,7 @@ router.patch(
 );
 router.patch(
   "/:id",
-  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER),
+  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON),
   updateClient
 );
 router.post(

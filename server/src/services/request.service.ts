@@ -58,7 +58,10 @@ export async function getRequestsService(user: AuthenticatedUser) {
         { requester: { branchId: targetBranchId } },
       ];
     }
-    // OWNER / ADMIN see all branch requests
+    // OWNER sees all branch governance requests (excluding secondary scheme sales requests which are approved by Sales/Managers)
+    if (user.role === "OWNER") {
+      whereClause.requestType = { not: RequestType.NEW_SERVICE };
+    }
   }
 
   const requests = await prisma.request.findMany({

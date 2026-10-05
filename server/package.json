@@ -4,7 +4,7 @@
   "private": true,
   "description": "Backend API server for Agni CRM using Node.js, Express, Prisma ORM, PostgreSQL, JWT, and Zod",
   "scripts": {
-    "dev": "nodemon --watch src --exec ts-node src/index.ts",
+    "dev": "nodemon --watch src --watch .env --exec ts-node src/index.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",

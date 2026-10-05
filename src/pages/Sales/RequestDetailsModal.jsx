@@ -5,14 +5,15 @@ import { getCategoryBadgeStyle } from "./RequestTable";
 
 const formatDate = (value) => value || "—";
 
-export default function RequestDetailsModal({ request, onClose }) {
+export default function RequestDetailsModal({ request, onClose, onApprovePayment, onDeclinePayment }) {
   if (!request) return null;
 
   const badge = getCategoryBadgeStyle(request.category || request.requestType || request.schemeName);
-  const isSchemeReq = request.requestType === "Eligible Scheme" || request.requestType === "More Services" || !!request.schemeName;
+  const isPaymentSettlement = request.requestType === "Payment Settlement" || request.category === "Payment Settlement" || !!request.paymentId;
+  const isSchemeReq = !isPaymentSettlement && (request.requestType === "Eligible Scheme" || request.requestType === "More Services" || !!request.schemeName);
   const isDelete = request.requestType === "Delete Client" || request.category === "Manager Approval: Client Delete";
 
-  const totalWithGst = Number(request.totalInvoice || request.totalPayment || request.pitchedAmount || request.price || 0);
+  const totalWithGst = Number(request.totalInvoice || request.totalPayment || request.pitchedAmount || request.price || request.amount || 0);
   const pitchedNum = Math.round(totalWithGst / 1.18);
   const gstNum = totalWithGst - pitchedNum;
   const paidNum = Number(request.paidAmount || request.paymentReceived || totalWithGst);
@@ -187,26 +188,40 @@ export default function RequestDetailsModal({ request, onClose }) {
           </div>
         )}
 
-        {/* Commercials & Financial Breakdown (for Schemes/Services) */}
-        {isSchemeReq && pitchedNum > 0 && (
+        {/* Commercials & Financial Breakdown (for Schemes/Services/Payment Settlement) */}
+        {(isSchemeReq || isPaymentSettlement) && (totalWithGst > 0 || request.amount > 0) && (
           <div style={{ padding: "16px", borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", color: "#15803d", letterSpacing: 0.5, display: "block", marginBottom: 10 }}>
-              💰 Commercial &amp; Payment Audit Record
+              💰 {isPaymentSettlement ? "Payment Settlement Record" : "Commercial & Payment Audit Record"}
             </span>
             <div className="sales-request-financial-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 10 }}>
               <div style={{ background: "#ffffff", padding: "10px", borderRadius: 8, border: "1px solid #dcfce7" }}>
-                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Requested Payment Amount</span>
-                <strong style={{ fontSize: 14, color: "#15803d" }}>₹{totalWithGst.toLocaleString("en-IN")}</strong>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>
+                  {isPaymentSettlement ? "Settlement Amount" : "Requested Payment Amount"}
+                </span>
+                <strong style={{ fontSize: 14, color: "#15803d" }}>₹{(request.amount || totalWithGst).toLocaleString("en-IN")}</strong>
               </div>
               <div style={{ background: "#ffffff", padding: "10px", borderRadius: 8, border: "1px solid #dcfce7" }}>
-                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>Quota Base Contribution (Amt / 1.18)</span>
-                <strong style={{ fontSize: 14, color: "#0369a1" }}>₹{pitchedNum.toLocaleString("en-IN")}</strong>
+                <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>
+                  {isPaymentSettlement ? "Payment Mode" : "Quota Base Contribution (Amt / 1.18)"}
+                </span>
+                <strong style={{ fontSize: 14, color: "#0369a1" }}>
+                  {isPaymentSettlement ? (request.paymentMode || "Online Gateway") : `₹${pitchedNum.toLocaleString("en-IN")}`}
+                </strong>
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#dcfce7", padding: "10px 14px", borderRadius: 8 }}>
-              <span style={{ fontSize: 12, color: "#334155", fontWeight: 600 }}>Amount Paid by Client</span>
-              <strong style={{ fontSize: 14, color: "#15803d" }}>₹{paidNum.toLocaleString("en-IN")}</strong>
-            </div>
+            {request.transactionRef && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#dcfce7", padding: "10px 14px", borderRadius: 8, marginBottom: !isPaymentSettlement ? 8 : 0 }}>
+                <span style={{ fontSize: 12, color: "#334155", fontWeight: 600 }}>Transaction Reference</span>
+                <strong style={{ fontSize: 13, color: "#15803d", fontFamily: "monospace" }}>{request.transactionRef}</strong>
+              </div>
+            )}
+            {!isPaymentSettlement && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#dcfce7", padding: "10px 14px", borderRadius: 8 }}>
+                <span style={{ fontSize: 12, color: "#334155", fontWeight: 600 }}>Amount Paid by Client</span>
+                <strong style={{ fontSize: 14, color: "#15803d" }}>₹{paidNum.toLocaleString("en-IN")}</strong>
+              </div>
+            )}
           </div>
         )}
 
@@ -259,8 +274,36 @@ export default function RequestDetailsModal({ request, onClose }) {
           </div>
         )}
 
-        {/* Close Button */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+        {/* Action Buttons */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
+          {isPaymentSettlement && request.status === "Pending" && onApprovePayment && (
+            <>
+              <button
+                type="button"
+                className="sales-add-btn"
+                style={{ background: "#10b981", borderColor: "#10b981", padding: "8px 18px", fontSize: 13 }}
+                onClick={() => {
+                  onApprovePayment(request);
+                  onClose();
+                }}
+              >
+                <span>✓ Approve Settlement</span>
+              </button>
+              {onDeclinePayment && (
+                <button
+                  type="button"
+                  className="sales-btn-secondary"
+                  style={{ color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.4)", padding: "8px 16px", fontSize: 13 }}
+                  onClick={() => {
+                    onDeclinePayment(request);
+                    onClose();
+                  }}
+                >
+                  <span>✕ Deny</span>
+                </button>
+              )}
+            </>
+          )}
           <button type="button" className="sales-btn-secondary" onClick={onClose} style={{ padding: "8px 22px", borderRadius: 8, fontSize: 13, cursor: "pointer" }}>
             Close Audit Dossier
           </button>

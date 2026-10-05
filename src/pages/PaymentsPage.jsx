@@ -6,6 +6,9 @@ import { printHtmlContent } from "../utils/exportHelpers";
 export function isPaymentSettled(status) {
   if (!status) return false;
   const s = String(status).trim().toLowerCase();
+  if (s.includes("awaiting") || s.includes("verification") || s.includes("pending approval") || s.includes("pending sales")) {
+    return false;
+  }
   return (
     s === "paid" ||
     s === "success" ||
@@ -13,9 +16,9 @@ export function isPaymentSettled(status) {
     s === "settled" ||
     s === "completed" ||
     s.includes("paid") ||
-    s.includes("settled") ||
     s.includes("verified") ||
-    s.includes("success")
+    s.includes("success") ||
+    (s.includes("settled") && !s.includes("awaiting") && !s.includes("pending"))
   );
 }
 
@@ -307,7 +310,7 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
 
   async function handlePayDemand(pay) {
     try {
-      // 1. Update status to "Paid" in localStorage across all payment demand arrays
+      // 1. Update status to "Awaiting Sales Approval" in localStorage across all payment demand arrays
       const updatePaymentStatusLocal = (key) => {
         try {
           const saved = localStorage.getItem(key);
@@ -318,9 +321,10 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
             if (String(p.id) === String(pay.id)) {
               return {
                 ...p,
-                status: "Paid",
-                transactionRef: `TXN-AGNI-${Date.now().toString().slice(-6)}`,
-                paidAt: new Date().toISOString(),
+                status: "Awaiting Sales Approval",
+                transactionRef: p.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`,
+                settledAt: new Date().toISOString(),
+                submissionDate: new Date().toISOString().split("T")[0],
               };
             }
             return p;
@@ -335,56 +339,77 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
       const cleanEmail = (pay.clientEmail || userEmail || "").toLowerCase().trim();
       if (cleanEmail) updatePaymentStatusLocal(`agni_payment_demands_${cleanEmail}`);
 
-      // 2. Update client payment metrics in agni_sales_clients and agni_branch_clients
-      const updateClientMetrics = (listKey) => {
-        try {
-          const saved = localStorage.getItem(listKey);
-          if (!saved) return;
-          const list = JSON.parse(saved);
-          if (!Array.isArray(list)) return;
-          const updated = list.map((c) => {
-            const cEmail = (c.email || "").toLowerCase().trim();
-            const cCompany = (c.company || c.name || "").toLowerCase().trim();
-            const payComp = (pay.clientCompany || pay.clientName || "").toLowerCase().trim();
-            const matchEmail = cleanEmail && cEmail && cEmail === cleanEmail;
-            const matchComp = payComp && cCompany && (cCompany.includes(payComp) || payComp.includes(cCompany));
-            if (matchEmail || matchComp) {
-              const currentRec = parseFloat(String(c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
-              const currentPend = parseFloat(String(c.paymentPending || 0).replace(/[^0-9.]/g, "")) || 0;
-              const amtPaid = Number(pay.amount || 0);
-              const newRec = currentRec + amtPaid;
-              const newPend = Math.max(0, currentPend - amtPaid);
-              return {
-                ...c,
-                paymentReceived: String(newRec),
-                paymentPending: String(newPend),
-              };
-            }
-            return c;
-          });
-          localStorage.setItem(listKey, JSON.stringify(updated));
-        } catch (e) {}
+      // 2. Dispatch official Payment Settlement Request for Sales Approval
+      const txnRef = pay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
+      const cCompany = pay.clientCompany || pay.clientName || clientInfo?.companyName || "Client Account";
+      const resolvedClientId = pay.clientId || pay.raw?.clientId || clientInfo?.id || "";
+      const settlementReq = {
+        id: `SETTLE-${pay.id || Date.now()}`,
+        paymentId: pay.id,
+        rawId: pay.id,
+        clientId: resolvedClientId,
+        clientName: cCompany,
+        companyName: cCompany,
+        clientEmail: cleanEmail,
+        clientPhone: pay.clientPhone || clientInfo?.phone || "",
+        requestType: "Payment Settlement",
+        category: "Payment Settlement",
+        amount: Number(pay.amount || 0),
+        pitchedAmount: Number(pay.amount || 0),
+        totalPayment: Number(pay.amount || 0),
+        paymentMode: pay.paymentMode || "Online Gateway",
+        transactionRef: txnRef,
+        status: "Pending",
+        targetDepartment: "Sales & Accounts",
+        managerName: pay.salesPerson || "Sales Representative",
+        reason: `Payment Settlement verification for demand ${pay.id} (₹${Number(pay.amount || 0).toLocaleString("en-IN")}) via ${pay.paymentMode || "Online Gateway"}. Reference: ${txnRef}.`,
+        createdAt: new Date().toISOString(),
+        submittedDate: new Date().toISOString().split("T")[0],
+        raw: {
+          ...pay,
+          clientId: resolvedClientId,
+          status: "Awaiting Sales Approval",
+          transactionRef: txnRef,
+        },
       };
 
-      updateClientMetrics("agni_sales_clients");
-      updateClientMetrics("agni_branch_clients");
-
-      // 3. API sync if invoice is linked
-      const invId = pay.relatedInvoiceId || pay.invoiceId || pay.relatedInvoice;
-      if (invId && invId !== "dummy") {
-        apiFetch(`/invoices/${invId}/payments`, {
-          method: "POST",
-          body: {
-            amount: Number(pay.amount || 0),
-            paymentMode: "ONLINE",
-            remarks: "Client portal payment demand settlement",
-          }
-        }).catch((e) => console.warn("API payment error:", e));
+      try {
+        const savedSettlements = localStorage.getItem("agni_pending_payment_settlement_requests");
+        const list = savedSettlements ? JSON.parse(savedSettlements) : [];
+        const filtered = Array.isArray(list)
+          ? list.filter((r) => String(r.paymentId || r.id) !== String(pay.id) && r.id !== settlementReq.id)
+          : [];
+        localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify([settlementReq, ...filtered]));
+      } catch (err) {
+        console.warn("Could not save settlement request locally:", err);
       }
 
-      window.dispatchEvent(new Event("agni_invoices_updated"));
+      // Also persist to backend /requests if available
+      try {
+        apiFetch("/requests", {
+          method: "POST",
+          body: {
+            requestType: "NEW_SERVICE",
+            reason: `Payment Settlement verification for demand ${pay.id} (₹${Number(pay.amount || 0).toLocaleString("en-IN")}) via ${pay.paymentMode || "Online Gateway"}. Reference: ${txnRef}.`,
+            requestedChanges: {
+              isPaymentSettlement: true,
+              category: "Payment Settlement",
+              paymentId: pay.id,
+              amount: Number(pay.amount || 0),
+              paymentMode: pay.paymentMode || "Online Gateway",
+              transactionRef: txnRef,
+              companyName: cCompany,
+              clientEmail: cleanEmail,
+            },
+          },
+        }).catch(() => {});
+      } catch (apiErr) {}
+
+      setNotice(`Payment settlement submitted! Your assigned Sales Representative will verify and approve the transaction before your official receipt is generated.`);
+
       window.dispatchEvent(new Event("agni_payments_updated"));
-      window.dispatchEvent(new Event("agni_clients_updated"));
+      window.dispatchEvent(new Event("agni_requests_updated"));
+      window.dispatchEvent(new Event("agni_pending_updated"));
       window.dispatchEvent(new Event("storage"));
 
       refreshPayments();
@@ -393,7 +418,6 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
     }
 
     setSelectedPayment(null);
-    setNotice(`✓ Payment of ₹${Number(pay.amount || 0).toLocaleString("en-IN")} settled successfully! Payment receipt is now ready for download.`);
   }
 
   return (

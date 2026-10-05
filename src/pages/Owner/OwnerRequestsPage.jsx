@@ -12,8 +12,15 @@ export default function OwnerRequestsPage({
   const [historyYearFilter, setHistoryYearFilter] = useState("All");
   const [historyStatusFilter, setHistoryStatusFilter] = useState("All");
 
-  const pendingRequests = requestsList.filter((r) => r.status === "Pending");
-  const historyRequests = requestsList.filter((r) => {
+  // Filter out secondary scheme requests (e.g. NEW_SERVICE) from Owner Governance view
+  const ownerRequestsList = requestsList.filter((r) => {
+    const rawType = String(r.requestType || r.raw?.requestType || "").toUpperCase();
+    const reason = String(r.reason || "").toLowerCase();
+    return rawType !== "NEW_SERVICE" && rawType !== "NEW_SCHEME" && !reason.includes("self-enrollment");
+  });
+
+  const pendingRequests = ownerRequestsList.filter((r) => r.status === "Pending");
+  const historyRequests = ownerRequestsList.filter((r) => {
     if (r.status === "Pending") return false;
     if (historyStatusFilter !== "All" && r.status !== historyStatusFilter) return false;
     if (historyMonthFilter !== "All" && r.month !== historyMonthFilter) return false;
@@ -41,8 +48,8 @@ export default function OwnerRequestsPage({
         {["Pending Requests", "Request History"].map((tab) => {
           const count =
             tab === "Pending Requests"
-              ? requestsList.filter((r) => r.status === "Pending").length
-              : requestsList.filter((r) => r.status !== "Pending").length;
+              ? ownerRequestsList.filter((r) => r.status === "Pending").length
+              : ownerRequestsList.filter((r) => r.status !== "Pending").length;
           return (
             <button
               key={tab}

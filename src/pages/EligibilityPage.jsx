@@ -43,11 +43,60 @@ function readStoredSchemes(userEmail, clientInfo) {
   return [];
 }
 
-export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = [], userEmail, clientInfo }) {
+export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = [], pendingRequests = [], userEmail, clientInfo }) {
   const [selectedScheme, setSelectedScheme] = useState(null);
   const [appliedScheme, setAppliedScheme] = useState(null);
+  const [optimisticRequested, setOptimisticRequested] = useState(new Set());
 
   const [schemesList, setSchemesList] = useState(() => readStoredSchemes(userEmail, clientInfo));
+
+  const norm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const isSchemeRequested = React.useCallback((scheme) => {
+    if (!scheme) return false;
+    const sName = String(scheme.schemeName || scheme.name || "").toLowerCase().trim();
+    const sNorm = norm(sName);
+    if (!sNorm) return false;
+
+    // Check localStorage first so a decline or approval explicitly supersedes optimisticRequested
+    try {
+      const saved = localStorage.getItem("agni_pending_scheme_requests");
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+          const match = list.find((r) => {
+            const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+            const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+            const rNorm = norm(r.schemeName || r.name);
+            return emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+          });
+          if (match) {
+            const statusStr = String(match.status || "").toLowerCase();
+            if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+              return false;
+            }
+            if (!match.status || statusStr.includes("pending")) {
+              return true;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    const inPendingProp = (pendingRequests || []).some((r) => {
+      const rNorm = norm(r.schemeName || r.name);
+      const isMatch = rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+      const statusStr = String(r.status || "").toLowerCase();
+      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
+      return isMatch && isPending;
+    });
+    if (inPendingProp) return true;
+
+    if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) return true;
+
+    return false;
+  }, [optimisticRequested, pendingRequests, userEmail]);
 
   useEffect(() => {
     let isMounted = true;
@@ -82,11 +131,13 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
     syncSchemes();
     window.addEventListener("storage", syncSchemes);
     window.addEventListener("agni_clients_updated", syncSchemes);
+    window.addEventListener("agni_pending_updated", syncSchemes);
     const interval = setInterval(syncSchemes, 3000);
     return () => {
       isMounted = false;
       window.removeEventListener("storage", syncSchemes);
       window.removeEventListener("agni_clients_updated", syncSchemes);
+      window.removeEventListener("agni_pending_updated", syncSchemes);
       clearInterval(interval);
     };
   }, [userEmail, clientInfo]);
@@ -104,7 +155,15 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
 
   function handleApply(scheme) {
     const schemeTitle = scheme.schemeName || scheme.name;
+    const sNameLower = String(schemeTitle).toLowerCase().trim();
+    const sNorm = norm(sNameLower);
     setAppliedScheme(schemeTitle);
+    setOptimisticRequested((prev) => {
+      const next = new Set(prev);
+      next.add(sNameLower);
+      next.add(sNorm);
+      return next;
+    });
     if (onEnrollScheme) {
       onEnrollScheme({
         name: schemeTitle,
@@ -161,6 +220,7 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
         <div className="cd-eligibility-grid">
           {visibleSchemes.map((scheme) => {
             const isEnrolled = enrolledPlanNames.includes((scheme.schemeName || scheme.name || "").toLowerCase());
+            const isRequested = isSchemeRequested(scheme);
             const processTag = scheme.processType === "interview"
               ? "Interview Evaluation"
               : scheme.processType === "application_interview"
@@ -170,9 +230,9 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
             return (
               <article key={scheme.id || scheme.schemeName} className="cd-eligibility-card cd-eligibility-card-enhanced">
                 <div className="cd-eligibility-card-head">
-                  <span className="cd-match-badge cd-match-glow">
-                    <i className="cd-pulse-green" style={{ width: 7, height: 7, background: '#44bfb0' }} />
-                    Eligible
+                  <span className={`cd-match-badge ${isRequested ? "cd-badge-requested" : isEnrolled ? "cd-badge-enrolled" : "cd-match-glow"}`}>
+                    <i className={isRequested ? "cd-pulse-amber" : isEnrolled ? "cd-pulse-green" : "cd-pulse-green"} style={{ width: 7, height: 7, background: isRequested ? '#f59e0b' : '#44bfb0' }} />
+                    {isEnrolled ? "Enrolled" : isRequested ? "Requested" : "Eligible"}
                   </span>
                   <span className="cd-scheme-tag">{processTag}</span>
                 </div>
@@ -183,7 +243,9 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
                 <div className="cd-eligibility-meta-grid">
                   <div>
                     <span>Scheme Status</span>
-                    <strong className="cd-cover-amount" style={{ color: '#44bfb0' }}>Eligible</strong>
+                    <strong className="cd-cover-amount" style={{ color: isRequested ? '#f59e0b' : '#44bfb0' }}>
+                      {isEnrolled ? "Enrolled" : isRequested ? "Requested (Under Review)" : "Eligible"}
+                    </strong>
                   </div>
                   <div>
                     <span>Workflow</span>
@@ -198,13 +260,31 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
 
                 <button
                   type="button"
-                  className="cd-req-service-btn"
-                  disabled={isEnrolled}
-                  onClick={() => setSelectedScheme(scheme)}
-                  style={{ opacity: isEnrolled ? 0.6 : 1 }}
+                  className={`cd-req-service-btn ${isRequested ? "cd-btn-requested" : isEnrolled ? "cd-btn-enrolled" : ""}`}
+                  disabled={isEnrolled || isRequested}
+                  onClick={() => !isEnrolled && !isRequested && setSelectedScheme(scheme)}
+                  style={{
+                    opacity: isEnrolled || isRequested ? 0.9 : 1,
+                    cursor: isEnrolled || isRequested ? "not-allowed" : "pointer"
+                  }}
                 >
-                  <span>{isEnrolled ? "Scheme Enrolled" : "Apply For Scheme"}</span>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
+                  <span>
+                    {isEnrolled ? "Scheme Enrolled" : isRequested ? "Requested for Scheme" : "Apply For Scheme"}
+                  </span>
+                  {isRequested ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
+                    </svg>
+                  ) : isEnrolled ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M5 12h14" /><path d="m13 6 6 6-6 6" />
+                    </svg>
+                  )}
                 </button>
               </article>
             );
@@ -242,9 +322,10 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
             <button
               type="button"
               className="cd-submit-btn cd-submit-btn-glow"
+              disabled={isSchemeRequested(selectedScheme)}
               onClick={() => handleApply(selectedScheme)}
             >
-              Submit Application to Sales Representative
+              {isSchemeRequested(selectedScheme) ? "Application Already Submitted" : "Submit Application to Sales Representative"}
             </button>
           </section>
         </div>

@@ -712,7 +712,14 @@ export default function Dashboard({ onSignOut, userEmail }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter((r) => r.clientEmail === userEmail && r.status.includes("Pending"));
+          const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+          return parsed.filter((r) => {
+            const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+            const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+            const statusStr = String(r.status || "").toLowerCase();
+            const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
+            return emailMatches && isPending;
+          });
         }
       }
     } catch (e) { }
@@ -767,7 +774,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
   // Re-sync enrolled plans when storage event fires or user logs in
   React.useEffect(() => {
 
-    function syncClientPlans() {
+    async function syncClientPlans() {
       const emailKey = (userEmail || "default").trim().toLowerCase();
       const compKey = getClientCompositeKey(clientInfo.companyName, emailKey);
       try {
@@ -869,11 +876,19 @@ export default function Dashboard({ onSignOut, userEmail }) {
         if (savedPending) {
           const parsedPending = JSON.parse(savedPending);
           if (Array.isArray(parsedPending)) {
-            setPendingRequests(parsedPending.filter((r) => (r.clientEmail === userEmail || r.email === userEmail) && r.status && r.status.includes("Pending")));
+            const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+            const currentPending = parsedPending.filter((r) => {
+              const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+              const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+              const statusStr = String(r.status || "").toLowerCase();
+              const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
+              return emailMatches && isPending;
+            });
+            setPendingRequests(currentPending);
 
             parsedPending.forEach((r) => {
               const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
-              if (rEmail === emailKey && (r.status === "Approved & Active" || r.status === "Approved")) {
+              if ((!resolvedEmail || rEmail === resolvedEmail || rEmail === emailKey) && (r.status === "Approved & Active" || r.status === "Approved")) {
                 const sName = getCanonicalSchemeName(r.schemeName);
                 if (sName && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
                   const reqAmt = Number(r.amountRequired || r.fundingRequirement || 0);
@@ -974,12 +989,14 @@ export default function Dashboard({ onSignOut, userEmail }) {
     window.addEventListener("agni_scheme_updated", syncClientPlans);
     window.addEventListener("agni_clients_updated", syncClientPlans);
     window.addEventListener("agni_payments_updated", syncClientPlans);
+    window.addEventListener("agni_pending_updated", syncClientPlans);
     const interval = setInterval(syncClientPlans, 30000);
     return () => {
       window.removeEventListener("storage", syncClientPlans);
       window.removeEventListener("agni_scheme_updated", syncClientPlans);
       window.removeEventListener("agni_clients_updated", syncClientPlans);
       window.removeEventListener("agni_payments_updated", syncClientPlans);
+      window.removeEventListener("agni_pending_updated", syncClientPlans);
       clearInterval(interval);
     };
   }, [userEmail, dbProfile, clientInfo]);
@@ -1093,12 +1110,12 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
   // Handler to apply/enroll in a new scheme (submits pending request to Sales Representative & Branch Manager)
   const handleEnrollScheme = React.useCallback((schemeObj) => {
-    const emailKey = userEmail || "default";
+    const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "client@company.com").toLowerCase().trim();
     const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
 
     const pendingReq = {
       id: `req-${Date.now()}`,
-      clientEmail: userEmail || "client@company.com",
+      clientEmail: resolvedEmail,
       clientName: dbProfile?.representativeName || dbProfile?.companyName || clientInfo.companyName,
       schemeName: schemeObj.name || schemeObj.title || "Custom Scheme Plan",
       tag: schemeObj.tag || schemeObj.category || "General Scheme",
@@ -1118,11 +1135,28 @@ export default function Dashboard({ onSignOut, userEmail }) {
       let allReqs = saved ? JSON.parse(saved) : [];
       if (!Array.isArray(allReqs)) allReqs = [];
 
+      const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const reqNorm = norm(pendingReq.schemeName);
+
       // Avoid duplicate pending requests for the same scheme
-      if (!allReqs.some((r) => r.clientEmail === pendingReq.clientEmail && r.schemeName.toLowerCase() === pendingReq.schemeName.toLowerCase() && r.status.includes("Pending"))) {
-        allReqs.push(pendingReq);
+      const isDuplicate = allReqs.some((r) => {
+        const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
+        const rNorm = norm(r.schemeName || r.name);
+        const emailMatches = !rEmail || !resolvedEmail || rEmail === resolvedEmail;
+        const nameMatches = rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm));
+        const isPending = !r.status || String(r.status).toLowerCase().includes("pending");
+        return emailMatches && nameMatches && isPending;
+      });
+
+      if (!isDuplicate) {
+        allReqs.unshift(pendingReq);
         localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
-        setPendingRequests((prev) => [...prev, pendingReq]);
+        setPendingRequests((prev) => [pendingReq, ...prev.filter((p) => norm(p.schemeName) !== reqNorm)]);
+
+        // Notify client and salesperson components immediately
+        window.dispatchEvent(new CustomEvent("agni_pending_updated"));
+        window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+        window.dispatchEvent(new Event("storage"));
 
         // Post to backend database so Reps and Managers receive the request across devices
         apiFetch("/requests", {
@@ -1652,6 +1686,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
           <MoreServicesPage
             onEnrollScheme={handleEnrollScheme}
             enrolledPlanNames={activePlansList.map((p) => p.name.toLowerCase())}
+            pendingRequests={pendingRequests}
             assignedSalesPerson={dedicatedTeam.salesRepName}
             salesRole={dedicatedTeam.salesRepRole}
             dedicatedTeam={dedicatedTeam}
@@ -1659,7 +1694,13 @@ export default function Dashboard({ onSignOut, userEmail }) {
             clientInfo={clientInfo}
           />
         ) : activeNav === "Eligibility" ? (
-          <EligibilityPage onEnrollScheme={handleEnrollScheme} enrolledPlanNames={activePlansList.map((p) => p.name.toLowerCase())} userEmail={userEmail} clientInfo={clientInfo} />
+          <EligibilityPage
+            onEnrollScheme={handleEnrollScheme}
+            enrolledPlanNames={activePlansList.map((p) => p.name.toLowerCase())}
+            pendingRequests={pendingRequests}
+            userEmail={userEmail}
+            clientInfo={clientInfo}
+          />
         ) : activeNav === "Invoices" ? (
           <InvoicesPage userEmail={userEmail} />
         ) : activeNav === "Payments" ? (
@@ -1667,80 +1708,169 @@ export default function Dashboard({ onSignOut, userEmail }) {
         ) : (
           <>
             {/* ── PENDING PAYMENT DEMAND ALERT BANNER ── */}
-            {pendingPaymentDemands.length > 0 && (
-              <div
-                className="cd-pending-demand-alert-banner"
-                style={{
-                  margin: "0 0 20px 0",
-                  padding: "18px 24px",
-                  borderRadius: 16,
-                  background: "linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(217, 119, 6, 0.1) 100%)",
-                  border: "1.5px solid rgba(245, 158, 11, 0.45)",
-                  boxShadow: "0 8px 24px rgba(245, 158, 11, 0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            {(() => {
+              const unsettledDemands = pendingPaymentDemands.filter(
+                (p) => !String(p.status || "").toLowerCase().includes("awaiting")
+              );
+              const awaitingDemands = pendingPaymentDemands.filter(
+                (p) => String(p.status || "").toLowerCase().includes("awaiting")
+              );
+
+              if (unsettledDemands.length > 0) {
+                const target = unsettledDemands[0];
+                return (
                   <div
+                    className="cd-pending-demand-alert-banner"
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      background: "rgba(245, 158, 11, 0.25)",
-                      color: "#f59e0b",
+                      margin: "0 0 20px 0",
+                      padding: "18px 24px",
+                      borderRadius: 16,
+                      background: "linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(217, 119, 6, 0.1) 100%)",
+                      border: "1.5px solid rgba(245, 158, 11, 0.45)",
+                      boxShadow: "0 8px 24px rgba(245, 158, 11, 0.15)",
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 22,
-                      fontWeight: 800,
+                      justifyContent: "space-between",
+                      gap: 16,
+                      flexWrap: "wrap",
                     }}
                   >
-                    ⚠️
-                  </div>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, color: "#f59e0b" }}>
-                      ACTION REQUIRED: PENDING PAYMENT DEMAND ({pendingPaymentDemands.length})
-                    </span>
-                    <h3 style={{ margin: "2px 0", fontSize: 16, fontWeight: 800, color: "var(--cd-ink, #ffffff)" }}>
-                      Payment Request Issued by Sales Representative
-                    </h3>
-                    <p style={{ margin: 0, fontSize: 13, color: "var(--cd-muted, #cbd5e1)" }}>
-                      {pendingPaymentDemands[0].description || `Payment demand for ₹${Number(pendingPaymentDemands[0].amount || 0).toLocaleString("en-IN")}`}
-                      {pendingPaymentDemands[0].dueDate ? ` • Due: ${pendingPaymentDemands[0].dueDate}` : ""}
-                    </p>
-                  </div>
-                </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <div
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 12,
+                          background: "rgba(245, 158, 11, 0.25)",
+                          color: "#f59e0b",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 22,
+                          fontWeight: 800,
+                        }}
+                      >
+                        ⚠️
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, color: "#f59e0b" }}>
+                          ACTION REQUIRED: PENDING PAYMENT DEMAND ({unsettledDemands.length})
+                        </span>
+                        <h3 style={{ margin: "2px 0", fontSize: 16, fontWeight: 800, color: "var(--cd-ink, #ffffff)" }}>
+                          Payment Request Issued by Sales Representative
+                        </h3>
+                        <p style={{ margin: 0, fontSize: 13, color: "var(--cd-muted, #cbd5e1)" }}>
+                          {target.description || `Payment demand for ₹${Number(target.amount || 0).toLocaleString("en-IN")}`}
+                          {target.dueDate ? ` • Due: ${target.dueDate}` : ""}
+                        </p>
+                      </div>
+                    </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <strong style={{ fontSize: 20, fontWeight: 900, color: "#f59e0b" }}>
-                    ₹{Number(pendingPaymentDemands[0].amount || 0).toLocaleString("en-IN")}
-                  </strong>
-                  <button
-                    type="button"
-                    onClick={() => setActiveNav("Payments")}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <strong style={{ fontSize: 20, fontWeight: 900, color: "#f59e0b" }}>
+                        ₹{Number(target.amount || 0).toLocaleString("en-IN")}
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => setActiveNav("Payments")}
+                        style={{
+                          padding: "10px 22px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                          color: "#ffffff",
+                          fontSize: 13.5,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          boxShadow: "0 4px 14px rgba(245, 158, 11, 0.35)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        Settle & Pay Now →
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (awaitingDemands.length > 0) {
+                const target = awaitingDemands[0];
+                return (
+                  <div
+                    className="cd-pending-demand-alert-banner"
                     style={{
-                      padding: "10px 22px",
-                      borderRadius: 10,
-                      border: "none",
-                      background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-                      color: "#ffffff",
-                      fontSize: 13.5,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      boxShadow: "0 4px 14px rgba(245, 158, 11, 0.35)",
-                      transition: "all 0.15s ease",
+                      margin: "0 0 20px 0",
+                      padding: "18px 24px",
+                      borderRadius: 16,
+                      background: "linear-gradient(135deg, rgba(140, 95, 248, 0.16) 0%, rgba(109, 59, 245, 0.08) 100%)",
+                      border: "1.5px solid rgba(140, 95, 248, 0.4)",
+                      boxShadow: "0 8px 24px rgba(140, 95, 248, 0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      flexWrap: "wrap",
                     }}
                   >
-                    Settle & Pay Now →
-                  </button>
-                </div>
-              </div>
-            )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <div
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 12,
+                          background: "rgba(140, 95, 248, 0.25)",
+                          color: "#8c5ff8",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 22,
+                          fontWeight: 800,
+                        }}
+                      >
+                        ⏳
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, color: "#a78bfa" }}>
+                          PAYMENT SETTLEMENT UNDER VERIFICATION ({awaitingDemands.length})
+                        </span>
+                        <h3 style={{ margin: "2px 0", fontSize: 16, fontWeight: 800, color: "var(--cd-ink, #ffffff)" }}>
+                          Settlement Submitted — Awaiting Sales Approval
+                        </h3>
+                        <p style={{ margin: 0, fontSize: 13, color: "var(--cd-muted, #cbd5e1)" }}>
+                          Payment submitted for ₹{Number(target.amount || 0).toLocaleString("en-IN")}. Your sales representative is reviewing the transaction before issuing your official receipt.
+                        </p>
+                      </div>
+                    </div>
 
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <strong style={{ fontSize: 20, fontWeight: 900, color: "#a78bfa" }}>
+                        ₹{Number(target.amount || 0).toLocaleString("en-IN")}
+                      </strong>
+                      <button
+                        type="button"
+                        onClick={() => setActiveNav("Payments")}
+                        style={{
+                          padding: "10px 22px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "linear-gradient(135deg, #8c5ff8 0%, #6d3bf5 100%)",
+                          color: "#ffffff",
+                          fontSize: 13.5,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          boxShadow: "0 4px 14px rgba(140, 95, 248, 0.35)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        View Status →
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return null;
+            })()}
             {/* ── HERO BANNER & METRICS RIBBON ── */}
             <section className="cd-hero-banner">
               <div className="cd-orb-mesh-1" />

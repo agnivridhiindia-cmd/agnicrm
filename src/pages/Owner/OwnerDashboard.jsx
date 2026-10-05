@@ -249,7 +249,14 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
-          const mapped = data.data.map((r) => {
+          // Secondary scheme requests (NEW_SERVICE) are handled by Sales Representatives & Sales Managers, not Owner Governance.
+          const ownerGovernanceRequests = data.data.filter((r) => {
+            const rawType = String(r.requestType || "").toUpperCase();
+            const reason = String(r.reason || "").toLowerCase();
+            return rawType !== "NEW_SERVICE" && rawType !== "NEW_SCHEME" && !reason.includes("self-enrollment");
+          });
+
+          const mapped = ownerGovernanceRequests.map((r) => {
             const clientName = r.client?.companyName || r.client?.name || r.requestedChanges?.companyName || r.requestedChanges?.name || "Client Account";
             const reqTypeDisplay = r.requestType === "DELETE_CLIENT"
               ? "Delete Client"

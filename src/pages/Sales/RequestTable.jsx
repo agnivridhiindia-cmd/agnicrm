@@ -39,7 +39,17 @@ export function getCategoryBadgeStyle(catStr = "", req = null) {
   return { bg: "rgba(217, 119, 6, 0.12)", color: "#b45309", border: "rgba(217, 119, 6, 0.35)", icon: "edit", label: "Manager Approval: Client Edit" };
 }
 
-export default function RequestTable({ requests = [], onView, onCancel, onApproveScheme, onDeclineScheme, onApproveClientCreation, onDeclineClientCreation }) {
+export default function RequestTable({
+  requests = [],
+  onView,
+  onCancel,
+  onApproveScheme,
+  onDeclineScheme,
+  onApprovePayment,
+  onDeclinePayment,
+  onApproveClientCreation,
+  onDeclineClientCreation
+}) {
   if (requests.length === 0) {
     return (
       <div style={{ padding: "48px 24px", textAlign: "center" }}>
@@ -82,8 +92,9 @@ export default function RequestTable({ requests = [], onView, onCancel, onApprov
           {requests.map((request) => {
             const conf = statusConfig[request.status] || statusConfig.Pending;
             const badge = getCategoryBadgeStyle(request.category || request.requestType || request.schemeName, request);
-            const isSchemeReq = !isPaymentDemandOrSettlement(request) && (request.requestType === "Eligible Scheme" || request.requestType === "More Services" || !!request.schemeName);
-            const isClientCreation = request.requestType === "Client Create" || request.category === "Manager Approval: Client Create";
+            const isPaymentSettlement = request.requestType === "Payment Settlement" || request.category === "Payment Settlement" || isPaymentDemandOrSettlement(request) || !!request.paymentId;
+            const isSchemeReq = !isPaymentSettlement && (request.requestType === "Eligible Scheme" || request.requestType === "More Services" || !!request.schemeName);
+            const isClientCreation = !isPaymentSettlement && (request.requestType === "Client Create" || request.category === "Manager Approval: Client Create");
 
             return (
               <tr key={request.id}>
@@ -141,6 +152,51 @@ export default function RequestTable({ requests = [], onView, onCancel, onApprov
                     >
                       <span>View Details</span>
                     </button>
+
+                    {/* Inline Actions for Payment Settlement Requests */}
+                    {isPaymentSettlement && (request.status.includes("Pending") || request.status === "Pending") && onApprovePayment && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onApprovePayment(request)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            background: "#10b981",
+                            color: "#ffffff",
+                            border: "none",
+                            boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          Approve Settlement ✓
+                        </button>
+                        {onDeclinePayment && (
+                          <button
+                            type="button"
+                            onClick={() => onDeclinePayment(request)}
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              background: "rgba(225, 29, 72, 0.1)",
+                              color: "#e11d48",
+                              border: "1px solid rgba(225, 29, 72, 0.3)",
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            Deny ✕
+                          </button>
+                        )}
+                      </>
+                    )}
 
                     {/* Inline Actions for Scheme Requests */}
                     {isSchemeReq && (request.status.includes("Pending") || request.status === "Pending") && onApproveScheme && (
@@ -210,7 +266,7 @@ export default function RequestTable({ requests = [], onView, onCancel, onApprov
                     )}
 
                     {/* Cancel button for standard Edit/Delete client requests */}
-                    {!isSchemeReq && !isClientCreation && request.status === "Pending" && onCancel && (
+                    {!isSchemeReq && !isClientCreation && !isPaymentSettlement && request.status === "Pending" && onCancel && (
                       <button
                         type="button"
                         onClick={() => onCancel(request.id)}

@@ -61,3 +61,27 @@ export async function decideRequest(req: AuthenticatedRequest, res: Response, ne
     next(error);
   }
 }
+
+export async function approveRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const requestId = req.params.id as string;
+    const managerRemarks = req.body.managerRemarks || req.body.remarks || "Approved";
+    const user = req.user!;
+    const result = await decideRequestService(user, requestId, "APPROVED", managerRemarks);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function declineRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const requestId = req.params.id as string;
+    const managerRemarks = req.body.managerRemarks || req.body.remarks || "Declined";
+    const user = req.user!;
+    const result = await decideRequestService(user, requestId, "REJECTED", managerRemarks);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}

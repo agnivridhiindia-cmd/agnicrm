@@ -160,6 +160,7 @@ const serviceGroups = [
 export default function MoreServicesPage({
   onEnrollScheme,
   enrolledPlanNames = [],
+  pendingRequests = [],
   assignedSalesPerson,
   salesRole,
   dedicatedTeam,
@@ -169,6 +170,78 @@ export default function MoreServicesPage({
   const [requestedService, setRequestedService] = React.useState(null);
   const [submittedService, setSubmittedService] = React.useState(null);
   const [requestNotes, setRequestNotes] = React.useState("");
+  const [optimisticRequested, setOptimisticRequested] = React.useState(new Set());
+  const [, setSyncTick] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleUpdate = () => setSyncTick((t) => t + 1);
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("agni_pending_updated", handleUpdate);
+    window.addEventListener("agni_clients_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("agni_pending_updated", handleUpdate);
+      window.removeEventListener("agni_clients_updated", handleUpdate);
+    };
+  }, []);
+
+  const norm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const isServiceRequested = React.useCallback((service) => {
+    if (!service) return false;
+    const sName = String(service.name || "").toLowerCase().trim();
+    const sNorm = norm(sName);
+    if (!sNorm) return false;
+
+    // Check localStorage first so a decline or approval explicitly supersedes optimisticRequested
+    try {
+      const saved = localStorage.getItem("agni_pending_scheme_requests");
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+          const match = list.find((r) => {
+            const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+            const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+            const rNorm = norm(r.schemeName || r.name);
+            return emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+          });
+          if (match) {
+            const statusStr = String(match.status || "").toLowerCase();
+            if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+              return false;
+            }
+            if (!match.status || statusStr.includes("pending")) {
+              return true;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    const inPendingProp = (pendingRequests || []).some((r) => {
+      const rNorm = norm(r.schemeName || r.name);
+      const isMatch = rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+      const statusStr = String(r.status || "").toLowerCase();
+      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
+      return isMatch && isPending;
+    });
+    if (inPendingProp) return true;
+
+    if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) return true;
+
+    return false;
+  }, [optimisticRequested, pendingRequests, userEmail]);
+
+  const isServiceEnrolled = React.useCallback((service) => {
+    if (!service) return false;
+    const sNorm = norm(service.name);
+    if (!sNorm) return false;
+    return (enrolledPlanNames || []).some((p) => {
+      const pNorm = norm(p);
+      return pNorm && (pNorm === sNorm || pNorm.includes(sNorm) || sNorm.includes(pNorm));
+    });
+  }, [enrolledPlanNames]);
 
   const salesLeadName = React.useMemo(() => {
     if (assignedSalesPerson) return assignedSalesPerson;
@@ -204,21 +277,32 @@ export default function MoreServicesPage({
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (requestedService && onEnrollScheme) {
-      onEnrollScheme({
-        name: requestedService.name,
-        tag: requestedService.tag || "Enterprise Service",
-        category: requestedService.categoryKey || activeCategory,
-        price: requestedService.price || "Standard Active",
-        cover: "Service Enrolled",
-        description: requestedService.description || requestedService.desc || "Active service requested by client.",
+    if (requestedService) {
+      const sNameLower = String(requestedService.name).toLowerCase().trim();
+      const sNorm = norm(sNameLower);
+      setOptimisticRequested((prev) => {
+        const next = new Set(prev);
+        next.add(sNameLower);
+        next.add(sNorm);
+        return next;
       });
+      if (onEnrollScheme) {
+        onEnrollScheme({
+          name: requestedService.name,
+          tag: requestedService.tag || "Enterprise Service",
+          category: requestedService.categoryKey || activeCategory,
+          price: requestedService.price || "Standard Active",
+          cover: "Service Enrolled",
+          description: requestedService.description || requestedService.desc || "Active service requested by client.",
+          notes: requestNotes,
+        });
+      }
+      setSubmittedService({
+        name: requestedService.name
+      });
+      setRequestedService(null);
+      setRequestNotes("");
     }
-    setSubmittedService({
-      name: requestedService.name
-    });
-    setRequestedService(null);
-    setRequestNotes("");
   }
 
   return (
@@ -284,33 +368,64 @@ export default function MoreServicesPage({
             </div>
 
             <div className="cd-service-items-grid">
-              {group.items.map(service => (
-                <article key={service.id} className="cd-service-card">
-                  <div className="cd-service-card-top">
-                    <span className="cd-match-badge" style={{ background: 'rgba(78, 124, 255, 0.12)', color: '#4e7cff' }}>
-                      {service.tag}
-                    </span>
-                  </div>
+              {group.items.map(service => {
+                const isEnrolled = isServiceEnrolled(service);
+                const isRequested = isServiceRequested(service);
 
-                  <h4>{service.name}</h4>
-                  <p>{service.description}</p>
+                return (
+                  <article key={service.id} className="cd-service-card">
+                    <div className="cd-service-card-top">
+                      <span
+                        className={`cd-match-badge ${isRequested ? "cd-badge-requested" : isEnrolled ? "cd-badge-enrolled" : ""}`}
+                        style={{
+                          background: isRequested ? 'rgba(245, 158, 11, 0.16)' : isEnrolled ? 'rgba(68, 191, 176, 0.16)' : 'rgba(78, 124, 255, 0.12)',
+                          color: isRequested ? '#f59e0b' : isEnrolled ? '#44bfb0' : '#4e7cff'
+                        }}
+                      >
+                        {isEnrolled ? "Enrolled Service" : isRequested ? "Requested (Under Review)" : service.tag}
+                      </span>
+                    </div>
 
-                  <div className="cd-feature-bullets" style={{ marginBottom: 20 }}>
-                    {service.features.map(f => (
-                      <span key={f} className="cd-feature-chip">✓ {f}</span>
-                    ))}
-                  </div>
+                    <h4>{service.name}</h4>
+                    <p>{service.description}</p>
 
-                  <button
-                    type="button"
-                    className="cd-req-service-btn"
-                    onClick={() => setRequestedService({ ...service, categoryKey: group.categoryKey })}
-                  >
-                    <span>Request Service</span>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
-                  </button>
-                </article>
-              ))}
+                    <div className="cd-feature-bullets" style={{ marginBottom: 20 }}>
+                      {service.features.map(f => (
+                        <span key={f} className="cd-feature-chip">✓ {f}</span>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`cd-req-service-btn ${isRequested ? "cd-btn-requested" : isEnrolled ? "cd-btn-enrolled" : ""}`}
+                      disabled={isEnrolled || isRequested}
+                      onClick={() => !isEnrolled && !isRequested && setRequestedService({ ...service, categoryKey: group.categoryKey })}
+                      style={{
+                        opacity: isEnrolled || isRequested ? 0.9 : 1,
+                        cursor: isEnrolled || isRequested ? "not-allowed" : "pointer"
+                      }}
+                    >
+                      <span>
+                        {isEnrolled ? "Scheme Enrolled" : isRequested ? "Requested for Scheme" : "Request Scheme"}
+                      </span>
+                      {isRequested ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="12 6 12 12 16 14" />
+                        </svg>
+                      ) : isEnrolled ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                      ) : (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
+                        </svg>
+                      )}
+                    </button>
+                  </article>
+                );
+              })}
             </div>
           </section>
         ))}
