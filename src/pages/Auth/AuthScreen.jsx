@@ -14,56 +14,6 @@ const ROLE_MAP = {
   CLIENT: "Client",
 };
 
-const MOCK_USERS = {
-  "owner@agni.com": "Owner",
-  "client@company.com": "Client",
-  "chaddionpants@gmail.com": "Client",
-  "sanjay@delhiapex.com": "Client",
-  "ariana@agni.com": "Branch Manager",
-  "eli@agni.com": "Manager",
-  "mia@agni.com": "Sales Person",
-  "lucas@agni.com": "Sales Person",
-  "noah@agni.com": "IT",
-  "sophia.it@agni.com": "IT",
-  "daniel@agni.com": "Marketing",
-  "chloe@agni.com": "Marketing",
-  "admin@agni.com": "Admin",
-  "priya.admin@agni.com": "Admin",
-  "rajesh.bm@agni.com": "Branch Manager",
-  "ananya.sm@agni.com": "Manager",
-  "rohan.sales@agni.com": "Sales Person",
-  "kavya.sales@agni.com": "Sales Person",
-  "aarav.it@agni.com": "IT",
-  "ishaan.it@agni.com": "IT",
-  "neha.mkt@agni.com": "Marketing",
-  "sanya.mkt@agni.com": "Marketing",
-  "amit.admin@agni.com": "Admin",
-  "simran.admin@agni.com": "Admin",
-  "suresh.bm@agni.com": "Branch Manager",
-  "karthik.sm@agni.com": "Manager",
-  "arjun.sales@agni.com": "Sales Person",
-  "deepa.sales@agni.com": "Sales Person",
-  "vikram.it@agni.com": "IT",
-  "niharika.it@agni.com": "IT",
-  "pooja.mkt@agni.com": "Marketing",
-  "tarun.mkt@agni.com": "Marketing",
-  "lakshmi.admin@agni.com": "Admin",
-  "rahul.admin@agni.com": "Admin",
-  "subhash.bm@agni.com": "Branch Manager",
-  "debolina.sm@agni.com": "Manager",
-  "sourav.sales@agni.com": "Sales Person",
-  "riya.sales@agni.com": "Sales Person",
-  "arindam.it@agni.com": "IT",
-  "swati.it@agni.com": "IT",
-  "tanmoy.mkt@agni.com": "Marketing",
-  "sneha.mkt@agni.com": "Marketing",
-  "pronab.admin@agni.com": "Admin",
-  "moumita.admin@agni.com": "Admin",
-};
-
-const DEMO_PASSWORD = "password123";
-const DEFAULT_DEMO_EMAIL = "owner@agni.com";
-
 const loginFeatures = [
   { icon: "clients", label: "Manage Leads" },
   { icon: "document", label: "Track Clients" },
@@ -79,12 +29,6 @@ export default function AuthScreen({ onLogin }) {
   const [rememberMe, setRememberMe] = React.useState(Boolean(rememberedEmail));
   const [errorMsg, setErrorMsg] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
-
-  const handleQuickSelect = (accountEmail) => {
-    setEmail(accountEmail);
-    setPassword(DEMO_PASSWORD);
-    setErrorMsg("");
-  };
 
   async function submit(event) {
     event.preventDefault();
@@ -138,18 +82,8 @@ export default function AuthScreen({ onLogin }) {
       return;
     }
 
-    console.warn("Backend API unreachable, checking mock user demo login...");
-    if (targetEmail && MOCK_USERS[targetEmail]) {
-      const fallbackRole = MOCK_USERS[targetEmail];
-      localStorage.setItem("agni_user_email", targetEmail);
-      localStorage.setItem("agni_user_role", fallbackRole);
-      setIsLoading(false);
-      onLogin(targetEmail, fallbackRole);
-      return;
-    }
-
     setIsLoading(false);
-    setErrorMsg("Network error: Unable to reach Agni CRM API server.");
+    setErrorMsg("Network error: Unable to reach Agni CRM API server. Please check your connection.");
   }
 
   return (
@@ -273,33 +207,6 @@ export default function AuthScreen({ onLogin }) {
               <Icon name="arrow" size={17} />
             </button>
           </form>
-
-          {import.meta.env.DEV && (
-            <section className="agn-auth-demo" aria-label="Development test credentials">
-              <p className="agn-auth-demo-title">Development test credentials</p>
-              <dl className="agn-auth-demo-credentials">
-                <div>
-                  <dt>Email</dt>
-                  <dd>{DEFAULT_DEMO_EMAIL}</dd>
-                </div>
-                <div>
-                  <dt>Password</dt>
-                  <dd>{DEMO_PASSWORD}</dd>
-                </div>
-              </dl>
-              <label>
-                <span className="agn-auth-demo-label">Or choose a role to fill the form</span>
-                <select defaultValue="" onChange={(event) => event.target.value && handleQuickSelect(event.target.value)}>
-                  <option value="" disabled>Choose a role account</option>
-                  {Object.entries(MOCK_USERS).map(([accountEmail, role]) => (
-                    <option value={accountEmail} key={accountEmail}>
-                      {role} - {accountEmail}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
-          )}
         </div>
         <p className="agn-auth-secure">
           <Icon name="checkCircle" size={15} />

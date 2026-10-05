@@ -205,43 +205,7 @@ export const services = [
 export const initialOwnerClients = [];
 
 
-export const initialOwnerEmployees = [
-  // --- BRANCH 1: WEST ZONE (MUMBAI) ---
-  { id: 1, name: "Ariana Lee", email: "ariana@agni.com", phone: "+91 98202 22334", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "West Zone (Mumbai)", region: "West Zone", reportingManager: "Devika Shah (Owner)" },
-  { id: 2, name: "Eli Brooks", email: "eli@agni.com", phone: "+91 91234 00222", role: "sales manager", rawRole: "MANAGER", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
-  { id: 3, name: "Mia Rose", email: "mia@agni.com", phone: "+91 98205 55667", role: "sales", rawRole: "SALES_PERSON", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
-  { id: 4, name: "Lucas Scott", email: "lucas@agni.com", phone: "+91 98205 55670", role: "sales", rawRole: "SALES_PERSON", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Eli Brooks" },
-  { id: 5, name: "Noah Kim", email: "noah@agni.com", phone: "+91 98205 55668", role: "IT", rawRole: "IT", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
-  { id: 6, name: "Daniel Cruz", email: "daniel@agni.com", phone: "+91 98205 55669", role: "market", rawRole: "MARKETING", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
-  { id: 7, name: "Vikramaditya Roy", email: "admin@agni.com", phone: "+91 98201 11223", role: "admin", rawRole: "ADMIN", branch: "West Zone (Mumbai)", region: "West Zone", branchManager: "Ariana Lee", reportingManager: "Ariana Lee" },
-
-  // --- BRANCH 2: NORTH ZONE (DELHI) ---
-  { id: 8, name: "Rajesh Khanna", email: "rajesh.bm@agni.com", phone: "+91 98111 22334", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "North Zone (Delhi)", region: "North Zone", reportingManager: "Devika Shah (Owner)" },
-  { id: 9, name: "Ananya Sen", email: "ananya.sm@agni.com", phone: "+91 98111 22335", role: "sales manager", rawRole: "MANAGER", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
-  { id: 10, name: "Rohan Gupta", email: "rohan.sales@agni.com", phone: "+91 98111 22336", role: "sales", rawRole: "SALES_PERSON", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
-  { id: 11, name: "Kavya Sharma", email: "kavya.sales@agni.com", phone: "+91 98111 22337", role: "sales", rawRole: "SALES_PERSON", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
-  { id: 17, name: "Arjun Hegde", email: "arjun.sales@agni.com", phone: "+91 98450 11225", role: "sales", rawRole: "SALES_PERSON", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Ananya Sen" },
-  { id: 12, name: "Aarav Mehta", email: "aarav.it@agni.com", phone: "+91 98111 22338", role: "IT", rawRole: "IT", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
-  { id: 13, name: "Neha Kapoor", email: "neha.mkt@agni.com", phone: "+91 98111 22340", role: "market", rawRole: "MARKETING", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
-  { id: 14, name: "Amit Joshi", email: "amit.admin@agni.com", phone: "+91 98111 22342", role: "admin", rawRole: "ADMIN", branch: "North Zone (Delhi)", region: "North Zone", branchManager: "Rajesh Khanna", reportingManager: "Rajesh Khanna" },
-
-  // --- BRANCH 3: SOUTH ZONE (BENGALURU) ---
-  { id: 15, name: "Suresh Reddy", email: "suresh.bm@agni.com", phone: "+91 98450 11223", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "South Zone (Bengaluru)", region: "South Zone", reportingManager: "Devika Shah (Owner)" },
-  { id: 16, name: "Karthik Iyer", email: "karthik.sm@agni.com", phone: "+91 98450 11224", role: "sales manager", rawRole: "MANAGER", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
-  { id: 18, name: "Deepa Rao", email: "deepa.sales@agni.com", phone: "+91 98450 11226", role: "sales", rawRole: "SALES_PERSON", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Karthik Iyer" },
-  { id: 19, name: "Niharika Bhat", email: "niharika.it@agni.com", phone: "+91 98450 11227", role: "IT", rawRole: "IT", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
-  { id: 20, name: "Pooja Menon", email: "pooja.mkt@agni.com", phone: "+91 98450 11228", role: "market", rawRole: "MARKETING", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
-  { id: 21, name: "Lakshmi Narayanan", email: "lakshmi.admin@agni.com", phone: "+91 98450 11229", role: "admin", rawRole: "ADMIN", branch: "South Zone (Bengaluru)", region: "South Zone", branchManager: "Suresh Reddy", reportingManager: "Suresh Reddy" },
-
-  // --- BRANCH 4: EAST ZONE (KOLKATA) ---
-  { id: 22, name: "Subhash Banerjee", email: "subhash.bm@agni.com", phone: "+91 98300 44556", role: "branch manager", rawRole: "BRANCH_MANAGER", branch: "East Zone (Kolkata)", region: "East Zone", reportingManager: "Devika Shah (Owner)" },
-  { id: 23, name: "Debolina Roy", email: "debolina.sm@agni.com", phone: "+91 98300 44557", role: "sales manager", rawRole: "MANAGER", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
-  { id: 24, name: "Sourav Das", email: "sourav.sales@agni.com", phone: "+91 98300 44558", role: "sales", rawRole: "SALES_PERSON", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Debolina Roy" },
-  { id: 25, name: "Riya Mukherjee", email: "riya.sales@agni.com", phone: "+91 98300 44559", role: "sales", rawRole: "SALES_PERSON", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Debolina Roy" },
-  { id: 26, name: "Arindam Bose", email: "arindam.it@agni.com", phone: "+91 98300 44560", role: "IT", rawRole: "IT", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
-  { id: 27, name: "Tanmoy Dutta", email: "tanmoy.mkt@agni.com", phone: "+91 98300 44561", role: "market", rawRole: "MARKETING", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
-  { id: 28, name: "Pronab Paul", email: "pronab.admin@agni.com", phone: "+91 98300 44562", role: "admin", rawRole: "ADMIN", branch: "East Zone (Kolkata)", region: "East Zone", branchManager: "Subhash Banerjee", reportingManager: "Subhash Banerjee" },
-];
+export const initialOwnerEmployees = [];
 
 export const initialInvoices = [];
 
