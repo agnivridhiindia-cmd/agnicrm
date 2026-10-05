@@ -10,8 +10,8 @@ export const navItems = [
 export const kpiCards = [
   {
     label: "Team members",
-    value: "48",
-    trend: "+12%",
+    value: "0",
+    trend: "+0%",
     description: "Active this month",
     accent: "#4e7cff",
     linkTo: "Team",
@@ -19,8 +19,8 @@ export const kpiCards = [
   },
   {
     label: "Open deals",
-    value: "32",
-    trend: "+9%",
+    value: "0",
+    trend: "+0%",
     description: "In progress",
     accent: "#44bfb0",
     linkTo: "Clients",
@@ -28,139 +28,17 @@ export const kpiCards = [
   },
   {
     label: "Closed this month",
-    value: "18",
-    trend: "+21%",
+    value: "0",
+    trend: "+0%",
     description: "Won opportunities",
     accent: "#9a74e9",
     slug: "clients",
   },
 ];
 
-export const teamPerformance = [
-  { name: "Mia Rose", role: "Senior Sales", score: "92%", detail: "Top conversion" },
-  { name: "Ariana Lee", role: "Branch Lead", score: "88%", detail: "Highest client growth" },
-  { name: "Eli Brooks", role: "Operations", score: "84%", detail: "Process efficiency" },
-  { name: "Noah Kim", role: "Support", score: "81%", detail: "Response quality" },
-  { name: "Priya Menon", role: "Assistant", score: "77%", detail: "Follow up speed" },
-];
+export const teamPerformance = [];
 
-export const salesTeam = [
-  // --- WEST ZONE (MUMBAI) ---
-  {
-    id: 1,
-    name: "Mia Rose",
-    role: "Senior Sales Representative",
-    branch: "West Zone (Mumbai)",
-    branchManager: "Ariana Lee",
-    email: "mia@agni.com",
-    phone: "+91 91234 10101",
-    region: "West Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-02-15",
-  },
-  {
-    id: 2,
-    name: "Lucas Scott",
-    role: "Sales Executive",
-    branch: "West Zone (Mumbai)",
-    branchManager: "Ariana Lee",
-    email: "lucas@agni.com",
-    phone: "+91 91234 10104",
-    region: "West Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-03-12",
-  },
-
-  // --- NORTH ZONE (DELHI) ---
-  {
-    id: 3,
-    name: "Rohan Gupta",
-    role: "Senior Sales Representative",
-    branch: "North Zone (Delhi)",
-    branchManager: "Rajesh Khanna",
-    reportingManager: "Ananya Sen",
-    email: "rohan.sales@agni.com",
-    phone: "+91 91234 30301",
-    region: "North Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-01-10",
-  },
-  {
-    id: 4,
-    name: "Kavya Sharma",
-    role: "Sales Executive",
-    branch: "North Zone (Delhi)",
-    branchManager: "Rajesh Khanna",
-    reportingManager: "Ananya Sen",
-    email: "kavya.sales@agni.com",
-    phone: "+91 91234 30302",
-    region: "North Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-02-20",
-  },
-  {
-    id: 5,
-    name: "Arjun Hegde",
-    role: "Senior Sales Officer",
-    branch: "North Zone (Delhi)",
-    branchManager: "Rajesh Khanna",
-    reportingManager: "Ananya Sen",
-    email: "arjun.sales@agni.com",
-    phone: "+91 91234 20201",
-    region: "North Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-02-01",
-  },
-
-  // --- SOUTH ZONE (BENGALURU) ---
-  {
-    id: 6,
-    name: "Deepa Rao",
-    role: "Sales Executive",
-    branch: "South Zone (Bengaluru)",
-    branchManager: "Suresh Reddy",
-    reportingManager: "Karthik Iyer",
-    email: "deepa.sales@agni.com",
-    phone: "+91 91234 20203",
-    region: "South Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-03-05",
-  },
-
-  // --- EAST ZONE (KOLKATA) ---
-  {
-    id: 7,
-    name: "Sourav Das",
-    role: "Senior Sales Executive",
-    branch: "East Zone (Kolkata)",
-    branchManager: "Subhash Banerjee",
-    email: "sourav.sales@agni.com",
-    phone: "+91 91234 40401",
-    region: "East Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-01-15",
-  },
-  {
-    id: 8,
-    name: "Riya Mukherjee",
-    role: "Sales Specialist",
-    branch: "East Zone (Kolkata)",
-    branchManager: "Subhash Banerjee",
-    email: "riya.sales@agni.com",
-    phone: "+91 91234 40402",
-    region: "East Zone",
-    quota: "₹80k",
-    monthlySales: "₹0",
-    joiningDate: "2024-02-18",
-  },
-];
+export const salesTeam = [];
 
 export const managerClients = [];
 
