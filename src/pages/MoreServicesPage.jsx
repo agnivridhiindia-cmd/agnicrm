@@ -278,6 +278,10 @@ export default function MoreServicesPage({
   function handleSubmit(e) {
     e.preventDefault();
     if (requestedService) {
+      if (isServiceRequested(requestedService) || isServiceEnrolled(requestedService)) {
+        setRequestedService(null);
+        return;
+      }
       const sNameLower = String(requestedService.name).toLowerCase().trim();
       const sNorm = norm(sNameLower);
       setOptimisticRequested((prev) => {
@@ -349,10 +353,20 @@ export default function MoreServicesPage({
 
       {/* Submitted Success Banner */}
       {submittedService && (
-        <div className="cd-alert-success-banner">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Service request for <strong>{submittedService.name}</strong> sent to your assigned sales lead, <strong>{salesLeadName}</strong>! They will contact you within 2 business hours.</span>
-          <button type="button" onClick={() => setSubmittedService(null)}>×</button>
+        <div className="cd-alert-success-banner cd-alert-scheme-banner">
+          <div className="cd-alert-icon-wrap">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <div className="cd-alert-content">
+            <span className="cd-alert-title">Service Request Submitted</span>
+            <span className="cd-alert-desc">
+              Service request for <strong className="cd-alert-scheme-highlight">{submittedService.name}</strong> sent to your assigned sales lead, <strong className="cd-alert-lead-highlight">{salesLeadName}</strong>! They will contact you within 2 business hours.
+            </span>
+          </div>
+          <button type="button" className="cd-alert-close-btn" onClick={() => setSubmittedService(null)} title="Dismiss">×</button>
         </div>
       )}
 
@@ -465,8 +479,16 @@ export default function MoreServicesPage({
                 />
               </label>
 
-              <button type="submit" className="cd-submit-btn cd-submit-btn-glow">
-                Send Request to {salesLeadName}
+              <button
+                type="submit"
+                className="cd-submit-btn cd-submit-btn-glow"
+                disabled={isServiceRequested(requestedService) || isServiceEnrolled(requestedService)}
+              >
+                {isServiceEnrolled(requestedService)
+                  ? "Service Already Active"
+                  : isServiceRequested(requestedService)
+                    ? "Service Request Already Pending"
+                    : `Send Request to ${salesLeadName}`}
               </button>
             </form>
           </section>

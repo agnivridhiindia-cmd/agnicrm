@@ -121,6 +121,44 @@ export async function createRequestService(user: AuthenticatedUser, data: Create
 
   const entityId = data.targetEntityId || resolvedClientId;
 
+  // Prevent duplicate pending requests for the same scheme
+  if (rawReqType === "NEW_SERVICE") {
+    const changes = data.requestedChanges as any;
+    const targetScheme = changes?.schemeName || changes?.name || "";
+    if (targetScheme) {
+      const normS = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const targetNorm = normS(targetScheme);
+
+      const existingPending = await prisma.request.findMany({
+        where: {
+          requestType: "NEW_SERVICE" as any,
+          status: RequestStatus.PENDING,
+          isDeleted: false,
+          OR: [
+            data.clientId ? { clientId: data.clientId } : undefined,
+            user.userId ? { requesterId: user.userId } : undefined,
+            user.email ? { client: { email: { equals: user.email, mode: "insensitive" } } } : undefined,
+          ].filter(Boolean) as any,
+        },
+      });
+
+      const duplicate = existingPending.find((r) => {
+        const payload = r.requestedChanges as any;
+        const rScheme = payload?.schemeName || payload?.name || r.reason || "";
+        return normS(rScheme) === targetNorm;
+      });
+
+      if (duplicate) {
+        return {
+          success: true,
+          statusCode: 200,
+          message: `Application request for ${targetScheme} is already pending review.`,
+          data: duplicate,
+        };
+      }
+    }
+  }
+
   const newRequest = await prisma.request.create({
     data: {
       requestCode,

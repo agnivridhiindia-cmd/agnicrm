@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Icon from "../Icon";
 import { apiFetch } from "../../services/apiClient";
+import "./UserProfileMenu.css";
 
 export default function UserProfileMenu({
   user = {},
@@ -127,6 +128,21 @@ export default function UserProfileMenu({
 
   const strength = getPasswordStrength();
 
+  const storedUser = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("agni_user");
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  const resolvedName = user?.name || storedUser?.fullName || "User";
+  const resolvedEmail = user?.email || storedUser?.email || localStorage.getItem("agni_user_email") || "";
+  const resolvedPhone = user?.phone || storedUser?.phone || "+91 98201 54321";
+  const resolvedBranch = (typeof user?.branch === "string" ? user.branch : user?.branch?.name) || storedUser?.branch?.name || (role === "Owner" ? "Global (All Zones)" : "West Zone (Mumbai)");
+  const resolvedManager = (typeof user?.reportingManager === "string" ? user.reportingManager : user?.reportingManager?.fullName) || storedUser?.reportingManager?.fullName || (role.toLowerCase().includes("owner") ? "Board of Directors" : role.toLowerCase().includes("branch manager") ? "Enterprise Owner" : "Eli Brooks");
+
   return (
     <div className="user-profile-menu-container" ref={menuRef} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
       {/* Role Pill Badge Menu Trigger */}
@@ -182,12 +198,12 @@ export default function UserProfileMenu({
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
-                  {user.name || "User"}
+                  {resolvedName}
                 </strong>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", flexShrink: 0 }} />
               </div>
               <span style={{ fontSize: 11.5, color: "#64748b", display: "block", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {user.email || `${role.toLowerCase().replace(/\s+/g, "")}@agnicrm.com`}
+                {resolvedEmail}
               </span>
             </div>
           </div>
@@ -303,142 +319,107 @@ export default function UserProfileMenu({
       {profileModalOpen &&
         createPortal(
           <div
-            className="admin-modal-backdrop-wrap"
+            className="upm-modal-backdrop"
             onClick={() => setProfileModalOpen(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              width: "100vw",
-              height: "100vh",
-              zIndex: 999999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(15, 23, 42, 0.75)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              padding: "20px 16px",
-              animation: "fadeIn 0.2s ease-out",
-              boxSizing: "border-box",
-            }}
           >
             <div
-              className="admin-panel-card admin-modal-card-container hide-scrollbar"
-              style={{
-                width: "100%",
-                maxWidth: 680,
-                maxHeight: "90vh",
-                overflowY: "auto",
-                scrollbarWidth: "none",
-                position: "relative",
-                animation: "slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-                boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.12)",
-                padding: "26px 30px",
-                margin: "auto",
-              }}
+              className="upm-modal-card hide-scrollbar"
+              style={{ maxWidth: 680 }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header Banner */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
-                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <div className="upm-modal-header">
+                <div className="upm-modal-user-meta">
                   <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 16,
-                      background: avatarColor,
-                      color: "#ffffff",
-                      display: "grid",
-                      placeItems: "center",
-                      fontWeight: 800,
-                      fontSize: 20,
-                      boxShadow: "0 8px 24px rgba(79, 70, 229, 0.35)",
-                      border: "2px solid rgba(255, 255, 255, 0.6)",
-                    }}
+                    className="upm-modal-avatar"
+                    style={{ background: avatarColor }}
                   >
                     {initials}
                   </div>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0f172a" }}>
-                        {user.name || "User Profile"}
+                    <div className="upm-modal-title-row">
+                      <h2 className="upm-modal-title">
+                        {resolvedName}
                       </h2>
-                      <span className="admin-badge" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#10b981", fontSize: 11, fontWeight: 750 }}>
-                        ● Active Duty
+                      <span className="upm-modal-status-badge">
+                        <span className="upm-status-dot" />
+                        Active Duty
                       </span>
                     </div>
-                    <span style={{ fontSize: 12.5, color: "#64748b", marginTop: 2, display: "block" }}>
-                      {user.designation || role} • Emp ID: {user.empId || `EMP-${Math.floor(1000 + Math.random() * 9000)}`}
+                    <span className="upm-modal-subtitle">
+                      {user.designation || role} • Emp ID: {user.empId || (storedUser?.id ? `EMP-${storedUser.id.slice(0, 6).toUpperCase()}` : "EMP-SLS-2024")}
                     </span>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  className="admin-btn-secondary admin-modal-close-circle"
+                  className="upm-modal-close-btn"
                   onClick={() => setProfileModalOpen(false)}
+                  title="Close modal"
+                  aria-label="Close"
                 >
                   ✕
                 </button>
               </div>
 
               {/* General Identity & Contact Section */}
-              <div style={{ marginBottom: 18 }}>
-                <span className="admin-kicker" style={{ fontSize: 11, display: "block", marginBottom: 8 }}>
+              <div style={{ marginBottom: 20 }}>
+                <span className="upm-section-kicker">
                   Official Contact &amp; Department Credentials
                 </span>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div className="admin-subcard" style={{ padding: "10px 14px" }}>
-                    <span className="admin-modal-metric-label">Official Email</span>
-                    <strong style={{ fontSize: 13, marginTop: 2, display: "block", color: "#0f172a" }}>
-                      {user.email || `${role.toLowerCase().replace(/\s+/g, "")}@agnicrm.com`}
+                <div className="upm-grid-2">
+                  <div className="upm-subcard">
+                    <span className="upm-metric-label">Official Email</span>
+                    <strong className="upm-metric-value">
+                      {resolvedEmail}
                     </strong>
                   </div>
-                  <div className="admin-subcard" style={{ padding: "10px 14px" }}>
-                    <span className="admin-modal-metric-label">Contact Number</span>
-                    <strong style={{ fontSize: 13, marginTop: 2, display: "block", color: "#0f172a" }}>
-                      {user.phone || "+91 98200 12345"}
+                  <div className="upm-subcard">
+                    <span className="upm-metric-label">Contact Number</span>
+                    <strong className="upm-metric-value">
+                      {resolvedPhone}
                     </strong>
                   </div>
-                  <div className="admin-subcard" style={{ padding: "10px 14px" }}>
-                    <span className="admin-modal-metric-label">Primary Branch / Zone</span>
-                    <strong style={{ fontSize: 13, marginTop: 2, display: "block", color: "#4f46e5" }}>
-                      {user.branch || "West Zone (Mumbai)"}
+                  <div className="upm-subcard">
+                    <span className="upm-metric-label">Primary Branch / Zone</span>
+                    <strong className="upm-metric-value accent-indigo">
+                      {resolvedBranch}
                     </strong>
                   </div>
-                  <div className="admin-subcard" style={{ padding: "10px 14px" }}>
-                    <span className="admin-modal-metric-label">Reporting Authority</span>
-                    <strong style={{ fontSize: 13, marginTop: 2, display: "block", color: "#0f172a" }}>
-                      {user.reportingManager || (role === "Owner" ? "Board of Directors" : role === "Branch Manager" ? "Enterprise Owner" : "Branch Manager")}
+                  <div className="upm-subcard">
+                    <span className="upm-metric-label">Reporting Authority</span>
+                    <strong className="upm-metric-value">
+                      {resolvedManager}
                     </strong>
                   </div>
                 </div>
               </div>
 
               {/* Role-Specific Operational Metrics */}
-              <div style={{ marginBottom: 18 }}>
-                <span className="admin-kicker" style={{ fontSize: 11, display: "block", marginBottom: 8 }}>
+              <div style={{ marginBottom: 20 }}>
+                <span className="upm-section-kicker">
                   {role.toUpperCase()} OPERATIONAL SCOPE &amp; AUTHORIZATION
                 </span>
 
                 {/* SALES PROFILE METRICS */}
                 {role.toLowerCase().includes("sales") && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Quarterly Quota</span>
-                      <strong style={{ fontSize: 14, color: "#4f46e5", marginTop: 2, display: "block" }}>
-                        {user.quota || "₹15,00,000"}
+                  <div className="upm-grid-3">
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Quarterly Quota</span>
+                      <strong className="upm-metric-value accent-indigo" style={{ fontSize: 16 }}>
+                        {user.quota || "₹80,000"}
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Quota Achieved</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
-                        {user.achieved || "₹11,40,000 (76%)"}
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Quota Achieved</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
+                        {user.achieved || "₹50,000 (63%)"}
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Commission Tier</span>
-                      <strong style={{ fontSize: 14, color: "#f59e0b", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Commission Tier</span>
+                      <strong className="upm-metric-value accent-amber" style={{ fontSize: 16 }}>
                         Tier 1 (4.5%)
                       </strong>
                     </div>
@@ -447,22 +428,22 @@ export default function UserProfileMenu({
 
                 {/* BRANCH MANAGER PROFILE METRICS */}
                 {role.toLowerCase().includes("branch manager") && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Branch Oversight</span>
-                      <strong style={{ fontSize: 14, color: "#4f46e5", marginTop: 2, display: "block" }}>
+                  <div className="upm-grid-3">
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Branch Oversight</span>
+                      <strong className="upm-metric-value accent-indigo" style={{ fontSize: 16 }}>
                         {user.branch || "West Zone"}
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Team Size</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Team Size</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
                         18 Personnel
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Approval Authority</span>
-                      <strong style={{ fontSize: 14, color: "#f59e0b", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Approval Authority</span>
+                      <strong className="upm-metric-value accent-amber" style={{ fontSize: 16 }}>
                         Tier A (Full Reversal)
                       </strong>
                     </div>
@@ -471,22 +452,22 @@ export default function UserProfileMenu({
 
                 {/* ADMIN PROFILE METRICS */}
                 {role.toLowerCase().includes("admin") && !role.toLowerCase().includes("it") && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Audit Clearance</span>
-                      <strong style={{ fontSize: 14, color: "#4f46e5", marginTop: 2, display: "block" }}>
+                  <div className="upm-grid-3">
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Audit Clearance</span>
+                      <strong className="upm-metric-value accent-indigo" style={{ fontSize: 16 }}>
                         5-Point Milestone Level
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Registered Schemes</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Registered Schemes</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
                         Scheme A, B, C &amp; D
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Reversal Authority</span>
-                      <strong style={{ fontSize: 14, color: "#f59e0b", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Reversal Authority</span>
+                      <strong className="upm-metric-value accent-amber" style={{ fontSize: 16 }}>
                         Petition Mode Only
                       </strong>
                     </div>
@@ -495,22 +476,22 @@ export default function UserProfileMenu({
 
                 {/* MANAGER PROFILE METRICS */}
                 {role.toLowerCase() === "manager" && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Department</span>
-                      <strong style={{ fontSize: 14, color: "#4f46e5", marginTop: 2, display: "block" }}>
+                  <div className="upm-grid-3">
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Department</span>
+                      <strong className="upm-metric-value accent-indigo" style={{ fontSize: 16 }}>
                         Enterprise Sales &amp; CRM
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Direct Reps</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Direct Reps</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
                         8 Sales Reps
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Pipeline Active</span>
-                      <strong style={{ fontSize: 14, color: "#f59e0b", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Pipeline Active</span>
+                      <strong className="upm-metric-value accent-amber" style={{ fontSize: 16 }}>
                         ₹84,50,000
                       </strong>
                     </div>
@@ -519,22 +500,22 @@ export default function UserProfileMenu({
 
                 {/* OWNER PROFILE METRICS */}
                 {role.toLowerCase().includes("owner") && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Enterprise Access</span>
-                      <strong style={{ fontSize: 14, color: "#4f46e5", marginTop: 2, display: "block" }}>
+                  <div className="upm-grid-3">
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Enterprise Access</span>
+                      <strong className="upm-metric-value accent-indigo" style={{ fontSize: 16 }}>
                         Global Super Admin
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Branches Governed</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Branches Governed</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
                         All Zones (West, North, South)
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Corporate CIN</span>
-                      <strong style={{ fontSize: 14, color: "#8c5ff8", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Corporate CIN</span>
+                      <strong className="upm-metric-value accent-purple" style={{ fontSize: 16 }}>
                         U74999MH2022PTC123456
                       </strong>
                     </div>
@@ -543,22 +524,22 @@ export default function UserProfileMenu({
 
                 {/* IT ADMIN METRICS */}
                 {role.toLowerCase().includes("it") && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Infrastructure Scope</span>
-                      <strong style={{ fontSize: 14, color: "#4f46e5", marginTop: 2, display: "block" }}>
+                  <div className="upm-grid-3">
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Infrastructure Scope</span>
+                      <strong className="upm-metric-value accent-indigo" style={{ fontSize: 16 }}>
                         Cloud, MDM &amp; DevOps
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Retainers Managed</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Retainers Managed</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
                         14 Enterprise Retainers
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">SLA Uptime</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">SLA Uptime</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
                         99.98%
                       </strong>
                     </div>
@@ -567,22 +548,22 @@ export default function UserProfileMenu({
 
                 {/* MARKETING LEAD METRICS */}
                 {role.toLowerCase().includes("marketing") && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Live Campaigns</span>
-                      <strong style={{ fontSize: 14, color: "#4f46e5", marginTop: 2, display: "block" }}>
+                  <div className="upm-grid-3">
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Live Campaigns</span>
+                      <strong className="upm-metric-value accent-indigo" style={{ fontSize: 16 }}>
                         8 Active Ad Sets
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Monthly Inflow</span>
-                      <strong style={{ fontSize: 14, color: "#10b981", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Monthly Inflow</span>
+                      <strong className="upm-metric-value accent-green" style={{ fontSize: 16 }}>
                         420 MQLs
                       </strong>
                     </div>
-                    <div className="admin-subcard" style={{ padding: "10px 12px" }}>
-                      <span className="admin-modal-metric-label">Avg CAC</span>
-                      <strong style={{ fontSize: 14, color: "#f59e0b", marginTop: 2, display: "block" }}>
+                    <div className="upm-subcard">
+                      <span className="upm-metric-label">Avg CAC</span>
+                      <strong className="upm-metric-value accent-amber" style={{ fontSize: 16 }}>
                         ₹1,850 / Deal
                       </strong>
                     </div>
@@ -591,23 +572,23 @@ export default function UserProfileMenu({
               </div>
 
               {/* Security Clearance */}
-              <div className="admin-subcard" style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Icon name="checkCircle" size={16} />
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
-                    Two-Factor Authentication: <strong style={{ color: "#10b981" }}>Enabled (Hardware &amp; SMS)</strong>
+              <div className="upm-security-strip">
+                <div className="upm-security-status">
+                  <Icon name="checkCircle" size={17} style={{ color: "#34d399", flexShrink: 0 }} />
+                  <span>
+                    Two-Factor Authentication: <strong>Enabled (Hardware &amp; SMS)</strong>
                   </span>
                 </div>
-                <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                <span className="upm-session-ip-badge">
                   Session IP: 192.168.1.104
                 </span>
               </div>
 
               {/* Footer Buttons */}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 22, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
                 <button
                   type="button"
-                  className="admin-btn-secondary"
+                  className="upm-btn-secondary"
                   onClick={() => {
                     setProfileModalOpen(false);
                     setPasswordModalOpen(true);
@@ -617,9 +598,8 @@ export default function UserProfileMenu({
                 </button>
                 <button
                   type="button"
-                  className="admin-btn-primary"
+                  className="upm-btn-primary"
                   onClick={() => setProfileModalOpen(false)}
-                  style={{ padding: "8px 24px" }}
                 >
                   Done
                 </button>
@@ -633,83 +613,59 @@ export default function UserProfileMenu({
       {passwordModalOpen &&
         createPortal(
           <div
-            className="admin-modal-backdrop-wrap"
+            className="upm-modal-backdrop"
             onClick={() => setPasswordModalOpen(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              width: "100vw",
-              height: "100vh",
-              zIndex: 999999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(15, 23, 42, 0.75)",
-              backdropFilter: "blur(14px)",
-              WebkitBackdropFilter: "blur(14px)",
-              padding: "20px 16px",
-              animation: "fadeIn 0.2s ease-out",
-              boxSizing: "border-box",
-            }}
           >
             <div
-              className="admin-panel-card admin-modal-card-container hide-scrollbar"
-              style={{
-                width: "100%",
-                maxWidth: 480,
-                padding: "26px 30px",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                scrollbarWidth: "none",
-                position: "relative",
-                animation: "slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-                boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.12)",
-                margin: "auto",
-              }}
+              className="upm-modal-card hide-scrollbar"
+              style={{ maxWidth: 480 }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="upm-modal-header" style={{ marginBottom: 18 }}>
                 <div>
-                  <span className="admin-kicker" style={{ fontSize: 11, display: "block", marginBottom: 4 }}>
+                  <span className="upm-section-kicker" style={{ marginBottom: 4 }}>
                     ACCOUNT SECURITY &amp; CREDENTIALS
                   </span>
-                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: "#0f172a" }}>
+                  <h2 className="upm-modal-title" style={{ fontSize: 20 }}>
                     Change Password
                   </h2>
                 </div>
                 <button
                   type="button"
-                  className="admin-btn-secondary admin-modal-close-circle"
+                  className="upm-modal-close-btn"
                   onClick={() => setPasswordModalOpen(false)}
+                  title="Close modal"
+                  aria-label="Close"
                 >
                   ✕
                 </button>
               </div>
 
               {passwordError && (
-                <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.3)", color: "#f43f5e", fontSize: 12.5, marginBottom: 14 }}>
-                  {passwordError}
+                <div className="upm-error-banner">
+                  <Icon name="alertCircle" size={16} style={{ flexShrink: 0 }} />
+                  <span>{passwordError}</span>
                 </div>
               )}
 
-              <form onSubmit={handlePasswordSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <form onSubmit={handlePasswordSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* Current Password */}
-                <div>
-                  <label className="admin-form-label" style={{ marginBottom: 5 }}>Current Password</label>
-                  <div style={{ position: "relative" }}>
+                <div className="upm-form-group">
+                  <label className="upm-form-label">Current Password</label>
+                  <div className="upm-input-wrap">
                     <input
                       type={showCurrent ? "text" : "password"}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       placeholder="Enter current password"
-                      className="admin-form-input"
+                      className="upm-form-input"
                       required
                     />
                     <button
                       type="button"
+                      className="upm-input-toggle-btn"
                       onClick={() => setShowCurrent(!showCurrent)}
-                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12 }}
                     >
                       {showCurrent ? "Hide" : "Show"}
                     </button>
@@ -717,21 +673,21 @@ export default function UserProfileMenu({
                 </div>
 
                 {/* New Password */}
-                <div>
-                  <label className="admin-form-label" style={{ marginBottom: 5 }}>New Password</label>
-                  <div style={{ position: "relative" }}>
+                <div className="upm-form-group">
+                  <label className="upm-form-label">New Password</label>
+                  <div className="upm-input-wrap">
                     <input
                       type={showNew ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Enter new password"
-                      className="admin-form-input"
+                      className="upm-form-input"
                       required
                     />
                     <button
                       type="button"
+                      className="upm-input-toggle-btn"
                       onClick={() => setShowNew(!showNew)}
-                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12 }}
                     >
                       {showNew ? "Hide" : "Show"}
                     </button>
@@ -739,34 +695,43 @@ export default function UserProfileMenu({
 
                   {/* Password Strength Indicator */}
                   {newPassword && (
-                    <div style={{ marginTop: 6 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, marginBottom: 4 }}>
-                        <span style={{ color: "#64748b" }}>Strength: <strong style={{ color: strength.color }}>{strength.label}</strong></span>
-                        <span style={{ color: strength.color }}>● {strength.label}</span>
+                    <div className="upm-strength-meter">
+                      <div className="upm-strength-label-row">
+                        <span style={{ color: "#94a3b8" }}>
+                          Strength: <strong style={{ color: strength.color }}>{strength.label}</strong>
+                        </span>
+                        <span style={{ color: strength.color, fontWeight: 700 }}>● {strength.label}</span>
                       </div>
-                      <div style={{ height: 4, width: "100%", background: "rgba(0,0,0,0.06)", borderRadius: 99, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${strength.score}%`, background: strength.color, transition: "all 0.25s ease" }} />
+                      <div className="upm-strength-track">
+                        <div
+                          className="upm-strength-fill"
+                          style={{
+                            width: `${strength.score}%`,
+                            background: strength.color,
+                            boxShadow: `0 0 8px ${strength.color}66`,
+                          }}
+                        />
                       </div>
                     </div>
                   )}
                 </div>
 
                 {/* Retype Password */}
-                <div>
-                  <label className="admin-form-label" style={{ marginBottom: 5 }}>Retype Password</label>
-                  <div style={{ position: "relative" }}>
+                <div className="upm-form-group">
+                  <label className="upm-form-label">Retype Password</label>
+                  <div className="upm-input-wrap">
                     <input
                       type={showConfirm ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Retype new password"
-                      className="admin-form-input"
+                      className="upm-form-input"
                       required
                     />
                     <button
                       type="button"
+                      className="upm-input-toggle-btn"
                       onClick={() => setShowConfirm(!showConfirm)}
-                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12 }}
                     >
                       {showConfirm ? "Hide" : "Show"}
                     </button>
@@ -774,10 +739,10 @@ export default function UserProfileMenu({
                 </div>
 
                 {/* Action Buttons */}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 10, paddingTop: 14, borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
                   <button
                     type="button"
-                    className="admin-btn-secondary"
+                    className="upm-btn-secondary"
                     onClick={() => {
                       setPasswordModalOpen(false);
                       setPasswordError("");
@@ -788,8 +753,7 @@ export default function UserProfileMenu({
                   </button>
                   <button
                     type="submit"
-                    className="admin-btn-primary"
-                    style={{ padding: "8px 20px" }}
+                    className="upm-btn-primary"
                     disabled={passwordLoading}
                   >
                     {passwordLoading ? "Updating Password..." : "Update Password"}
