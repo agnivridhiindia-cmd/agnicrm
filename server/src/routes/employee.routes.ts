@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 import {
   createEmployee,
   getBranches,
+  createBranch,
   deleteEmployee,
   getDeletedEmployees,
   restoreEmployee,
@@ -22,6 +23,13 @@ router.get(
   "/branches",
   authorizeRoles(Role.OWNER, Role.ADMIN),
   getBranches
+);
+
+// POST /api/v1/employees/branches — create a new branch (Owner/Admin only)
+router.post(
+  "/branches",
+  authorizeRoles(Role.OWNER, Role.ADMIN),
+  createBranch
 );
 
 // GET /api/v1/employees/deleted — list all soft-deleted employees and their archived data

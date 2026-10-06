@@ -80,6 +80,9 @@ export function AuthProvider({ children }) {
         localStorage.setItem("agni_user_email", newUser.email);
         localStorage.setItem("agni_email", newUser.email);
       }
+      if (newUser.branch?.name) {
+        localStorage.setItem("agni_user_branch", newUser.branch.name);
+      }
     }
     syncAuthFromStorage();
     window.dispatchEvent(new Event("storage"));
@@ -89,6 +92,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     localStorage.removeItem("agni_token");
     localStorage.removeItem("agni_user");
+    localStorage.removeItem("agni_user_branch");
     localStorage.removeItem("agni_user_role");
     localStorage.removeItem("agni_role");
     localStorage.removeItem("agni_user_email");

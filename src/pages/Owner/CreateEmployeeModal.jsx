@@ -41,6 +41,10 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(null);
   const [step, setStep] = useState(1); // 1=form, 2=success
+  const [branchMode, setBranchMode] = useState("choose"); // "choose" | "make"
+  const [newBranch, setNewBranch] = useState({ name: "", city: "", region: "" });
+  const [branchCreating, setBranchCreating] = useState(false);
+  const [branchMessage, setBranchMessage] = useState("");
 
   // Fetch branches on mount
   useEffect(() => {
@@ -180,6 +184,54 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
     setError("");
   };
 
+  const handleNewBranchChange = (e) => {
+    const { name, value } = e.target;
+    setNewBranch((prev) => ({ ...prev, [name]: value }));
+    setError("");
+  };
+
+  const handleCreateBranchQuick = async (e) => {
+    if (e) e.preventDefault();
+    if (!newBranch.name.trim()) {
+      setError("Please enter a branch name to create.");
+      return;
+    }
+    setBranchCreating(true);
+    setError("");
+    try {
+      const res = await apiFetch("/employees/branches", {
+        method: "POST",
+        body: {
+          name: newBranch.name.trim(),
+          city: newBranch.city.trim() || newBranch.name.trim(),
+          region: newBranch.region.trim() || newBranch.name.trim(),
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.branch) {
+        setBranches((prev) => {
+          const exists = prev.some((b) => b.id === data.branch.id);
+          return exists ? prev : [...prev, data.branch];
+        });
+        setForm((prev) => ({
+          ...prev,
+          branchId: data.branch.id,
+          region: data.branch.region || prev.region,
+        }));
+        setBranchMessage(`✓ Branch "${data.branch.name}" created and chosen!`);
+        setTimeout(() => setBranchMessage(""), 4500);
+        setBranchMode("choose");
+        setNewBranch({ name: "", city: "", region: "" });
+      } else {
+        setError(data.message || "Failed to create branch.");
+      }
+    } catch (err) {
+      setError("Network error while creating branch.");
+    } finally {
+      setBranchCreating(false);
+    }
+  };
+
   const validate = () => {
     if (!form.fullName.trim() || form.fullName.trim().length < 2)
       return "Full name must be at least 2 characters.";
@@ -204,12 +256,31 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
     setError("");
 
     try {
+      let targetBranchId = form.branchId || undefined;
+
+      // If user is on "make a branch" mode and typed a branch name, create it and link
+      if (branchMode === "make" && newBranch.name.trim()) {
+        const bRes = await apiFetch("/employees/branches", {
+          method: "POST",
+          body: {
+            name: newBranch.name.trim(),
+            city: newBranch.city.trim() || newBranch.name.trim(),
+            region: newBranch.region.trim() || newBranch.name.trim(),
+          },
+        });
+        const bData = await bRes.json();
+        if (bData.success && bData.branch) {
+          targetBranchId = bData.branch.id;
+          setBranches((prev) => [...prev, bData.branch]);
+        }
+      }
+
       const payload = {
         fullName: form.fullName.trim(),
         email: form.email.toLowerCase().trim(),
         phone: form.phone.trim() || undefined,
         role: form.role,
-        branchId: form.branchId || undefined,
+        branchId: targetBranchId,
         region: form.region.trim() || undefined,
         reportingManagerId:
           form.reportingManagerId && form.reportingManagerId !== "__OWNER__"
@@ -449,54 +520,243 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
               )}
             </div>
 
-            <div className="cem-field">
-              <label className="cem-label" htmlFor="cem-branchId">
-                Branch
-              </label>
-              <div className="cem-input-wrap">
-                <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
-                <select
-                  id="cem-branchId"
-                  className="cem-select"
-                  name="branchId"
-                  value={form.branchId}
-                  onChange={handleChange}
-                  disabled={branchesLoading}
-                >
-                  <option value="">
-                    {branchesLoading ? "Loading branches..." : "— Select a branch —"}
-                  </option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.city})
-                    </option>
-                  ))}
-                </select>
+            {/* Branch Section: Choose a Branch vs Make a Branch */}
+            <div className="cem-field cem-field-wide">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label className="cem-label" style={{ margin: 0 }}>
+                  Branch Allocation <span className="cem-required">*</span>
+                </label>
+                {branchMessage && (
+                  <span style={{ fontSize: 11.5, color: "#10b981", fontWeight: 700 }}>
+                    {branchMessage}
+                  </span>
+                )}
               </div>
-              {selectedBranch && (
-                <p className="cem-field-hint">
-                  Region: <strong>{selectedBranch.region}</strong>
-                </p>
-              )}
-            </div>
 
-            <div className="cem-field">
-              <label className="cem-label" htmlFor="cem-region">
-                Region
-              </label>
-              <div className="cem-input-wrap">
-                <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
-                <input
-                  id="cem-region"
-                  className="cem-input"
-                  type="text"
-                  name="region"
-                  value={form.region}
-                  onChange={handleChange}
-                  placeholder="e.g. West Zone"
-                  readOnly={!!form.branchId}
-                />
+              {/* Segmented Control */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  background: dark ? "rgba(0,0,0,0.25)" : "#e2e8f0",
+                  padding: 3,
+                  borderRadius: 10,
+                  gap: 4,
+                  marginBottom: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setBranchMode("choose")}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 7,
+                    border: "none",
+                    fontWeight: branchMode === "choose" ? 700 : 500,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    background: branchMode === "choose" ? (dark ? "#334155" : "#ffffff") : "transparent",
+                    color: branchMode === "choose" ? (dark ? "#ffffff" : "#0f172a") : "#64748b",
+                    boxShadow: branchMode === "choose" ? "0 2px 5px rgba(0,0,0,0.06)" : "none",
+                  }}
+                >
+                  <Icon name="branches" size={13} />
+                  <span>Choose a Branch</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBranchMode("make")}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 7,
+                    border: "none",
+                    fontWeight: branchMode === "make" ? 700 : 500,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    background: branchMode === "make" ? (dark ? "#334155" : "#ffffff") : "transparent",
+                    color: branchMode === "make" ? (dark ? "#ffffff" : "#0f172a") : "#64748b",
+                    boxShadow: branchMode === "make" ? "0 2px 5px rgba(0,0,0,0.06)" : "none",
+                  }}
+                >
+                  <Icon name="plus" size={13} />
+                  <span>Make a Branch</span>
+                </button>
               </div>
+
+              {/* Mode 1: Choose from existing branches */}
+              {branchMode === "choose" && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div className="cem-field">
+                    <label className="cem-label" htmlFor="cem-branchId">
+                      Select Existing Branch
+                    </label>
+                    <div className="cem-input-wrap">
+                      <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
+                      <select
+                        id="cem-branchId"
+                        className="cem-select"
+                        name="branchId"
+                        value={form.branchId}
+                        onChange={handleChange}
+                        disabled={branchesLoading}
+                      >
+                        <option value="">
+                          {branchesLoading ? "Loading branches..." : "— Select a branch —"}
+                        </option>
+                        {branches.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.city})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedBranch && (
+                      <p className="cem-field-hint">
+                        Region: <strong>{selectedBranch.region}</strong>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="cem-field">
+                    <label className="cem-label" htmlFor="cem-region">
+                      Region
+                    </label>
+                    <div className="cem-input-wrap">
+                      <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
+                      <input
+                        id="cem-region"
+                        className="cem-input"
+                        type="text"
+                        name="region"
+                        value={form.region}
+                        onChange={handleChange}
+                        placeholder="e.g. West Zone"
+                        readOnly={!!form.branchId}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mode 2: Make a branch then choose */}
+              {branchMode === "make" && (
+                <div
+                  style={{
+                    background: dark ? "rgba(255,255,255,0.03)" : "#f8fafc",
+                    border: dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e8f0",
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#6366f1" }}>
+                      ✦ Make a new branch and choose it for this employee:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setBranchMode("choose")}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#64748b",
+                        fontSize: 11.5,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      ← Back to choose branch
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 10 }}>
+                    <div className="cem-field">
+                      <label className="cem-label" htmlFor="new-branch-name">
+                        Branch Name <span className="cem-required">*</span>
+                      </label>
+                      <div className="cem-input-wrap">
+                        <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
+                        <input
+                          id="new-branch-name"
+                          className="cem-input"
+                          type="text"
+                          name="name"
+                          value={newBranch.name}
+                          onChange={handleNewBranchChange}
+                          placeholder="e.g. Delhi Branch (North Zone)"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="cem-field">
+                      <label className="cem-label" htmlFor="new-branch-city">
+                        City
+                      </label>
+                      <div className="cem-input-wrap">
+                        <span className="cem-input-icon"><Icon name="mapPin" size={14} /></span>
+                        <input
+                          id="new-branch-city"
+                          className="cem-input"
+                          type="text"
+                          name="city"
+                          value={newBranch.city}
+                          onChange={handleNewBranchChange}
+                          placeholder="e.g. New Delhi"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="cem-field">
+                      <label className="cem-label" htmlFor="new-branch-region">
+                        Region
+                      </label>
+                      <div className="cem-input-wrap">
+                        <span className="cem-input-icon"><Icon name="globe" size={14} /></span>
+                        <input
+                          id="new-branch-region"
+                          className="cem-input"
+                          type="text"
+                          name="region"
+                          value={newBranch.region}
+                          onChange={handleNewBranchChange}
+                          placeholder="e.g. North Zone"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={handleCreateBranchQuick}
+                      disabled={branchCreating || !newBranch.name.trim()}
+                      className="owner-btn-primary"
+                      style={{
+                        padding: "7px 16px",
+                        fontSize: 12,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        opacity: !newBranch.name.trim() ? 0.6 : 1,
+                      }}
+                    >
+                      <Icon name="check" size={13} />
+                      <span>{branchCreating ? "Creating..." : "✓ Make & Choose This Branch"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="cem-field">

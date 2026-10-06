@@ -75,10 +75,13 @@ export default function AuthScreen({ onLogin }) {
       }
       if (data.user) {
         localStorage.setItem("agni_user", JSON.stringify(data.user));
+        if (data.user.branch?.name) {
+          localStorage.setItem("agni_user_branch", data.user.branch.name);
+        }
       }
 
       setIsLoading(false);
-      onLogin(data.user.email, mappedRole, data.token);
+      onLogin(data.user.email, mappedRole, data.token, data.user);
       return;
     }
 
