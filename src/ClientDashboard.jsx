@@ -356,34 +356,145 @@ export default function Dashboard({ onSignOut, userEmail }) {
   }, [userEmail]);
 
   const clientInfo = React.useMemo(() => {
+    let authUser = null;
+    try {
+      const savedUser = localStorage.getItem("agni_user");
+      if (savedUser) authUser = JSON.parse(savedUser);
+    } catch (e) {}
+
+    const emailKey = (userEmail || "").trim().toLowerCase();
+    let tempDoc = null;
+    try {
+      const savedTemp = localStorage.getItem(`agni_doc_temp_${emailKey}`);
+      if (savedTemp) tempDoc = JSON.parse(savedTemp);
+    } catch (e) {}
+
     const defaultCompName = userEmail ? userEmail.split("@")[0].toUpperCase() : "Client Company";
-    const resolvedCompName = dbProfile?.companyName || activeSalesClient?.company || activeSalesClient?.name || clientStoredData?.companyName || defaultCompName;
-    const rawReq = dbProfile?.fundingRequirement || activeSalesClient?.fundingRequirement || activeSalesClient?.requiredAmount || clientStoredData?.fundingRequirement;
+    const resolvedCompName =
+      dbProfile?.companyName ||
+      activeSalesClient?.company ||
+      activeSalesClient?.name ||
+      clientStoredData?.companyName ||
+      tempDoc?.companyName ||
+      defaultCompName;
+
+    const resolvedRepName =
+      dbProfile?.representativeName ||
+      dbProfile?.contactPerson ||
+      dbProfile?.name ||
+      activeSalesClient?.contactPerson ||
+      activeSalesClient?.representativeName ||
+      activeSalesClient?.name ||
+      clientStoredData?.representativeName ||
+      clientStoredData?.contactPerson ||
+      tempDoc?.representativeName ||
+      authUser?.fullName ||
+      authUser?.name ||
+      "Client";
+
+    const resolvedClientId =
+      dbProfile?.appId ||
+      dbProfile?.id ||
+      activeSalesClient?.appId ||
+      activeSalesClient?.clientId ||
+      activeSalesClient?.id ||
+      "APP-2026-001";
+
+    const rawReq =
+      dbProfile?.fundingRequirement ||
+      activeSalesClient?.fundingRequirement ||
+      activeSalesClient?.requiredAmount ||
+      clientStoredData?.fundingRequirement ||
+      tempDoc?.fundingRequirement;
     const reqNum = rawReq && !isNaN(Number(rawReq)) && Number(rawReq) >= 100000 ? Number(rawReq) : 2500000;
+
     return {
-      eligibleSchemes: dbProfile?.eligibleSchemes || activeSalesClient?.eligibleSchemes || [],
+      name: resolvedRepName,
+      representativeName: resolvedRepName,
+      company: resolvedCompName,
       companyName: resolvedCompName,
-      representativeName: dbProfile?.representativeName || dbProfile?.contactPerson || activeSalesClient?.contactPerson || activeSalesClient?.name || clientStoredData?.representativeName || "Client Representative",
-      phone: dbProfile?.contactNumber || dbProfile?.phone || activeSalesClient?.phone || clientStoredData?.contactNumber || "+91 98765 43210",
-      registrationNumber: dbProfile?.gstNumber || dbProfile?.panNumber || clientStoredData?.gstNumber || clientStoredData?.panNumber || "GSTIN 27ABCDE1234F1Z5",
-      email: userEmail || "client@company.com",
-      address: dbProfile?.address || activeSalesClient?.address || "Main Office Address",
-      gstNumber: dbProfile?.gstNumber || clientStoredData?.gstNumber || "N/A (Optional)",
-      panNumber: dbProfile?.panNumber || clientStoredData?.panNumber || "ABCDE1234F",
-      aadharNumber: dbProfile?.aadharNumber || clientStoredData?.aadharNumber || "1234 5678 9012",
-      msmeNumber: dbProfile?.msmeNumber || clientStoredData?.msmeNumber || "N/A",
-      businessType: dbProfile?.businessType || clientStoredData?.businessType || "Pvt Ltd",
-      sector: dbProfile?.sector || clientStoredData?.sector || "Manufacturing",
-      companyAge: dbProfile?.companyAge || clientStoredData?.companyAge || "1 Year",
-      annualTurnover: (dbProfile?.annualTurnover || clientStoredData?.annualTurnover) ? `₹${Number(dbProfile?.annualTurnover || clientStoredData?.annualTurnover).toLocaleString("en-IN")}` : "N/A (Startup)",
-      fundingRequirement: reqNum >= 10000000 ? `₹${(reqNum / 10000000).toFixed(0)} Cr` : `₹${reqNum.toLocaleString("en-IN")}`,
+      clientId: resolvedClientId,
+      eligibleSchemes: dbProfile?.eligibleSchemes || activeSalesClient?.eligibleSchemes || [],
+      phone:
+        dbProfile?.contactNumber ||
+        dbProfile?.phone ||
+        activeSalesClient?.phone ||
+        clientStoredData?.contactNumber ||
+        tempDoc?.contactNumber ||
+        "+91 98765 43210",
+      registrationNumber:
+        dbProfile?.gstNumber ||
+        dbProfile?.panNumber ||
+        clientStoredData?.gstNumber ||
+        clientStoredData?.panNumber ||
+        tempDoc?.gstNumber ||
+        tempDoc?.panNumber ||
+        "GSTIN 27ABCDE1234F1Z5",
+      email: userEmail || authUser?.email || "client@company.com",
+      address:
+        dbProfile?.address ||
+        activeSalesClient?.address ||
+        clientStoredData?.address ||
+        tempDoc?.address ||
+        "Main Office Address",
+      gstNumber:
+        dbProfile?.gstNumber ||
+        clientStoredData?.gstNumber ||
+        tempDoc?.gstNumber ||
+        "N/A (Optional)",
+      panNumber:
+        dbProfile?.panNumber ||
+        clientStoredData?.panNumber ||
+        tempDoc?.panNumber ||
+        "ABCDE1234F",
+      aadharNumber:
+        dbProfile?.aadharNumber ||
+        clientStoredData?.aadharNumber ||
+        tempDoc?.aadharNumber ||
+        "1234 5678 9012",
+      msmeNumber:
+        dbProfile?.msmeNumber ||
+        clientStoredData?.msmeNumber ||
+        tempDoc?.msmeNumber ||
+        "N/A",
+      businessType:
+        dbProfile?.businessType ||
+        clientStoredData?.businessType ||
+        tempDoc?.businessType ||
+        "Pvt Ltd",
+      sector:
+        dbProfile?.sector ||
+        clientStoredData?.sector ||
+        tempDoc?.sector ||
+        "Manufacturing",
+      companyAge:
+        dbProfile?.companyAge ||
+        clientStoredData?.companyAge ||
+        tempDoc?.companyAge ||
+        "1 Year",
+      annualTurnover:
+        (dbProfile?.annualTurnover || clientStoredData?.annualTurnover || tempDoc?.annualTurnover)
+          ? `₹${Number(dbProfile?.annualTurnover || clientStoredData?.annualTurnover || tempDoc?.annualTurnover).toLocaleString("en-IN")}`
+          : "N/A (Startup)",
+      fundingRequirement:
+        reqNum >= 10000000 ? `₹${(reqNum / 10000000).toFixed(0)} Cr` : `₹${reqNum.toLocaleString("en-IN")}`,
       tier: "Enterprise Client",
       status: "Active",
-      relationshipManager: "Kansish",
+      relationshipManager:
+        dbProfile?.salesManagerName ||
+        dbProfile?.salesManager?.fullName ||
+        "Kansish",
       managerRole: "Enterprise Account Lead",
-      salesRepresentative: dbProfile?.salesPerson?.fullName || dbProfile?.owner || "Lucas Scott",
+      salesRepresentative:
+        dbProfile?.salesRepresentativeName ||
+        dbProfile?.salesPerson?.fullName ||
+        activeSalesClient?.salesPerson ||
+        "Lucas Scott",
       salesRole: "Senior Sales Lead",
-      branch: "West Regional Branch",
+      branch:
+        dbProfile?.branchName ||
+        dbProfile?.branch?.name ||
+        "West Regional Branch",
       memberSince: "14 June 2024",
       activeCoverage: "₹5.0 Cr",
       totalServices: "4 Active Plans",
@@ -1749,14 +1860,16 @@ export default function Dashboard({ onSignOut, userEmail }) {
                   }}
                   title="Account & Profile"
                 >
-                  DS
+                  {(clientInfo.companyName || "AI").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
                 </button>
                 {profileOpen && (
                   <section className="cd-popover cd-profile-popover">
                     <div className="cd-profile-header">
-                      <div className="cd-profile-avatar">DS</div>
+                      <div className="cd-profile-avatar">
+                        {(clientInfo.companyName || "AI").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
                       <div>
-                        <strong>{clientInfo.name}</strong>
+                        <strong>{clientInfo.companyName}</strong>
                         <span className="cd-profile-email">{clientInfo.email}</span>
                       </div>
                     </div>
@@ -2426,7 +2539,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
             {/* Top Banner Profile Identity */}
             <div className="cd-profile-dossier-hero">
               <div className="cd-profile-dossier-avatar">
-                AI
+                {(clientInfo.companyName || "AI").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
                 <span className="cd-online-dot-lg" title="Active Account" />
               </div>
               <div className="cd-profile-dossier-info">
@@ -2437,12 +2550,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
                   </span>
                 </div>
                 <h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 4px", color: "var(--cd-ink)" }}>
-                  {clientInfo.company}
+                  {clientInfo.companyName}
                 </h2>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                   <span className="cd-meta-badge id-badge">ID: {clientInfo.clientId}</span>
                   <span className="cd-meta-badge tier-badge">{clientInfo.tier}</span>
-                  <span className="cd-meta-badge mgr-badge">Authorized: {clientInfo.name}</span>
                 </div>
               </div>
             </div>
@@ -2454,11 +2566,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
             </div>
             <div className="cd-dossier-grid">
               <div className="cd-dossier-card">
-                <span className="cd-dossier-label">Authorized Signatory</span>
-                <strong className="cd-dossier-val">{clientInfo.name}</strong>
-                <small className="cd-dossier-sub">{clientInfo.designation}</small>
-              </div>
-              <div className="cd-dossier-card">
                 <span className="cd-dossier-label">Official Email</span>
                 <strong className="cd-dossier-val">{clientInfo.email}</strong>
                 <small className="cd-dossier-sub">Registered primary login ID</small>
@@ -2468,7 +2575,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                 <strong className="cd-dossier-val">{clientInfo.phone}</strong>
                 <small className="cd-dossier-sub">24/7 Verified Contact</small>
               </div>
-              <div className="cd-dossier-card">
+              <div className="cd-dossier-card" style={{ gridColumn: "1 / -1" }}>
                 <span className="cd-dossier-label">Registered Office</span>
                 <strong className="cd-dossier-val" style={{ fontSize: 12.5, lineHeight: 1.4 }}>
                   {clientInfo.address}
