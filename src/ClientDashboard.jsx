@@ -311,6 +311,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
   React.useEffect(() => {
     repairClientStorageData();
     syncTeamHierarchyFromDB();
+
     async function fetchMyProfileFromDB() {
       try {
         const response = await apiFetch("/clients/my-profile");
@@ -326,12 +327,98 @@ export default function Dashboard({ onSignOut, userEmail }) {
       }
     }
 
-    fetchMyProfileFromDB();
+    async function syncMyRequestsFromDB() {
+      try {
+        const response = await apiFetch("/requests");
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.data)) {
+            const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+            const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-    // Re-fetch when admin updates milestones on any scheme
-    window.addEventListener("agni_clients_updated", fetchMyProfileFromDB);
+            const saved = localStorage.getItem("agni_pending_scheme_requests");
+            let localList = saved ? JSON.parse(saved) : [];
+            if (!Array.isArray(localList)) localList = [];
+
+            resData.data.forEach((r) => {
+              const pendingData = r.requestType === "NEW_SERVICE" && r.requestedChanges ? r.requestedChanges : null;
+              const isScheme = Boolean(
+                pendingData?.schemeName ||
+                pendingData?.cover ||
+                pendingData?.tag ||
+                String(r.reason || "").toLowerCase().includes("self-enrollment")
+              );
+              if (!isScheme) return;
+
+              const sName = pendingData?.schemeName || pendingData?.name || r.reason?.replace(/Client self-enrollment for /i, "").split(" (")[0] || "Custom Scheme Plan";
+              const rNorm = norm(sName);
+              const rStatus = r.status === "APPROVED" ? "Approved & Active" : r.status === "REJECTED" ? "Declined" : "Pending Sales Approval & Payment";
+
+              const existingIdx = localList.findIndex((item) => norm(item.schemeName) === rNorm);
+              const itemObj = {
+                id: r.requestCode || r.id,
+                rawId: r.id,
+                clientId: r.clientId,
+                clientName: clientInfo.representativeName || clientInfo.companyName || "Client",
+                companyName: clientInfo.companyName,
+                clientEmail: resolvedEmail,
+                schemeName: sName,
+                tag: pendingData?.tag || "General Scheme",
+                category: pendingData?.category || "",
+                price: pendingData?.price || "Standard Fee",
+                cover: pendingData?.cover || "Standard Coverage",
+                detail: pendingData?.detail || "Client requested scheme enrollment.",
+                status: rStatus,
+                decisionDate: r.decisionDate || "",
+                amountRequired: pendingData?.cover || pendingData?.amountRequired || 0,
+                fundingRequirement: pendingData?.cover || pendingData?.amountRequired || 0,
+                createdAt: r.createdAt,
+              };
+
+              if (existingIdx >= 0) {
+                localList[existingIdx] = { ...localList[existingIdx], ...itemObj, status: rStatus };
+              } else {
+                localList.push(itemObj);
+              }
+            });
+
+            try {
+              localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(localList));
+            } catch (e) {}
+
+            const activePending = localList.filter((r) => {
+              const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+              const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+              const statusStr = String(r.status || "").toLowerCase();
+              return emailMatches && (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
+            });
+
+            setPendingRequests(activePending);
+            setTrackerSyncTick((t) => t + 1);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not sync client requests from DB:", err);
+      }
+    }
+
+    fetchMyProfileFromDB();
+    syncMyRequestsFromDB();
+
+    const handleDataUpdate = () => {
+      fetchMyProfileFromDB();
+      syncMyRequestsFromDB();
+    };
+
+    // Re-fetch when updates occur or SSE broadcasts
+    window.addEventListener("agni_clients_updated", handleDataUpdate);
+    window.addEventListener("agni_requests_updated", handleDataUpdate);
+    window.addEventListener("agni_pending_updated", handleDataUpdate);
+
     return () => {
-      window.removeEventListener("agni_clients_updated", fetchMyProfileFromDB);
+      window.removeEventListener("agni_clients_updated", handleDataUpdate);
+      window.removeEventListener("agni_requests_updated", handleDataUpdate);
+      window.removeEventListener("agni_pending_updated", handleDataUpdate);
     };
   }, [userEmail]);
 

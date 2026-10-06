@@ -51,6 +51,7 @@ export function resolveApprovalChain(action: string, requesterRole: Role): Role[
       return []; // Owner executes directly
 
     case "NEW_SERVICE":
+      if (requesterRole === Role.CLIENT) return [Role.SALES_PERSON];
       // Legacy preserved flow: Salesperson -> Sales Manager
       return [Role.MANAGER];
 
@@ -63,6 +64,7 @@ export function resolveApprovalChain(action: string, requesterRole: Role): Role[
  * Helper to map a target role to a readable stage string.
  */
 export function getStageForRole(role: Role | string): string {
+  if (role === Role.SALES_PERSON || role === "SALES_PERSON") return "PENDING_SALES_PERSON";
   if (role === Role.MANAGER || role === "MANAGER") return "PENDING_SALES_MANAGER";
   if (role === Role.BRANCH_MANAGER || role === "BRANCH_MANAGER") return "PENDING_BRANCH_MANAGER";
   if (role === Role.OWNER || role === "OWNER" || role === Role.ADMIN || role === "ADMIN") return "PENDING_OWNER";
@@ -77,6 +79,10 @@ export function isUserAuthorizedForStage(userRole: Role | string, currentStage: 
   if (roleStr === "OWNER" || roleStr === "ADMIN") {
     // Owner and Admin can oversee or step into any stage
     return true;
+  }
+
+  if (currentStage === "PENDING_SALES_PERSON") {
+    return roleStr === "SALES_PERSON" || roleStr === "MANAGER";
   }
 
   if (currentStage === "PENDING_SALES_MANAGER") {
@@ -110,7 +116,7 @@ export async function executeWorkflowDecision(
     where: { id: requestId, isDeleted: false },
     include: {
       client: true,
-      requester: { select: { id: true, fullName: true, role: true, branchId: true } },
+      requester: { select: { id: true, fullName: true, role: true, email: true, branchId: true } },
     },
   });
 
@@ -573,6 +579,38 @@ export async function executeWorkflowDecision(
   // Invalidate cache and broadcast real-time event to all connected reps, managers, and admins
   if (result.statusCode === 200) {
     invalidateClientCache();
+
+    const clientName =
+      existingRequest.client?.name ||
+      existingRequest.client?.companyName ||
+      (existingRequest.requestedChanges as any)?.companyName ||
+      (existingRequest.requestedChanges as any)?.name ||
+      "Client";
+
+    const targetSalesPersonId =
+      existingRequest.requesterId ||
+      existingRequest.client?.salesPersonId ||
+      (existingRequest.requestedChanges as any)?.resolvedSalesPersonId;
+
+    const targetSalesPersonEmail = existingRequest.requester?.email || null;
+
+    // Persist targeted notification in database for the specific salesperson who owns the client
+    if (targetSalesPersonId) {
+      await prisma.notification.create({
+        data: {
+          title: decision === "APPROVED"
+            ? `Client Request Approved`
+            : `Client Request Rejected`,
+          detail: decision === "APPROVED"
+            ? `Your request for "${clientName}" was approved by ${user.role}!`
+            : `Your request for "${clientName}" was rejected: ${managerRemarks || "No remarks"}`,
+          issuer: user.email || "Sales Manager",
+          tone: decision === "APPROVED" ? "green" : "red",
+          userId: targetSalesPersonId,
+        },
+      }).catch((e) => console.warn("Failed to create DB notification for requester:", e));
+    }
+
     broadcastSseEvent({
       type: decision === "APPROVED" ? "REQUEST_APPROVED" : "REQUEST_REJECTED",
       payload: {
@@ -584,8 +622,11 @@ export async function executeWorkflowDecision(
         reviewerEmail: user.email,
         reviewerRole: user.role,
         requesterId: existingRequest.requesterId,
+        requesterEmail: targetSalesPersonEmail,
+        targetSalesPersonId: targetSalesPersonId,
+        targetSalesPersonEmail: targetSalesPersonEmail,
         clientId: existingRequest.clientId || (existingRequest as any).targetEntityId,
-        clientName: existingRequest.client?.name || "Client",
+        clientName: clientName,
         managerRemarks: managerRemarks || null,
         message: result.message,
         data: result.data,
