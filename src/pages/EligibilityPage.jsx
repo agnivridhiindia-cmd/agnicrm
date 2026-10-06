@@ -47,7 +47,6 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
   const [selectedScheme, setSelectedScheme] = useState(null);
   const [appliedScheme, setAppliedScheme] = useState(null);
   const [optimisticRequested, setOptimisticRequested] = useState(new Set());
-  const [syncTick, setSyncTick] = useState(0);
 
   const [schemesList, setSchemesList] = useState(() => readStoredSchemes(userEmail, clientInfo));
 
@@ -55,12 +54,9 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
 
   const isSchemeRequested = React.useCallback((scheme) => {
     if (!scheme) return false;
-    const sName = String(scheme.schemeName || scheme.name || scheme.title || "").toLowerCase().trim();
+    const sName = String(scheme.schemeName || scheme.name || "").toLowerCase().trim();
     const sNorm = norm(sName);
     if (!sNorm) return false;
-
-    let isExplicitlyDeclined = false;
-    let isExplicitlyPending = false;
 
     // Check localStorage first so a decline or approval explicitly supersedes optimisticRequested
     try {
@@ -69,45 +65,30 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
         const list = JSON.parse(saved);
         if (Array.isArray(list)) {
           const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
-          list.forEach((r) => {
+          const match = list.find((r) => {
             const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
             const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
             const rNorm = norm(r.schemeName || r.name);
-            const isMatch = emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
-            if (isMatch) {
-              const statusStr = String(r.status || "").toLowerCase();
-              if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
-                isExplicitlyDeclined = true;
-              } else if (!r.status || statusStr.includes("pending")) {
-                isExplicitlyPending = true;
-              }
-            }
+            return emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
           });
+          if (match) {
+            const statusStr = String(match.status || "").toLowerCase();
+            if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+              return false;
+            }
+            if (!match.status || statusStr.includes("pending")) {
+              return true;
+            }
+          }
         }
       }
     } catch (e) {}
-
-    // If marked as declined or rejected in DB/local list, immediately purge from optimistic requested and return false
-    if (isExplicitlyDeclined) {
-      if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) {
-        setOptimisticRequested((prev) => {
-          const next = new Set(prev);
-          next.delete(sName);
-          next.delete(sNorm);
-          return next;
-        });
-      }
-      return false;
-    }
-
-    if (isExplicitlyPending) return true;
 
     const inPendingProp = (pendingRequests || []).some((r) => {
       const rNorm = norm(r.schemeName || r.name);
       const isMatch = rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
       const statusStr = String(r.status || "").toLowerCase();
-      const isDeclined = statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved");
-      const isPending = (!r.status || statusStr.includes("pending")) && !isDeclined;
+      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
       return isMatch && isPending;
     });
     if (inPendingProp) return true;
@@ -115,19 +96,10 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
     if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) return true;
 
     return false;
-  }, [optimisticRequested, pendingRequests, userEmail, syncTick]);
+  }, [optimisticRequested, pendingRequests, userEmail]);
 
   useEffect(() => {
     let isMounted = true;
-
-    const handleSyncTick = () => {
-      if (isMounted) setSyncTick((t) => t + 1);
-    };
-
-    window.addEventListener("storage", handleSyncTick);
-    window.addEventListener("agni_requests_updated", handleSyncTick);
-    window.addEventListener("agni_pending_updated", handleSyncTick);
-    window.addEventListener("agni_clients_updated", handleSyncTick);
 
     async function syncSchemes() {
       // 1. Check local cache or clientInfo first
@@ -160,18 +132,12 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
     window.addEventListener("storage", syncSchemes);
     window.addEventListener("agni_clients_updated", syncSchemes);
     window.addEventListener("agni_pending_updated", syncSchemes);
-    window.addEventListener("agni_requests_updated", syncSchemes);
     const interval = setInterval(syncSchemes, 3000);
     return () => {
       isMounted = false;
-      window.removeEventListener("storage", handleSyncTick);
-      window.removeEventListener("agni_requests_updated", handleSyncTick);
-      window.removeEventListener("agni_pending_updated", handleSyncTick);
-      window.removeEventListener("agni_clients_updated", handleSyncTick);
       window.removeEventListener("storage", syncSchemes);
       window.removeEventListener("agni_clients_updated", syncSchemes);
       window.removeEventListener("agni_pending_updated", syncSchemes);
-      window.removeEventListener("agni_requests_updated", syncSchemes);
       clearInterval(interval);
     };
   }, [userEmail, clientInfo]);
@@ -189,7 +155,7 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
 
   function handleApply(scheme) {
     if (!scheme || isSchemeRequested(scheme)) return;
-    const schemeTitle = scheme.schemeName || scheme.name || scheme.title;
+    const schemeTitle = scheme.schemeName || scheme.name;
     const sNameLower = String(schemeTitle).toLowerCase().trim();
     const sNorm = norm(sNameLower);
     setAppliedScheme(schemeTitle);
@@ -201,10 +167,7 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
     });
     if (onEnrollScheme) {
       onEnrollScheme({
-        ...scheme,
         name: schemeTitle,
-        schemeName: schemeTitle,
-        title: schemeTitle,
         description: scheme.description,
         tag: scheme.processType === "interview" ? "Interview Evaluation" : scheme.processType === "application_interview" ? "Application + Pitch" : "Direct Scheme Application",
         price: "Government / Subsidy Scheme",

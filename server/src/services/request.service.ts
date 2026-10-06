@@ -1,4 +1,4 @@
-import { RequestType, RequestStatus, Role } from "@prisma/client";
+import { RequestType, RequestStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { generateRequestCode } from "../utils/idGenerator";
@@ -49,28 +49,7 @@ export async function getRequestsService(user: AuthenticatedUser) {
       { requesterId: user.userId },
       { client: { salesPersonId: user.userId } },
       { targetEntityId: user.userId },
-      ...(repBranchId ? [
-        { client: { branchId: repBranchId } },
-        { requester: { branchId: repBranchId } },
-      ] : []),
-      // Secondary scheme / new service requests initiated by clients
-      {
-        requestType: RequestType.NEW_SERVICE,
-        requester: { role: Role.CLIENT },
-        ...(repBranchId
-          ? {
-              OR: [
-                { client: { branchId: repBranchId } },
-                { client: { branchId: null } },
-                { client: { salesPersonId: user.userId } },
-                { client: { salesPersonId: null } },
-                { requester: { branchId: repBranchId } },
-                { requester: { branchId: null } },
-                { clientId: null },
-              ],
-            }
-          : {}),
-      },
+      ...(repBranchId ? [{ client: { branchId: repBranchId } }] : []),
     ];
   } else if (user.role === "CLIENT") {
     whereClause.OR = [
@@ -121,7 +100,7 @@ export async function createRequestService(user: AuthenticatedUser, data: Create
   const rawReqType = String(data.requestType);
   const approvalChain = resolveApprovalChain(rawReqType, user.role);
   const currentStage = approvalChain.length > 0 ? getStageForRole(approvalChain[0]) : "PENDING_SALES_MANAGER";
-  const entityType = data.targetEntityType || (user.role === "CLIENT" || data.clientId ? "CLIENT" : "EMPLOYEE");
+  const entityType = data.targetEntityType || (data.clientId ? "CLIENT" : "EMPLOYEE");
   let resolvedClientId: string | null = data.clientId || (entityType === "CLIENT" ? data.targetEntityId || null : null);
 
   // If requester is a client, safely resolve valid clientId in database
@@ -133,19 +112,14 @@ export async function createRequestService(user: AuthenticatedUser, data: Create
       });
     }
     if (!clientRecord) {
-      const payloadEmail = (data.requestedChanges as any)?.clientEmail || (data.requestedChanges as any)?.email;
-      const searchEmails = [user.email, payloadEmail].filter(Boolean);
-      for (const email of searchEmails) {
-        clientRecord = await prisma.client.findFirst({
-          where: { email: { equals: email, mode: "insensitive" }, isDeleted: false },
-        });
-        if (clientRecord) break;
-      }
+      clientRecord = await prisma.client.findFirst({
+        where: { email: { equals: user.email, mode: "insensitive" }, isDeleted: false },
+      });
     }
     resolvedClientId = clientRecord?.id || null;
   }
 
-  const entityId = data.targetEntityId || resolvedClientId || (user.role === "CLIENT" ? user.userId : null);
+  const entityId = data.targetEntityId || resolvedClientId;
 
   // Prevent duplicate pending requests for the same scheme
   if (rawReqType === "NEW_SERVICE") {
