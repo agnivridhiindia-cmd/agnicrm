@@ -106,7 +106,7 @@ export function useSalesClients(salesPersonName, onClientAdded) {
               } catch (e) {}
 
               const computedRec = Math.min(finalTot, Math.max(rawRec, localRec, (rawRec + paidDemandsSum)));
-              const finalRec = (!isSec && computedRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? finalTot : computedRec;
+              const finalRec = (computedRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE" || c.stage === "ACTIVE")) ? finalTot : computedRec;
               const finalPend = Math.max(0, finalTot - finalRec);
 
               return sanitizeClientRecord({

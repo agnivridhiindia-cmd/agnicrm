@@ -522,20 +522,66 @@ export async function executeWorkflowDecision(
           }
         }
       } else if (existingRequest.requestType === RequestType.NEW_SERVICE) {
-        // Preserved legacy salesperson client registration approval
-        if (!existingRequest.clientId && existingRequest.requestedChanges) {
+        // Preserved salesperson client registration approval & secondary scheme provisioning
+        if (existingRequest.requestedChanges) {
           const payload = existingRequest.requestedChanges as any;
-          const newClient = await createActiveClientCore(
-            tx,
-            payload,
-            payload.resolvedSalesPersonId || existingRequest.requesterId,
-            payload.resolvedBranchId || "",
-            "ACTIVE"
-          );
-          await tx.request.update({
-            where: { id: existingRequest.id },
-            data: { clientId: newClient.id },
-          });
+          let existingClient = null;
+          if (existingRequest.clientId) {
+            existingClient = await tx.client.findUnique({
+              where: { id: existingRequest.clientId },
+            });
+          }
+
+          const targetEmail = payload.clientEmail || payload.email || existingClient?.email;
+          const targetScheme = payload.schemeName || payload.serviceName;
+
+          if (targetEmail && targetScheme) {
+            const clientPayload = {
+              companyName: existingClient?.companyName || payload.companyName || payload.clientName || payload.name || "Client Company",
+              contactPerson: existingClient?.contactPerson || payload.clientName || payload.contactPerson || payload.name || "Representative",
+              name: existingClient?.name || payload.companyName || payload.clientName || payload.name || "Client Company",
+              email: targetEmail,
+              phone: existingClient?.phone || payload.phone || "+91 98765 43210",
+              address: existingClient?.address || payload.address,
+              serviceType: payload.serviceType || "CONSULTANCY",
+              serviceName: targetScheme,
+              amount: Number(payload.totalPayment || payload.amount || payload.pitchedAmount || payload.price || 0),
+              paymentMode: payload.paymentMode ? String(payload.paymentMode).toUpperCase() : "ONLINE",
+              paymentReceived: Number(payload.paymentReceived || payload.receivedAmount || payload.amount || 0),
+              fundingRequirement: Number(payload.amountRequired || payload.fundingRequirement || existingClient?.fundingRequirement || 1000000),
+              adminNotes: payload.notes || payload.detail || payload.adminNotes,
+              isPrimary: false,
+              processType: "secondary",
+            };
+
+            const salesPersonId = payload.resolvedSalesPersonId || existingClient?.salesPersonId || existingRequest.requesterId || user.userId;
+            const branchId = payload.resolvedBranchId || existingClient?.branchId || user.branchId || "";
+
+            const newClient = await createActiveClientCore(
+              tx,
+              clientPayload,
+              salesPersonId,
+              branchId,
+              "ACTIVE"
+            );
+
+            await tx.request.update({
+              where: { id: existingRequest.id },
+              data: { clientId: newClient.id },
+            });
+          } else if (!existingRequest.clientId) {
+            const newClient = await createActiveClientCore(
+              tx,
+              payload,
+              payload.resolvedSalesPersonId || existingRequest.requesterId,
+              payload.resolvedBranchId || "",
+              "ACTIVE"
+            );
+            await tx.request.update({
+              where: { id: existingRequest.id },
+              data: { clientId: newClient.id },
+            });
+          }
         }
       }
 

@@ -82,7 +82,7 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const inPendingProp = (pendingRequests || []).some((r) => {
       const rNorm = norm(r.schemeName || r.name);
@@ -119,7 +119,7 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
             if (userEmail) {
               try {
                 localStorage.setItem(`agni_client_eligible_schemes_${userEmail.toLowerCase().trim()}`, JSON.stringify(dbSchemes));
-              } catch (e) {}
+              } catch (e) { }
             }
           }
         }
@@ -141,6 +141,47 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
       clearInterval(interval);
     };
   }, [userEmail, clientInfo]);
+
+  // Bug #4 fix: Clear optimisticRequested entries for schemes that are now declined or approved.
+  // This ensures the Apply button reverts when a salesperson declines the request.
+  useEffect(() => {
+    function clearSettledOptimistic() {
+      try {
+        const saved = localStorage.getItem("agni_pending_scheme_requests");
+        if (!saved) return;
+        const list = JSON.parse(saved);
+        if (!Array.isArray(list) || list.length === 0) return;
+        const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+        const settled = new Set();
+        list.forEach((r) => {
+          const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+          const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+          if (!emailMatch) return;
+          const statusStr = String(r.status || "").toLowerCase();
+          if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+            const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const sNorm = norm(r.schemeName || r.name);
+            const sName = String(r.schemeName || r.name || "").toLowerCase().trim();
+            if (sNorm) settled.add(sNorm);
+            if (sName) settled.add(sName);
+          }
+        });
+        if (settled.size === 0) return;
+        setOptimisticRequested((prev) => {
+          const next = new Set(prev);
+          settled.forEach((key) => next.delete(key));
+          return next.size === prev.size ? prev : next;
+        });
+      } catch (e) { }
+    }
+    clearSettledOptimistic();
+    window.addEventListener("agni_pending_updated", clearSettledOptimistic);
+    window.addEventListener("storage", clearSettledOptimistic);
+    return () => {
+      window.removeEventListener("agni_pending_updated", clearSettledOptimistic);
+      window.removeEventListener("storage", clearSettledOptimistic);
+    };
+  }, [userEmail]);
 
   // STRICT FILTER: Show schemes enabled by Salesperson UNTIL the client enrolls in them
   const visibleSchemes = useMemo(() => {

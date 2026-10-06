@@ -876,6 +876,35 @@ export default function Dashboard({ onSignOut, userEmail }) {
     };
   }, [dbProfile, userEmail, clientInfo]);
 
+  // Robust client identity detector: prevents client company name, contact person, or email handle from ever being treated as a scheme
+  const isClientIdentityName = React.useCallback((schemeInput) => {
+    if (!schemeInput) return false;
+    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const sNorm = norm(schemeInput);
+    if (!sNorm) return false;
+
+    // Check against client company name (e.g. "xyz")
+    const compNorm = norm(clientInfo?.companyName || dbProfile?.companyName || "");
+    if (compNorm && (sNorm === compNorm || (sNorm.includes(compNorm) && !sNorm.includes("pmegp") && !sNorm.includes("mudra")))) {
+      return true;
+    }
+
+    // Check against client representative / user name
+    const clientNameNorm = norm(clientInfo?.name || clientInfo?.representativeName || dbProfile?.name || dbProfile?.representativeName || "");
+    if (clientNameNorm && sNorm === clientNameNorm) {
+      return true;
+    }
+
+    // Check against user email username (e.g. "avi" from "avi@gmail.com")
+    const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+    const emailPrefixNorm = norm(resolvedEmail.split("@")[0] || "");
+    if (emailPrefixNorm && sNorm === emailPrefixNorm) {
+      return true;
+    }
+
+    return false;
+  }, [clientInfo, dbProfile, userEmail]);
+
   // Dynamic Enrolled Active Plans state (approved plans stored per client composite key in localStorage)
   const [enrolledPlans, setEnrolledPlans] = React.useState(() => {
     const emailKey = (userEmail || "default").trim().toLowerCase();
@@ -885,14 +914,18 @@ export default function Dashboard({ onSignOut, userEmail }) {
       const savedComp = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
       if (savedComp) {
         const parsed = JSON.parse(savedComp);
-        if (Array.isArray(parsed)) plans.push(...parsed);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((p) => {
+            if (!isClientIdentityName(p.name || p.schemeName) && !isPaymentDemandOrSettlement(p)) plans.push(p);
+          });
+        }
       }
       const savedEmail = localStorage.getItem(`agni_approved_client_plans_${emailKey}`);
       if (savedEmail) {
         const parsed = JSON.parse(savedEmail);
         if (Array.isArray(parsed)) {
           parsed.forEach((p) => {
-            if (!plans.some((existing) => (existing.name || "").toLowerCase() === (p.name || "").toLowerCase())) {
+            if (!isClientIdentityName(p.name || p.schemeName) && !isPaymentDemandOrSettlement(p) && !plans.some((existing) => (existing.name || "").toLowerCase() === (p.name || "").toLowerCase())) {
               plans.push(p);
             }
           });
@@ -912,6 +945,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
         if (Array.isArray(parsed)) {
           const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
           return parsed.filter((r) => {
+            if (isClientIdentityName(r.schemeName || r.name)) return false;
             const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
             const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
             const statusStr = String(r.status || "").toLowerCase();
@@ -934,23 +968,34 @@ export default function Dashboard({ onSignOut, userEmail }) {
         const apiRequests = Array.isArray(resData.data) ? resData.data : [];
 
         // Filter for NEW_SERVICE requests relevant to this client
+        // STRICT GUARD: Exclude client-registration requests (created when salesperson registers a new client).
         const newServiceReqs = apiRequests.filter((r) => {
           if (r.requestType !== "NEW_SERVICE" || r.isDeleted) return false;
+          const reasonLower = String(r.reason || "").toLowerCase();
+          if (reasonLower.includes("client registration") || reasonLower.includes("new client") || reasonLower.includes("client create")) return false;
           const payload = (typeof r.requestedChanges === "object" && r.requestedChanges) ? r.requestedChanges : {};
           const rEmail = String(payload.clientEmail || r.client?.email || "").toLowerCase().trim();
           return !resolvedEmail || !rEmail || rEmail === resolvedEmail;
         });
 
         // Map backend requests into standard pending format
-        const apiMapped = newServiceReqs.map((r) => {
+        const apiMapped = [];
+        newServiceReqs.forEach((r) => {
           const payload = (typeof r.requestedChanges === "object" && r.requestedChanges) ? r.requestedChanges : {};
-          const schemeTitle = payload.schemeName || payload.name || (r.reason && r.reason.match(/for (.*?) \(/) ? r.reason.match(/for (.*?) \(/)[1] : "Custom Scheme");
+          const reasonLower = String(r.reason || "").toLowerCase();
+          // Derive schemeName ONLY from explicit schemeName or self-enrollment reason. NEVER use payload.name.
+          const schemeTitle = payload.schemeName ||
+            (reasonLower.includes("self-enrollment") ? r.reason.replace(/Client self-enrollment for /i, "").split(" (")[0] : null);
+
+          // Never treat client identity strings as schemes
+          if (!schemeTitle || isClientIdentityName(schemeTitle)) return;
+
           const statusStr = r.status === "PENDING"
             ? "Pending Sales Approval & Payment"
             : r.status === "APPROVED"
               ? "Approved & Active"
               : "Declined";
-          return {
+          apiMapped.push({
             id: payload.id || `req-${r.id}`,
             dbId: r.id,
             requestCode: r.requestCode,
@@ -966,7 +1011,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
             status: statusStr,
             createdAt: payload.createdAt || r.createdAt,
             decisionDate: r.decisionDate || null,
-          };
+          });
         });
 
         // Merge with existing localStorage requests (preserve any offline/optimistic records)
@@ -983,18 +1028,23 @@ export default function Dashboard({ onSignOut, userEmail }) {
         // Database records take precedence
         apiMapped.forEach((r) => {
           const key = norm(r.schemeName);
-          if (key) mergedMap.set(key, r);
+          if (key && !isClientIdentityName(r.schemeName)) mergedMap.set(key, r);
         });
 
-        // Retain local optimistic items not yet indexed in DB
+        // Retain local optimistic items not yet indexed in DB, or actively pending local items
         localSaved.forEach((r) => {
           const key = norm(r.schemeName || r.name);
-          if (key && !mergedMap.has(key)) {
+          if (!key || isClientIdentityName(r.schemeName || r.name)) return;
+          const statusStr = String(r.status || "").toLowerCase();
+          const isLocalPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, r);
+          } else if (isLocalPending && mergedMap.get(key)?.status !== "Approved & Active") {
             mergedMap.set(key, r);
           }
         });
 
-        const mergedList = Array.from(mergedMap.values());
+        const mergedList = Array.from(mergedMap.values()).filter((r) => !isClientIdentityName(r.schemeName || r.name));
         try {
           localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(mergedList));
         } catch (e) {}
@@ -1012,7 +1062,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     } catch (e) {
       console.warn("Could not sync pending requests from API:", e);
     }
-  }, [userEmail]);
+  }, [userEmail, isClientIdentityName]);
 
   React.useEffect(() => {
     syncPendingRequestsFromApi();
@@ -1080,13 +1130,57 @@ export default function Dashboard({ onSignOut, userEmail }) {
       const emailKey = (userEmail || "default").trim().toLowerCase();
       const compKey = getClientCompositeKey(clientInfo.companyName, emailKey);
       try {
+        // Sanitize corrupt localStorage caches immediately
+        try {
+          const pSaved = localStorage.getItem("agni_pending_scheme_requests");
+          if (pSaved) {
+            const pList = JSON.parse(pSaved);
+            if (Array.isArray(pList)) {
+              const cleanP = pList.filter((r) => !isClientIdentityName(r.schemeName || r.name));
+              if (cleanP.length !== pList.length) {
+                localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(cleanP));
+              }
+            }
+          }
+          const cSaved = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
+          if (cSaved) {
+            const cList = JSON.parse(cSaved);
+            if (Array.isArray(cList)) {
+              const cleanC = cList.filter((p) => !isClientIdentityName(p.name || p.schemeName));
+              if (cleanC.length !== cList.length) {
+                localStorage.setItem(`agni_approved_client_plans_${compKey}`, JSON.stringify(cleanC));
+              }
+            }
+          }
+          const eSaved = localStorage.getItem(`agni_approved_client_plans_${emailKey}`);
+          if (eSaved) {
+            const eList = JSON.parse(eSaved);
+            if (Array.isArray(eList)) {
+              const cleanE = eList.filter((p) => !isClientIdentityName(p.name || p.schemeName));
+              if (cleanE.length !== eList.length) {
+                localStorage.setItem(`agni_approved_client_plans_${emailKey}`, JSON.stringify(cleanE));
+              }
+            }
+          }
+          const dbSaved = localStorage.getItem("agni_client_enrolled_schemes_db");
+          if (dbSaved) {
+            const dbList = JSON.parse(dbSaved);
+            if (Array.isArray(dbList)) {
+              const cleanDb = dbList.filter((p) => !isClientIdentityName(p.schemeName || p.name));
+              if (cleanDb.length !== dbList.length) {
+                localStorage.setItem("agni_client_enrolled_schemes_db", JSON.stringify(cleanDb));
+              }
+            }
+          }
+        } catch (e) {}
+
         let plans = [];
         const savedComp = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
         if (savedComp) {
           const parsed = JSON.parse(savedComp);
           if (Array.isArray(parsed)) {
             parsed.forEach((p) => {
-              if (!isPaymentDemandOrSettlement(p)) plans.push(p);
+              if (!isPaymentDemandOrSettlement(p) && !isClientIdentityName(p.name || p.schemeName)) plans.push(p);
             });
           }
         }
@@ -1095,7 +1189,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
           const parsed = JSON.parse(savedEmail);
           if (Array.isArray(parsed)) {
             parsed.forEach((p) => {
-              if (!isPaymentDemandOrSettlement(p) && !plans.some((existing) => (existing.name || "").toLowerCase() === (p.name || "").toLowerCase())) {
+              if (!isPaymentDemandOrSettlement(p) && !isClientIdentityName(p.name || p.schemeName) && !plans.some((existing) => (existing.name || "").toLowerCase() === (p.name || "").toLowerCase())) {
                 plans.push(p);
               }
             });
@@ -1106,14 +1200,14 @@ export default function Dashboard({ onSignOut, userEmail }) {
           const parsedDb = JSON.parse(savedDb);
           if (Array.isArray(parsedDb)) {
             parsedDb.forEach((entry) => {
-              if (!isPaymentDemandOrSettlement(entry)) {
+              if (!isPaymentDemandOrSettlement(entry) && !isClientIdentityName(entry.schemeName || entry.name)) {
                 if (entry.clientEmail && userEmail && entry.clientEmail.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
                   if (!plans.some((existing) => (existing.name || "").toLowerCase() === (entry.schemeName || "").toLowerCase())) {
                     plans.push({
                       id: `approved-db-${Date.now()}-${Math.random()}`,
                       name: entry.schemeName,
                       tag: entry.tag || "Approved Scheme",
-                      cover: entry.pitchedAmount ? `₹${Number(entry.pitchedAmount).toLocaleString("en-IN")}` : "₹10,000",
+                      cover: entry.pitchedAmount ? `₹${Number(entry.pitchedAmount).toLocaleString("en-IN")}` : "₹10,00,000",
                       status: "Active",
                       enrollmentDate: entry.enrollmentDate || entry.approvedAt || "Recently Approved",
                       detail: `Approved scheme (${entry.schemeName}) active in client profile.`,
@@ -1129,7 +1223,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
           dbProfile.allServices.forEach((service) => {
             if (!isPaymentDemandOrSettlement(service)) {
               const sName = getCanonicalSchemeName(service.name || service.schemeName || service.scheme);
-              if (sName && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
+              if (sName && !isClientIdentityName(sName) && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
                 const reqAmt = Number(service.fundingRequirement || service.amountRequired || 0);
                 const reqStr = reqAmt > 0 ? `₹${reqAmt.toLocaleString("en-IN")}` : "₹10,00,000";
                 plans.push({
@@ -1153,7 +1247,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                 const cEmail = (c.email || "").toLowerCase().trim();
                 if (cEmail === emailKey) {
                   const sName = getCanonicalSchemeName(c.serviceName || c.scheme);
-                  if (sName && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
+                  if (sName && !isClientIdentityName(sName) && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
                     const reqAmt = Number(c.fundingRequirement || c.amountRequired || 0);
                     const reqStr = reqAmt > 0 ? `₹${reqAmt.toLocaleString("en-IN")}` : "₹10,00,000";
                     plans.push({
@@ -1180,6 +1274,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
           if (Array.isArray(parsedPending)) {
             const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
             const currentPending = parsedPending.filter((r) => {
+              if (isClientIdentityName(r.schemeName || r.name)) return false;
               const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
               const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
               const statusStr = String(r.status || "").toLowerCase();
@@ -1189,10 +1284,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
             setPendingRequests(currentPending);
 
             parsedPending.forEach((r) => {
+              if (isClientIdentityName(r.schemeName || r.name)) return;
               const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
               if ((!resolvedEmail || rEmail === resolvedEmail || rEmail === emailKey) && (r.status === "Approved & Active" || r.status === "Approved")) {
                 const sName = getCanonicalSchemeName(r.schemeName);
-                if (sName && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
+                if (sName && !isClientIdentityName(sName) && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
                   const reqAmt = Number(r.amountRequired || r.fundingRequirement || 0);
                   const reqStr = reqAmt > 0 ? `₹${reqAmt.toLocaleString("en-IN")}` : "₹10,00,000";
                   plans.push({
@@ -1212,7 +1308,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
           }
         }
 
-        const validPlans = plans.filter((p) => !isPaymentDemandOrSettlement(p));
+        const validPlans = plans.filter((p) => !isPaymentDemandOrSettlement(p) && !isClientIdentityName(p.name || p.schemeName));
         setEnrolledPlans(validPlans);
       } catch (e) { }
 
@@ -1335,7 +1431,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     primarySchemeName = getCanonicalSchemeName(primarySchemeName);
 
     // Normalize default legacy fields to PMEGP and Consultancy Services
-    if (!primarySchemeName || isPaymentDemandOrSettlement(primarySchemeName) || primarySchemeName.toLowerCase().includes("financial assistant") || primarySchemeName.toLowerCase().includes("financial assistance")) {
+    if (!primarySchemeName || isPaymentDemandOrSettlement(primarySchemeName) || isClientIdentityName(primarySchemeName) || primarySchemeName.toLowerCase().includes("financial assistant") || primarySchemeName.toLowerCase().includes("financial assistance")) {
       primarySchemeName = "PMEGP";
     }
     if (!primaryType || primaryType.toLowerCase().includes("certificate")) {
@@ -1389,7 +1485,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     const list = [primaryPlan];
     enrolledPlans.forEach((plan) => {
       const canonicalPlanName = getCanonicalSchemeName(plan.name || plan.schemeName || plan.scheme);
-      if (!isPaymentDemandOrSettlement(plan) && !list.some((p) => getCanonicalSchemeName(p.name).toLowerCase() === canonicalPlanName.toLowerCase())) {
+      if (!isPaymentDemandOrSettlement(plan) && !isClientIdentityName(canonicalPlanName) && !list.some((p) => getCanonicalSchemeName(p.name).toLowerCase() === canonicalPlanName.toLowerCase())) {
         let formattedDate = plan.enrollmentDate || plan.startDate || "26 Aug 2026";
         if (formattedDate.includes("-")) {
           try {
@@ -1407,8 +1503,9 @@ export default function Dashboard({ onSignOut, userEmail }) {
       }
     });
 
-    return list;
-  }, [dbProfile, clientStoredData, enrolledPlans, userEmail]);
+    const cleanList = list.filter((p) => p && !isClientIdentityName(p.name));
+    return cleanList.length > 0 ? cleanList : [primaryPlan];
+  }, [dbProfile, clientStoredData, enrolledPlans, userEmail, isClientIdentityName]);
 
   // Handler to apply/enroll in a new scheme (submits pending request to Sales Representative & Branch Manager)
   const handleEnrollScheme = React.useCallback((schemeObj) => {
@@ -1473,6 +1570,14 @@ export default function Dashboard({ onSignOut, userEmail }) {
       });
 
       if (!isDuplicate) {
+        // Clean out any older/declined requests for this same scheme so the new application is fresh
+        allReqs = allReqs.filter((r) => {
+          const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
+          const rNorm = norm(r.schemeName || r.name);
+          const emailMatches = !rEmail || !resolvedEmail || rEmail === resolvedEmail;
+          const nameMatches = rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm));
+          return !(emailMatches && nameMatches);
+        });
         allReqs.unshift(pendingReq);
         localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
         setPendingRequests((prev) => [pendingReq, ...prev.filter((p) => norm(p.schemeName || p.name) !== reqNorm)]);
@@ -1509,13 +1614,15 @@ export default function Dashboard({ onSignOut, userEmail }) {
   // Compute all active scheme trackers for this client
   const allSchemeTrackers = React.useMemo(() => {
     const targetEmail = userEmail || localStorage.getItem("agni_user_email") || "";
+    const cleanPlans = (activePlansList || []).filter((p) => p && !isClientIdentityName(p.name));
+    const firstPlanName = cleanPlans[0]?.name || "PMEGP";
 
     // Primary client object (first plan = primary CRM scheme)
     const primaryClient = {
       email: targetEmail,
       company: clientInfo.companyName,
-      scheme: activePlansList[0]?.name || "PMEGP",
-      serviceName: activePlansList[0]?.name || "PMEGP",
+      scheme: firstPlanName,
+      serviceName: firstPlanName,
       completedSteps: dbProfile?.completedSteps || ["CRM Creation"],
     };
 
@@ -1523,7 +1630,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     // Secondary schemes START at 60% (3/5 steps) by business rule.
     // If admin has explicitly advanced beyond the default, use the DB value.
     const SECONDARY_DEFAULT_STEPS = ["CRM Creation", "Agreement", "Reports"];
-    const siblingClients = activePlansList.slice(1).map((plan) => {
+    const siblingClients = cleanPlans.slice(1).map((plan) => {
       // Find the matching DB service record by scheme name
       const dbService = (dbProfile?.allServices || []).find(
         (s) => s.schemeName && plan.name &&
@@ -1546,9 +1653,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
     });
 
     return getClientAllSchemeTrackers(primaryClient, siblingClients);
-  }, [userEmail, activePlansList, dbProfile, clientInfo, trackerSyncTick]);
+  }, [userEmail, activePlansList, dbProfile, clientInfo, trackerSyncTick, isClientIdentityName]);
 
-  const activePipelineScheme = selectedPipelineSchemeName || (allSchemeTrackers[0] ? allSchemeTrackers[0].schemeName : "PMEGP");
+  const activePipelineScheme = (selectedPipelineSchemeName && !isClientIdentityName(selectedPipelineSchemeName))
+    ? selectedPipelineSchemeName
+    : (allSchemeTrackers[0] ? allSchemeTrackers[0].schemeName : "PMEGP");
 
   // Dynamic tracker state for currently selected active scheme
   const clientTracker = React.useMemo(() => {
