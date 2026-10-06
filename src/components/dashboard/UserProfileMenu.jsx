@@ -128,6 +128,21 @@ export default function UserProfileMenu({
 
   const strength = getPasswordStrength();
 
+  const storedUser = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("agni_user");
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  const resolvedName = user?.name || storedUser?.fullName || "User";
+  const resolvedEmail = user?.email || storedUser?.email || localStorage.getItem("agni_user_email") || "";
+  const resolvedPhone = user?.phone || storedUser?.phone || "+91 98201 54321";
+  const resolvedBranch = (typeof user?.branch === "string" ? user.branch : user?.branch?.name) || storedUser?.branch?.name || (role === "Owner" ? "Global (All Zones)" : "West Zone (Mumbai)");
+  const resolvedManager = (typeof user?.reportingManager === "string" ? user.reportingManager : user?.reportingManager?.fullName) || storedUser?.reportingManager?.fullName || (role.toLowerCase().includes("owner") ? "Board of Directors" : role.toLowerCase().includes("branch manager") ? "Enterprise Owner" : "Eli Brooks");
+
   return (
     <div className="user-profile-menu-container" ref={menuRef} style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
       {/* Role Pill Badge Menu Trigger */}
@@ -183,12 +198,12 @@ export default function UserProfileMenu({
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: 14, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
-                  {user.name || "User"}
+                  {resolvedName}
                 </strong>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", flexShrink: 0 }} />
               </div>
               <span style={{ fontSize: 11.5, color: "#64748b", display: "block", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {user.email || `${role.toLowerCase().replace(/\s+/g, "")}@agnicrm.com`}
+                {resolvedEmail}
               </span>
             </div>
           </div>
@@ -324,7 +339,7 @@ export default function UserProfileMenu({
                   <div>
                     <div className="upm-modal-title-row">
                       <h2 className="upm-modal-title">
-                        {user.name || "User Profile"}
+                        {resolvedName}
                       </h2>
                       <span className="upm-modal-status-badge">
                         <span className="upm-status-dot" />
@@ -332,7 +347,7 @@ export default function UserProfileMenu({
                       </span>
                     </div>
                     <span className="upm-modal-subtitle">
-                      {user.designation || role} • Emp ID: {user.empId || "EMP-SLS-2024"}
+                      {user.designation || role} • Emp ID: {user.empId || (storedUser?.id ? `EMP-${storedUser.id.slice(0, 6).toUpperCase()}` : "EMP-SLS-2024")}
                     </span>
                   </div>
                 </div>
@@ -357,25 +372,25 @@ export default function UserProfileMenu({
                   <div className="upm-subcard">
                     <span className="upm-metric-label">Official Email</span>
                     <strong className="upm-metric-value">
-                      {user.email || `${role.toLowerCase().replace(/\s+/g, "")}@agnicrm.com`}
+                      {resolvedEmail}
                     </strong>
                   </div>
                   <div className="upm-subcard">
                     <span className="upm-metric-label">Contact Number</span>
                     <strong className="upm-metric-value">
-                      {user.phone || "+91 98201 54321"}
+                      {resolvedPhone}
                     </strong>
                   </div>
                   <div className="upm-subcard">
                     <span className="upm-metric-label">Primary Branch / Zone</span>
                     <strong className="upm-metric-value accent-indigo">
-                      {user.branch || "West Zone (Mumbai)"}
+                      {resolvedBranch}
                     </strong>
                   </div>
                   <div className="upm-subcard">
                     <span className="upm-metric-label">Reporting Authority</span>
                     <strong className="upm-metric-value">
-                      {user.reportingManager || (role === "Owner" ? "Board of Directors" : role === "Branch Manager" ? "Enterprise Owner" : "Vikramaditya Sharma")}
+                      {resolvedManager}
                     </strong>
                   </div>
                 </div>

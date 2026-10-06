@@ -5,6 +5,7 @@ import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
+import { apiFetch } from "../../services/apiClient";
 import "./salesdashboard.css";
 
 // Sub-components
@@ -24,6 +25,32 @@ import { navItems, notifications } from "./mockSalesData";
 
 export default function SalesDashboard({ onSignOut, userEmail }) {
   const [showRegisterModal, setShowRegisterModal] = React.useState(false);
+  const [currentUser, setCurrentUser] = React.useState(() => {
+    try {
+      const stored = localStorage.getItem("agni_user");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return null;
+  });
+
+  React.useEffect(() => {
+    let isMounted = true;
+    apiFetch("/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.success && data?.user) {
+          setCurrentUser(data.user);
+          localStorage.setItem("agni_user", JSON.stringify(data.user));
+          if (data.user.email) {
+            localStorage.setItem("agni_user_email", data.user.email);
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const {
     activeNav,
@@ -98,19 +125,19 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
             <NotificationBell role="Sales" userEmail={userEmail} userName={salesPersonName} />
             <UserProfileMenu
               user={{
-                name: salesPersonName,
-                email: `${salesPersonName.toLowerCase().replace(/\s+/g, ".")}@agnicrm.com`,
-                phone: "+91 98201 54321",
-                branch: "West Zone (Mumbai)",
+                name: currentUser?.fullName || salesPersonName,
+                email: currentUser?.email || userEmail || localStorage.getItem("agni_user_email") || "",
+                phone: currentUser?.phone || "+91 98201 54321",
+                branch: currentUser?.branch?.name || (typeof currentUser?.branch === "string" ? currentUser.branch : "West Zone (Mumbai)"),
                 designation: "Senior Sales Officer",
-                empId: "EMP-SLS-2024",
+                empId: currentUser?.id ? `EMP-${currentUser.id.slice(0, 6).toUpperCase()}` : "EMP-SLS-2024",
                 quota: "₹80,000",
                 achieved: `${quotaMetrics?.achieved || "₹0"} (${quotaMetrics?.progress || "0%"})`,
-                reportingManager: "Vikramaditya Sharma",
+                reportingManager: currentUser?.reportingManager?.fullName || "Eli Brooks",
               }}
               role="Sales"
               roleBadge="Sales"
-              initials="SP"
+              initials={currentUser?.fullName ? currentUser.fullName.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() : "SP"}
               avatarColor="linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
               onSignOut={onSignOut}
               showToast={(msg) => setToastMessage(msg)}

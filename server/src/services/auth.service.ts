@@ -17,7 +17,7 @@ export async function loginUser({ email, password }: LoginParams) {
       email: { equals: normalizedEmail, mode: "insensitive" },
       isDeleted: false,
     },
-    include: { branch: true },
+    include: { branch: true, reportingManager: true },
   });
 
   if (!user) {
@@ -99,6 +99,7 @@ export async function loginUser({ email, password }: LoginParams) {
       phone: user.phone,
       region: user.region,
       branch: user.branch ? { id: user.branch.id, code: user.branch.code, name: user.branch.name } : null,
+      reportingManager: user.reportingManager ? { id: user.reportingManager.id, fullName: user.reportingManager.fullName, email: user.reportingManager.email, role: user.reportingManager.role } : null,
     },
   };
 }
@@ -142,7 +143,7 @@ export async function refreshAccessTokenService(refreshTokenInput: string) {
 export async function getUserProfile(userId: string) {
   const user = await prisma.user.findFirst({
     where: { id: userId, isDeleted: false },
-    include: { branch: true },
+    include: { branch: true, reportingManager: true },
   });
 
   if (!user) {
@@ -169,6 +170,7 @@ export async function getUserProfile(userId: string) {
       phone: user.phone,
       region: user.region,
       branch: user.branch ? { id: user.branch.id, code: user.branch.code, name: user.branch.name } : null,
+      reportingManager: user.reportingManager ? { id: user.reportingManager.id, fullName: user.reportingManager.fullName, email: user.reportingManager.email, role: user.reportingManager.role } : null,
     },
   };
 }
