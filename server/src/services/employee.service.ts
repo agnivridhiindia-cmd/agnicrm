@@ -95,6 +95,60 @@ export async function createEmployeeService(data: CreateEmployeeParams) {
   };
 }
 
+export interface CreateBranchParams {
+  name: string;
+  city?: string;
+  region?: string;
+  code?: string;
+}
+
+export async function createBranchService(data: CreateBranchParams) {
+  const name = data.name.trim();
+  if (!name) {
+    return {
+      success: false,
+      statusCode: 400,
+      message: "Branch name is required.",
+    };
+  }
+
+  const existing = await prisma.branch.findFirst({
+    where: { name: { equals: name, mode: "insensitive" } },
+  });
+  if (existing) {
+    return {
+      success: true,
+      statusCode: 200,
+      message: `Branch "${existing.name}" already exists.`,
+      branch: existing,
+    };
+  }
+
+  const cleanPrefix = name.replace(/[^A-Za-z0-9]/g, "").slice(0, 4).toUpperCase() || "BR";
+  const count = await prisma.branch.count();
+  let code = data.code?.trim().toUpperCase() || `${cleanPrefix}-${String(count + 1).padStart(2, "0")}`;
+  const codeExists = await prisma.branch.findUnique({ where: { code } });
+  if (codeExists) {
+    code = `${cleanPrefix}-${Date.now().toString().slice(-4)}`;
+  }
+
+  const branch = await prisma.branch.create({
+    data: {
+      name,
+      city: data.city?.trim() || name,
+      region: data.region?.trim() || name,
+      code,
+    },
+  });
+
+  return {
+    success: true,
+    statusCode: 201,
+    message: `Branch "${branch.name}" created successfully.`,
+    branch,
+  };
+}
+
 export async function getBranchesService() {
   const branches = await prisma.branch.findMany({
     orderBy: { name: "asc" },
@@ -322,6 +376,8 @@ export async function getTeamHierarchyService() {
     const branchManager = b.users.find((u) => u.role === Role.BRANCH_MANAGER) || null;
     const salesManager = b.users.find((u) => u.role === Role.MANAGER) || null;
     const salesPersons = b.users.filter((u) => u.role === Role.SALES_PERSON);
+    const admins = b.users.filter((u) => u.role === Role.ADMIN);
+    const adminLead = admins[0] || null;
 
     return {
       id: b.id,
@@ -329,6 +385,24 @@ export async function getTeamHierarchyService() {
       code: b.code,
       region: b.region,
       city: b.city,
+      users: b.users.map((u) => ({
+        id: u.id,
+        name: u.fullName,
+        fullName: u.fullName,
+        email: u.email,
+        phone: u.phone,
+        role: u.role,
+      })),
+      admins: admins.map((a) => ({
+        id: a.id,
+        name: a.fullName,
+        fullName: a.fullName,
+        email: a.email,
+        phone: a.phone,
+      })),
+      adminLead: adminLead
+        ? { id: adminLead.id, name: adminLead.fullName, email: adminLead.email, phone: adminLead.phone }
+        : null,
       branchManager: branchManager
         ? { id: branchManager.id, name: branchManager.fullName, email: branchManager.email, phone: branchManager.phone }
         : null,

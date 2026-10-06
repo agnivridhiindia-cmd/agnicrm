@@ -106,6 +106,8 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
 
   const adminBranchDetails = useMemo(() => {
     try {
+      const storedBranch = localStorage.getItem("agni_user_branch");
+      if (storedBranch) return { branchName: storedBranch };
       const storedUser = localStorage.getItem("agni_user");
       if (storedUser) {
         const parsed = JSON.parse(storedUser);
@@ -120,6 +122,8 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   // Selected Branch (dynamically bound to logged-in Admin's branch)
   const [selectedBranch, setSelectedBranch] = useState(() => {
     try {
+      const storedBranch = localStorage.getItem("agni_user_branch");
+      if (storedBranch) return storedBranch;
       const storedUser = localStorage.getItem("agni_user");
       if (storedUser) {
         const parsed = JSON.parse(storedUser);
@@ -134,16 +138,41 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   });
 
   useEffect(() => {
-    // Force sync on mount (handles HMR and stale state issues)
-    try {
-      const storedUser = localStorage.getItem("agni_user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.branch && parsed.branch.name && parsed.branch.name !== selectedBranch) {
-          setSelectedBranch(parsed.branch.name);
+    // Force sync on mount (handles HMR, backend verification, and stale state issues)
+    async function syncAdminBranch() {
+      try {
+        const storedBranch = localStorage.getItem("agni_user_branch");
+        const storedUser = localStorage.getItem("agni_user");
+        let foundBranch = storedBranch || null;
+        if (!foundBranch && storedUser) {
+          const parsed = JSON.parse(storedUser);
+          if (parsed.branch && parsed.branch.name) {
+            foundBranch = parsed.branch.name;
+          }
         }
-      }
-    } catch (e) {}
+        if (foundBranch) {
+          if (foundBranch !== selectedBranch) {
+            setSelectedBranch(foundBranch);
+          }
+          return;
+        }
+
+        const res = await apiFetch("/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user) {
+            localStorage.setItem("agni_user", JSON.stringify(data.user));
+            if (data.user.branch?.name) {
+              localStorage.setItem("agni_user_branch", data.user.branch.name);
+              if (data.user.branch.name !== selectedBranch) {
+                setSelectedBranch(data.user.branch.name);
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    syncAdminBranch();
   }, []);
 
   useEffect(() => {

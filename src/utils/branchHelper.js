@@ -89,6 +89,45 @@ export function getManagerBranchDetails(emailOrName = "") {
   const hierarchyList = getCachedHierarchy();
 
   if (Array.isArray(hierarchyList) && hierarchyList.length > 0) {
+    // 0. Check if emailOrName matches any user, employee, or admin in any branch directly
+    for (const b of hierarchyList) {
+      const allMembers = [
+        ...(b.users || []),
+        ...(b.admins || []),
+        ...(b.salesPersons || []),
+        b.salesManager,
+        b.branchManager,
+        b.adminLead,
+      ].filter(Boolean);
+
+      const matchedMember = allMembers.find((m) => {
+        const mEmail = (m.email || "").toLowerCase().trim();
+        const mName = (m.name || m.fullName || "").toLowerCase().trim();
+        return (
+          str &&
+          ((mEmail && (mEmail === str || (str.length > 4 && mEmail.includes(str)))) ||
+           (mName && (mName === str || (mName.length > 3 && str.includes(mName)))))
+        );
+      });
+
+      if (matchedMember) {
+        return {
+          managerName: b.salesManager?.name || b.salesManager?.fullName || "Eli Brooks",
+          managerEmail: b.salesManager?.email || "eli@agni.com",
+          managerPhone: b.salesManager?.phone || "+91 91234 00222",
+          branchManagerName: b.branchManager?.name || b.branchManager?.fullName || "",
+          branchManagerEmail: b.branchManager?.email || "",
+          branchName: b.name,
+          branch: b.name,
+          region: b.region,
+          code: b.code,
+          branchCode: b.code,
+          salespersons: (b.salesPersons || []).map((s) => s.name || s.fullName),
+          salesEmails: (b.salesPersons || []).map((s) => s.email),
+        };
+      }
+    }
+
     // 1. Check if emailOrName matches a salesperson in any branch
     for (const b of hierarchyList) {
       const matchedSalesPerson = (b.salesPersons || []).find((s) => {
@@ -96,11 +135,8 @@ export function getManagerBranchDetails(emailOrName = "") {
         const sEmail = (s.email || "").toLowerCase().trim();
         return (
           str &&
-          (sName === str ||
-            sName.includes(str) ||
-            str.includes(sName) ||
-            sEmail === str ||
-            (str.length > 4 && sEmail.includes(str)))
+          ((sName && (sName === str || sName.includes(str) || (str.length > 3 && str.includes(sName)))) ||
+           (sEmail && (sEmail === str || (str.length > 4 && sEmail.includes(str)))))
         );
       });
 
@@ -129,11 +165,8 @@ export function getManagerBranchDetails(emailOrName = "") {
       const smEmail = (b.salesManager?.email || "").toLowerCase().trim();
       if (
         str &&
-        (smName === str ||
-          smName.includes(str) ||
-          str.includes(smName) ||
-          smEmail === str ||
-          (str.length > 4 && smEmail.includes(str)))
+        ((smName && (smName === str || smName.includes(str) || (str.length > 3 && str.includes(smName)))) ||
+         (smEmail && (smEmail === str || (str.length > 4 && smEmail.includes(str)))))
       ) {
         return {
           managerName: b.salesManager?.name || b.salesManager?.fullName || "Eli Brooks",
@@ -158,11 +191,8 @@ export function getManagerBranchDetails(emailOrName = "") {
       const bmEmail = (b.branchManager?.email || "").toLowerCase().trim();
       if (
         str &&
-        (bmName === str ||
-          bmName.includes(str) ||
-          str.includes(bmName) ||
-          bmEmail === str ||
-          (str.length > 4 && bmEmail.includes(str)))
+        ((bmName && (bmName === str || bmName.includes(str) || (str.length > 3 && str.includes(bmName)))) ||
+         (bmEmail && (bmEmail === str || (str.length > 4 && bmEmail.includes(str)))))
       ) {
         return {
           managerName: b.salesManager?.name || b.salesManager?.fullName || "Eli Brooks",
@@ -189,14 +219,10 @@ export function getManagerBranchDetails(emailOrName = "") {
       const bCity = (b.city || "").toLowerCase().trim();
       if (
         str &&
-        (bName.includes(str) ||
-          str.includes(bName) ||
-          bCode === str ||
-          str.includes(bCode) ||
-          bRegion.includes(str) ||
-          str.includes(bRegion) ||
-          bCity.includes(str) ||
-          str.includes(bCity))
+        ((bName && (bName.includes(str) || (str.length > 3 && str.includes(bName)))) ||
+         (bCode && (bCode === str || (str.length > 2 && str.includes(bCode)))) ||
+         (bRegion && (bRegion.includes(str) || (str.length > 3 && str.includes(bRegion)))) ||
+         (bCity && (bCity.includes(str) || (str.length > 3 && str.includes(bCity)))))
       ) {
         return {
           managerName: b.salesManager?.name || b.salesManager?.fullName || "Eli Brooks",
@@ -275,7 +301,8 @@ export function getManagerBranchDetails(emailOrName = "") {
     str.includes("delhi") ||
     str.includes("north") ||
     str.includes("br-02") ||
-    str.includes("nz")
+    str.includes("nz") ||
+    str.includes("anmol")
   ) {
     return {
       managerName: "Ananya Sen",

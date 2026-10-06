@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware";
 import {
   createEmployeeService,
+  createBranchService,
   getBranchesService,
   deleteEmployeeService,
   getDeletedEmployeesService,
@@ -21,6 +22,13 @@ const createEmployeeSchema = z.object({
   reportingManagerId: z.string().optional(),
 });
 
+const createBranchSchema = z.object({
+  name: z.string().min(2, "Branch name must be at least 2 characters"),
+  city: z.string().optional(),
+  region: z.string().optional(),
+  code: z.string().optional(),
+});
+
 export async function createEmployee(
   req: AuthenticatedRequest,
   res: Response,
@@ -29,6 +37,20 @@ export async function createEmployee(
   try {
     const data = createEmployeeSchema.parse(req.body);
     const result = await createEmployeeService(data);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createBranch(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const data = createBranchSchema.parse(req.body);
+    const result = await createBranchService(data);
     return res.status(result.statusCode).json(result);
   } catch (error) {
     next(error);

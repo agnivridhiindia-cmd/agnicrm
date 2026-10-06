@@ -369,6 +369,10 @@ export default function App() {
           const mappedRole = ROLE_MAP[rawRole] || rawRole || storedRole;
           setUserRole(mappedRole);
           setUserEmail(data.user.email);
+          localStorage.setItem("agni_user", JSON.stringify(data.user));
+          if (data.user.branch?.name) {
+            localStorage.setItem("agni_user_branch", data.user.branch.name);
+          }
           if (window.location.pathname === "/" || window.location.pathname === "/login") {
             const targetPath = rolePathMap[mappedRole] || "/login";
             navigate(targetPath, { replace: true });
@@ -411,13 +415,14 @@ export default function App() {
     };
   }, [userRole]);
 
-  function handleLogin(email, role, token) {
+  function handleLogin(email, role, token, user = null) {
     // Clear any stale session before writing the new one so an old
     // cached role can never leak into this login.
     localStorage.removeItem("agni_user_email");
     localStorage.removeItem("agni_user_role");
     localStorage.removeItem("agni_role");
     localStorage.removeItem("agni_user");
+    localStorage.removeItem("agni_user_branch");
     localStorage.removeItem("agni_email");
     localStorage.removeItem("agni_token");
 
@@ -426,6 +431,12 @@ export default function App() {
     if (token) {
       localStorage.setItem("agni_token", token);
       initRealtimeService();
+    }
+    if (user) {
+      localStorage.setItem("agni_user", JSON.stringify(user));
+      if (user.branch?.name) {
+        localStorage.setItem("agni_user_branch", user.branch.name);
+      }
     }
     
     setUserEmail(email);
@@ -440,6 +451,7 @@ export default function App() {
     localStorage.removeItem("agni_user_role");
     localStorage.removeItem("agni_role");
     localStorage.removeItem("agni_user");
+    localStorage.removeItem("agni_user_branch");
     localStorage.removeItem("agni_email");
     localStorage.removeItem("agni_token");
     setUserRole("");
