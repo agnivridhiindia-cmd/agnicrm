@@ -132,10 +132,25 @@ export function initRealtimeService() {
           window.dispatchEvent(new CustomEvent("agni_pending_updated", { detail: payload }));
         }
 
+        // Handle Newly Created Requests (e.g. Client secondary scheme application)
+        else if (data.type === "REQUEST_CREATED") {
+          const payload = data.payload || {};
+          window.dispatchEvent(new CustomEvent("agni_requests_updated", { detail: payload }));
+          window.dispatchEvent(new CustomEvent("agni_clients_updated", { detail: payload }));
+          window.dispatchEvent(new CustomEvent("agni_pending_updated", { detail: payload }));
+          window.dispatchEvent(new Event("agni_requests_updated"));
+          window.dispatchEvent(new Event("agni_clients_updated"));
+          window.dispatchEvent(new Event("agni_pending_updated"));
+          window.dispatchEvent(new Event("storage"));
+        }
+
         // Handle Generic Client Record Updates
         else if (data.type === "CLIENT_UPDATED" || data.type === "CLIENT_CREATED" || data.type === "CLIENT_DELETED") {
           window.dispatchEvent(new CustomEvent("agni_clients_updated", { detail: data.payload }));
           window.dispatchEvent(new CustomEvent("agni_pending_updated", { detail: data.payload }));
+          window.dispatchEvent(new Event("agni_clients_updated"));
+          window.dispatchEvent(new Event("agni_pending_updated"));
+          window.dispatchEvent(new Event("storage"));
         }
       } catch (err) {
         console.warn("[SSE] Error handling incoming SSE payload:", err);

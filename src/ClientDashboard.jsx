@@ -1419,7 +1419,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       id: `req-${Date.now()}`,
       clientEmail: resolvedEmail,
       clientName: dbProfile?.representativeName || dbProfile?.companyName || clientInfo.companyName,
-      schemeName: schemeObj.name || schemeObj.title || "Custom Scheme Plan",
+      schemeName: schemeObj.schemeName || schemeObj.name || schemeObj.title || "Custom Scheme Plan",
       tag: schemeObj.tag || schemeObj.category || "General Scheme",
       category: schemeObj.category || schemeObj.categoryKey || "",
       price: schemeObj.price || schemeObj.premium || "Standard Fee",
@@ -1445,11 +1445,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
       return;
     }
 
-    // Prevent duplicate pending requests if already in pendingRequests state
+    // Prevent duplicate pending requests if already in pendingRequests state (active pending only)
     const isAlreadyPendingState = (pendingRequests || []).some((r) => {
       const rNorm = norm(r.schemeName || r.name);
       const statusStr = String(r.status || "").toLowerCase();
-      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
+      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
       return rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm)) && isPending;
     });
     if (isAlreadyPendingState) {
@@ -1468,11 +1468,17 @@ export default function Dashboard({ onSignOut, userEmail }) {
         const rNorm = norm(r.schemeName || r.name);
         const emailMatches = !rEmail || !resolvedEmail || rEmail === resolvedEmail;
         const nameMatches = rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm));
-        const isPending = !r.status || String(r.status).toLowerCase().includes("pending");
+        const statusStr = String(r.status || "").toLowerCase();
+        const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
         return emailMatches && nameMatches && isPending;
       });
 
       if (!isDuplicate) {
+        // Remove any prior declined/rejected entry for this scheme so fresh request can take over
+        allReqs = allReqs.filter((r) => {
+          const rNorm = norm(r.schemeName || r.name);
+          return !(rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm)));
+        });
         allReqs.unshift(pendingReq);
         localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
         setPendingRequests((prev) => [pendingReq, ...prev.filter((p) => norm(p.schemeName || p.name) !== reqNorm)]);
@@ -1487,6 +1493,8 @@ export default function Dashboard({ onSignOut, userEmail }) {
           method: "POST",
           body: {
             clientId: dbProfile?.id,
+            targetEntityId: dbProfile?.id,
+            targetEntityType: "CLIENT",
             requestType: "NEW_SERVICE",
             reason: `Client self-enrollment for ${pendingReq.schemeName} (${pendingReq.cover})`,
             requestedChanges: pendingReq,

@@ -176,10 +176,12 @@ export default function MoreServicesPage({
   React.useEffect(() => {
     const handleUpdate = () => setSyncTick((t) => t + 1);
     window.addEventListener("storage", handleUpdate);
+    window.addEventListener("agni_requests_updated", handleUpdate);
     window.addEventListener("agni_pending_updated", handleUpdate);
     window.addEventListener("agni_clients_updated", handleUpdate);
     return () => {
       window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("agni_requests_updated", handleUpdate);
       window.removeEventListener("agni_pending_updated", handleUpdate);
       window.removeEventListener("agni_clients_updated", handleUpdate);
     };
@@ -189,9 +191,12 @@ export default function MoreServicesPage({
 
   const isServiceRequested = React.useCallback((service) => {
     if (!service) return false;
-    const sName = String(service.name || "").toLowerCase().trim();
+    const sName = String(service.name || service.schemeName || service.title || "").toLowerCase().trim();
     const sNorm = norm(sName);
     if (!sNorm) return false;
+
+    let isExplicitlyDeclined = false;
+    let isExplicitlyPending = false;
 
     // Check localStorage first so a decline or approval explicitly supersedes optimisticRequested
     try {
@@ -200,30 +205,45 @@ export default function MoreServicesPage({
         const list = JSON.parse(saved);
         if (Array.isArray(list)) {
           const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
-          const match = list.find((r) => {
+          list.forEach((r) => {
             const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
             const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
             const rNorm = norm(r.schemeName || r.name);
-            return emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+            const isMatch = emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+            if (isMatch) {
+              const statusStr = String(r.status || "").toLowerCase();
+              if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+                isExplicitlyDeclined = true;
+              } else if (!r.status || statusStr.includes("pending")) {
+                isExplicitlyPending = true;
+              }
+            }
           });
-          if (match) {
-            const statusStr = String(match.status || "").toLowerCase();
-            if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
-              return false;
-            }
-            if (!match.status || statusStr.includes("pending")) {
-              return true;
-            }
-          }
         }
       }
     } catch (e) {}
+
+    // If marked as declined or rejected, purge from optimisticRequested immediately and return false
+    if (isExplicitlyDeclined) {
+      if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) {
+        setOptimisticRequested((prev) => {
+          const next = new Set(prev);
+          next.delete(sName);
+          next.delete(sNorm);
+          return next;
+        });
+      }
+      return false;
+    }
+
+    if (isExplicitlyPending) return true;
 
     const inPendingProp = (pendingRequests || []).some((r) => {
       const rNorm = norm(r.schemeName || r.name);
       const isMatch = rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
       const statusStr = String(r.status || "").toLowerCase();
-      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
+      const isDeclined = statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved");
+      const isPending = (!r.status || statusStr.includes("pending")) && !isDeclined;
       return isMatch && isPending;
     });
     if (inPendingProp) return true;
@@ -231,7 +251,7 @@ export default function MoreServicesPage({
     if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) return true;
 
     return false;
-  }, [optimisticRequested, pendingRequests, userEmail]);
+  }, [optimisticRequested, pendingRequests, userEmail, syncTick]);
 
   const isServiceEnrolled = React.useCallback((service) => {
     if (!service) return false;
@@ -292,13 +312,17 @@ export default function MoreServicesPage({
       });
       if (onEnrollScheme) {
         onEnrollScheme({
+          ...requestedService,
           name: requestedService.name,
+          schemeName: requestedService.name,
+          title: requestedService.name,
           tag: requestedService.tag || "Enterprise Service",
           category: requestedService.categoryKey || activeCategory,
           price: requestedService.price || "Standard Active",
           cover: "Service Enrolled",
           description: requestedService.description || requestedService.desc || "Active service requested by client.",
           notes: requestNotes,
+          salesPerson: salesLeadName,
         });
       }
       setSubmittedService({

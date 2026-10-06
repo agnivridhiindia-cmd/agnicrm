@@ -356,7 +356,7 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
     window.addEventListener("agni_pending_updated", handleSync);
     window.addEventListener("agni_payments_updated", handleSync);
     window.addEventListener("agni_clients_updated", handleSync);
-    const interval = setInterval(handleSync, 60000);
+    const interval = setInterval(handleSync, 5000);
 
     return () => {
       window.removeEventListener("storage", handleSync);
