@@ -1911,6 +1911,117 @@
   color: inherit;
 }
 
+/* ── ENHANCED HIGH-CONTRAST APPLICATION ALERT BANNER ── */
+.cd-alert-scheme-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, #090d16 0%, #111827 100%) !important;
+  border: 1.5px solid #10b981 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 20px rgba(16, 185, 129, 0.25) !important;
+  color: #f8fafc !important;
+  position: relative;
+  overflow: hidden;
+  animation: cdAlertSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cd-alert-scheme-banner::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+}
+
+.cd-alert-scheme-banner .cd-alert-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+.cd-alert-scheme-banner .cd-alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.cd-alert-scheme-banner .cd-alert-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #ffffff !important;
+}
+
+.cd-alert-scheme-banner .cd-alert-desc {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #cbd5e1 !important;
+}
+
+.cd-alert-scheme-banner .cd-alert-scheme-highlight {
+  color: #fef08a !important;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(234, 179, 8, 0.2);
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  display: inline-block;
+  margin: 0 2px;
+}
+
+.cd-alert-scheme-banner .cd-alert-lead-highlight {
+  color: #67e8f9 !important;
+  font-weight: 700;
+}
+
+.cd-alert-scheme-banner .cd-alert-close-btn {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  color: #94a3b8 !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.cd-alert-scheme-banner .cd-alert-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  transform: scale(1.05);
+}
+
+@keyframes cdAlertSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── ELIGIBILITY SCHEMES GRID ── */
 .cd-eligibility-grid {
   display: grid;

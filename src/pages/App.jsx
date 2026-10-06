@@ -160,15 +160,14 @@ export function clearAllSavedClients() {
 
   const MOCK_EMAIL_FRAGMENTS = [
     "121221@gmail.com", "sharmaji@gmail.com", "vanshikayadavji@gmail.com",
-    "mishraji@gmail.com", "lucas", "agni.com", "eli@", "ariana@", "mia@",
-    "feedusmomos", "rajput", "yash@", "bar@",
+    "mishraji@gmail.com", "feedusmomos", "rajput", "yash@", "bar@",
   ];
   const MOCK_NAME_FRAGMENTS = [
     "workshala", "yash ear", "bright retail", "urban foods", "nova textiles",
     "peak logistics", "crest pharma", "riverstone", "acme", "techsolutions",
     "nexus", "starlight", "zenith", "summit", "horizon",
     "community", "microsoft", "yadav dairy farm", "vanshika",
-    "abhishek", "sengar", "bar", "lucas",
+    "abhishek", "sengar", "bar",
   ];
 
   const isMockEmail = (email) => {
@@ -194,7 +193,7 @@ export function clearAllSavedClients() {
 
       const isMockKey = MOCK_EMAIL_FRAGMENTS.some((f) => keyLower.includes(f));
       // Also remove stale mock sessions
-      const isStaleSession = keyLower.includes("kshitiz007") || keyLower.includes("community_") || keyLower.includes("microsoft_") || keyLower.includes("lucas") || keyLower.includes("agni.com");
+      const isStaleSession = keyLower.includes("kshitiz007") || keyLower.includes("community_") || keyLower.includes("microsoft_");
       if (isMockKey || isStaleSession) {
         keysToRemove.push(key);
       }
@@ -203,8 +202,8 @@ export function clearAllSavedClients() {
 
     // ── Filter mock/test entries from client list caches — preserve real clients ─
     ["agni_sales_clients", "agni_branch_clients", "agni_pending_client_creations",
-      "agni_pending_scheme_requests", "agni_sales_invoices", "agni_sales_payments", "agni_clients",
-      "agni_client_requests", "agni_client_enrolled_schemes_db"
+      "agni_sales_invoices", "agni_sales_payments", "agni_clients",
+      "agni_client_requests"
     ].forEach((listKey) => {
       try {
         const saved = localStorage.getItem(listKey);
@@ -232,8 +231,6 @@ export function clearAllSavedClients() {
     try {
       const activeEmail = (localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
       if (
-        activeEmail.includes("lucas") ||
-        activeEmail.includes("agni.com") ||
         activeEmail.includes("feedus") ||
         activeEmail.includes("rajput") ||
         activeEmail.includes("yash") ||
@@ -325,8 +322,6 @@ export default function App() {
         !storedToken ||
         !storedRole ||
         !storedEmail ||
-        storedEmail.includes("lucas") ||
-        storedEmail.includes("agni.com") ||
         storedEmail.includes("feedus") ||
         storedEmail.includes("rajput") ||
         storedEmail.includes("yash@") ||

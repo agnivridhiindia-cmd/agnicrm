@@ -726,6 +726,110 @@ export default function Dashboard({ onSignOut, userEmail }) {
     return [];
   });
 
+  // Authoritatively sync pending scheme requests from PostgreSQL backend (/requests API)
+  const syncPendingRequestsFromApi = React.useCallback(async () => {
+    const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+    try {
+      const res = await apiFetch("/requests");
+      if (res.ok) {
+        const resData = await res.json();
+        const apiRequests = Array.isArray(resData.data) ? resData.data : [];
+
+        // Filter for NEW_SERVICE requests relevant to this client
+        const newServiceReqs = apiRequests.filter((r) => {
+          if (r.requestType !== "NEW_SERVICE" || r.isDeleted) return false;
+          const payload = (typeof r.requestedChanges === "object" && r.requestedChanges) ? r.requestedChanges : {};
+          const rEmail = String(payload.clientEmail || r.client?.email || "").toLowerCase().trim();
+          return !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+        });
+
+        // Map backend requests into standard pending format
+        const apiMapped = newServiceReqs.map((r) => {
+          const payload = (typeof r.requestedChanges === "object" && r.requestedChanges) ? r.requestedChanges : {};
+          const schemeTitle = payload.schemeName || payload.name || (r.reason && r.reason.match(/for (.*?) \(/) ? r.reason.match(/for (.*?) \(/)[1] : "Custom Scheme");
+          const statusStr = r.status === "PENDING"
+            ? "Pending Sales Approval & Payment"
+            : r.status === "APPROVED"
+              ? "Approved & Active"
+              : "Declined";
+          return {
+            id: payload.id || `req-${r.id}`,
+            dbId: r.id,
+            requestCode: r.requestCode,
+            clientEmail: payload.clientEmail || r.client?.email || resolvedEmail,
+            clientName: payload.clientName || r.client?.name || r.client?.companyName || "Representative",
+            schemeName: schemeTitle,
+            tag: payload.tag || payload.category || "General Scheme",
+            category: payload.category || "",
+            price: payload.price || "Government / Subsidy Scheme",
+            cover: payload.cover || "Standard Coverage",
+            detail: payload.detail || payload.description || r.reason,
+            salesPerson: payload.salesPerson || "",
+            status: statusStr,
+            createdAt: payload.createdAt || r.createdAt,
+            decisionDate: r.decisionDate || null,
+          };
+        });
+
+        // Merge with existing localStorage requests (preserve any offline/optimistic records)
+        let localSaved = [];
+        try {
+          const raw = localStorage.getItem("agni_pending_scheme_requests");
+          if (raw) localSaved = JSON.parse(raw);
+          if (!Array.isArray(localSaved)) localSaved = [];
+        } catch (e) {}
+
+        const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const mergedMap = new Map();
+
+        // Database records take precedence
+        apiMapped.forEach((r) => {
+          const key = norm(r.schemeName);
+          if (key) mergedMap.set(key, r);
+        });
+
+        // Retain local optimistic items not yet indexed in DB
+        localSaved.forEach((r) => {
+          const key = norm(r.schemeName || r.name);
+          if (key && !mergedMap.has(key)) {
+            mergedMap.set(key, r);
+          }
+        });
+
+        const mergedList = Array.from(mergedMap.values());
+        try {
+          localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(mergedList));
+        } catch (e) {}
+
+        const pendingOnly = mergedList.filter((r) => {
+          const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+          const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+          const statusStr = String(r.status || "").toLowerCase();
+          const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
+          return emailMatches && isPending;
+        });
+
+        setPendingRequests(pendingOnly);
+      }
+    } catch (e) {
+      console.warn("Could not sync pending requests from API:", e);
+    }
+  }, [userEmail]);
+
+  React.useEffect(() => {
+    syncPendingRequestsFromApi();
+    window.addEventListener("storage", syncPendingRequestsFromApi);
+    window.addEventListener("agni_pending_updated", syncPendingRequestsFromApi);
+    window.addEventListener("agni_clients_updated", syncPendingRequestsFromApi);
+    const interval = setInterval(syncPendingRequestsFromApi, 5000);
+    return () => {
+      window.removeEventListener("storage", syncPendingRequestsFromApi);
+      window.removeEventListener("agni_pending_updated", syncPendingRequestsFromApi);
+      window.removeEventListener("agni_clients_updated", syncPendingRequestsFromApi);
+      clearInterval(interval);
+    };
+  }, [syncPendingRequestsFromApi]);
+
   // Pending payment demands sent by Sales for this client
   const pendingPaymentDemands = React.useMemo(() => {
     const emailKey = (userEmail || "").trim().toLowerCase();
@@ -1130,15 +1234,37 @@ export default function Dashboard({ onSignOut, userEmail }) {
       createdAt: nowStr,
     };
 
+    const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const reqNorm = norm(pendingReq.schemeName);
+
+    // Prevent duplicate spam requests if already enrolled
+    const isAlreadyEnrolled = (activePlansList || []).some((p) => {
+      const pNorm = norm(p.name);
+      return pNorm && reqNorm && (pNorm === reqNorm || pNorm.includes(reqNorm) || reqNorm.includes(pNorm));
+    });
+    if (isAlreadyEnrolled) {
+      console.warn("Scheme is already enrolled in active plans:", pendingReq.schemeName);
+      return;
+    }
+
+    // Prevent duplicate pending requests if already in pendingRequests state
+    const isAlreadyPendingState = (pendingRequests || []).some((r) => {
+      const rNorm = norm(r.schemeName || r.name);
+      const statusStr = String(r.status || "").toLowerCase();
+      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
+      return rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm)) && isPending;
+    });
+    if (isAlreadyPendingState) {
+      console.warn("Scheme is already in pending requests state:", pendingReq.schemeName);
+      return;
+    }
+
     try {
       const saved = localStorage.getItem("agni_pending_scheme_requests");
       let allReqs = saved ? JSON.parse(saved) : [];
       if (!Array.isArray(allReqs)) allReqs = [];
 
-      const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const reqNorm = norm(pendingReq.schemeName);
-
-      // Avoid duplicate pending requests for the same scheme
+      // Avoid duplicate pending requests for the same scheme in localStorage cache
       const isDuplicate = allReqs.some((r) => {
         const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
         const rNorm = norm(r.schemeName || r.name);
@@ -1151,7 +1277,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       if (!isDuplicate) {
         allReqs.unshift(pendingReq);
         localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
-        setPendingRequests((prev) => [pendingReq, ...prev.filter((p) => norm(p.schemeName) !== reqNorm)]);
+        setPendingRequests((prev) => [pendingReq, ...prev.filter((p) => norm(p.schemeName || p.name) !== reqNorm)]);
 
         // Notify client and salesperson components immediately
         window.dispatchEvent(new CustomEvent("agni_pending_updated"));
@@ -1168,6 +1294,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
             requestedChanges: pendingReq,
           },
         }).then(() => {
+          syncPendingRequestsFromApi();
           window.dispatchEvent(new CustomEvent("agni_clients_updated"));
           window.dispatchEvent(new CustomEvent("agni_pending_updated"));
         }).catch((err) => {
@@ -1177,7 +1304,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     } catch (e) {
       console.warn("Could not save scheme application request:", e);
     }
-  }, [userEmail, dbProfile, clientInfo, dedicatedTeam]);
+  }, [userEmail, dbProfile, clientInfo, dedicatedTeam, activePlansList, pendingRequests, syncPendingRequestsFromApi]);
 
   const [selectedPipelineSchemeName, setSelectedPipelineSchemeName] = React.useState(null);
 
