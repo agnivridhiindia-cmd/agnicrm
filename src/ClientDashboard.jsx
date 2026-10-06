@@ -8,7 +8,7 @@ import EligibilityPage from "./pages/EligibilityPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import { getTrackerState, getSchemeCompletedStages, getClientAllSchemeTrackers, getClientCompositeKey, isClientPrimaryScheme, isPaymentDemandOrSettlement, getCanonicalSchemeName } from "./utils/schemeTracker";
-import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, repairClientStorageData, syncTeamHierarchyFromDB } from "./utils/branchHelper";
+import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, repairClientStorageData, syncTeamHierarchyFromDB, getCachedHierarchy } from "./utils/branchHelper";
 import ClientInstallButton from "./components/ClientInstallButton";
 const dashboardIcons = {
   dashboard: (
@@ -807,7 +807,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       (typeof dbSalesPerson === "string" ? dbSalesPerson : "") ||
       dbProfile?.owner ||
       "";
-    let salesRepPhone = dbSalesPerson?.phone || dbProfile?.salesRepresentativePhone || "";
+    let salesRepPhone = dbSalesPerson?.phone || dbProfile?.salesRepresentativePhone || dbProfile?.salesPersonPhone || "";
 
     let salesManager =
       dbSalesManager?.fullName ||
@@ -821,7 +821,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     let clientBranch = typeof clientBranchRaw === "string" ? clientBranchRaw : (clientBranchRaw?.name || "");
 
     // 2. Fallback to client stored records only if DB profile fields are not yet resolved
-    if (!salesRep || !salesManager || !clientBranch) {
+    if (!salesRep || !salesManager || !clientBranch || !salesRepPhone) {
       try {
         const saved = localStorage.getItem("agni_branch_clients") || localStorage.getItem("agni_sales_clients");
         if (saved) {
@@ -835,6 +835,14 @@ export default function Dashboard({ onSignOut, userEmail }) {
               if (!salesRep) {
                 const sr = match.assignedSalesPerson || match.owner || match.salesRepresentative || match.salesperson;
                 salesRep = typeof sr === "string" ? sr : (sr?.name || "");
+              }
+              if (!salesRepPhone) {
+                const sr = match.assignedSalesPerson || match.salesRepresentative || match.salesperson;
+                if (sr && typeof sr === "object" && sr.phone) {
+                  salesRepPhone = sr.phone;
+                } else if (match.salesRepresentativePhone || match.salesPersonPhone || match.repPhone || match.salespersonPhone) {
+                  salesRepPhone = match.salesRepresentativePhone || match.salesPersonPhone || match.repPhone || match.salespersonPhone;
+                }
               }
               if (!salesManager) {
                 const sm = match.salesManager || match.managerName || match.reportingManager;
@@ -857,6 +865,26 @@ export default function Dashboard({ onSignOut, userEmail }) {
     if (!salesManagerPhone) salesManagerPhone = branchDetails.managerPhone || "+91 91234 00222";
     if (!clientBranch) clientBranch = branchDetails.branchName || "West Zone (Mumbai)";
 
+    // Fallback lookup for sales rep phone directly from cached hierarchy if still empty
+    if (!salesRepPhone && salesRep) {
+      try {
+        const hierarchyList = getCachedHierarchy();
+        if (Array.isArray(hierarchyList)) {
+          for (const b of hierarchyList) {
+            const foundSp = (b.salesPersons || []).find((sp) => {
+              const spName = (sp.name || sp.fullName || "").toLowerCase().trim();
+              const target = salesRep.toLowerCase().trim();
+              return spName && (spName === target || spName.includes(target) || target.includes(spName));
+            });
+            if (foundSp && foundSp.phone) {
+              salesRepPhone = foundSp.phone;
+              break;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     const repStr = normalizeSalesPersonName(salesRep);
     const mgrStr = (typeof salesManager === "string" && salesManager.trim()) ? salesManager.trim() : (branchDetails.managerName || "Eli Brooks");
 
@@ -864,10 +892,13 @@ export default function Dashboard({ onSignOut, userEmail }) {
     const repInitials = typeof repStr === "string" ? repStr.split(" ").filter(Boolean).map((n) => n[0]).join("").toUpperCase().substring(0, 2) : "LS";
 
     return {
+      managerId: dbSalesManager?.id || dbSalesPerson?.reportingManager?.id || null,
+      managerEmail: dbSalesManager?.email || dbSalesPerson?.reportingManager?.email || branchDetails.managerEmail || "eli@agni.com",
       managerName: mgrStr,
       managerRole: "Sales Manager",
       managerInitials: mgrInitials || "EB",
       managerPhone: salesManagerPhone || branchDetails.managerPhone || "+91 91234 00222",
+      salesPersonId: dbSalesPerson?.id || null,
       salesRepName: repStr,
       salesRepRole: "Sales Representative",
       salesRepInitials: repInitials || "LS",
@@ -1827,6 +1858,80 @@ export default function Dashboard({ onSignOut, userEmail }) {
     } catch (e) { }
   }, [userEmail]);
 
+  // Contact Sales Manager state & action
+  const [contactManagerStatus, setContactManagerStatus] = React.useState("idle"); // 'idle' | 'sending' | 'sent'
+
+  const handleContactManager = React.useCallback(async () => {
+    if (contactManagerStatus === "sending") return;
+    setContactManagerStatus("sending");
+
+    const clientDisplayName = clientInfo?.companyName || clientInfo?.representativeName || "Client";
+    const clientPhone = clientInfo?.phone || userEmail || "Contact details on file";
+    const repName = dedicatedTeam.salesRepName || "Sales Representative";
+    const mgrName = dedicatedTeam.managerName || "Sales Manager";
+
+    const title = `Client Support: Contact Request`;
+    const detail = `${clientDisplayName} (assigned to salesperson ${repName}) requested to contact Sales Manager ${mgrName}. Client Phone/Email: ${clientPhone}.`;
+
+    try {
+      // 1. Post notification to PostgreSQL backend API
+      await apiFetch("/notifications", {
+        method: "POST",
+        body: {
+          title,
+          detail,
+          issuer: clientDisplayName,
+          tone: "coral",
+          targetRole: "MANAGER",
+          targetUserId: dedicatedTeam.managerId || undefined,
+        },
+      });
+    } catch (err) {
+      console.warn("Backend notification creation notice:", err);
+    }
+
+    // 2. Prepend to manager's notifications in localStorage
+    try {
+      const savedManagerNotifs = JSON.parse(localStorage.getItem("agni_manager_notifications") || "[]");
+      const newManagerNotice = {
+        id: `mgr-req-${Date.now()}`,
+        title,
+        detail,
+        issuer: clientDisplayName,
+        tone: "coral",
+        time: "Just now",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem(
+        "agni_manager_notifications",
+        JSON.stringify([newManagerNotice, ...savedManagerNotifs.slice(0, 49)])
+      );
+    } catch (e) {}
+
+    // 3. Dispatch real-time events for active manager dashboards / notification bell
+    try {
+      window.dispatchEvent(
+        new CustomEvent("agni_notifications_updated", {
+          detail: {
+            title,
+            message: detail,
+            detail,
+            issuer: clientDisplayName,
+            tone: "coral",
+            targetRole: "Manager",
+          },
+        })
+      );
+      window.dispatchEvent(new Event("storage"));
+    } catch (e) {}
+
+    setContactManagerStatus("sent");
+    setTimeout(() => {
+      setContactManagerStatus("idle");
+    }, 3500);
+  }, [contactManagerStatus, clientInfo, dedicatedTeam, userEmail]);
+
   // Dynamic Client Notifications List
   const notificationsList = React.useMemo(() => {
     const targetEmail = (userEmail || localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
@@ -2492,41 +2597,67 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
                 {/* Account Manager & Sales Lead Contact Widget */}
                 <section className="cd-section-card cd-manager-section">
-                  <div className="cd-section-head" style={{ marginBottom: 14 }}>
+                  <div className="cd-section-head cd-spoc-head">
                     <div>
-                      <span className="cd-kicker">Single Point of Contact</span>
-                      <h2 style={{ fontSize: 20 }}>SPOC</h2>
+                      <span className="cd-kicker cd-spoc-kicker">Single Point of Contact</span>
+                      <h2 className="cd-spoc-title">SPOC</h2>
                     </div>
+                    {dedicatedTeam.branchName && (
+                      <span className="cd-spoc-branch-tag" title={dedicatedTeam.branchName}>
+                        {dedicatedTeam.branchName.replace(/\s*\(.*\)/, "")}
+                      </span>
+                    )}
                   </div>
 
                   <div className="cd-manager-card">
-                    <div className="cd-manager-profile-row">
-                      <div className="cd-manager-avatar">{dedicatedTeam.managerInitials}</div>
+                    <div className="cd-manager-profile-row" title={`Sales Manager: ${dedicatedTeam.managerName}`}>
+                      <div className="cd-avatar-wrapper">
+                        <div className="cd-manager-avatar">{dedicatedTeam.managerInitials}</div>
+                        <span className="cd-online-indicator" title="Active Leadership" />
+                      </div>
                       <div className="cd-manager-details">
                         <h3>{dedicatedTeam.managerName}</h3>
-                        <p className="cd-manager-role">{dedicatedTeam.managerRole}</p>
+                        <span className="cd-manager-role">{dedicatedTeam.managerRole}</span>
                       </div>
                     </div>
 
-                    <div className="cd-sales-rep-chip">
-                      <div className="cd-sales-avatar-sm">{dedicatedTeam.salesRepInitials}</div>
+                    <div className="cd-sales-rep-chip" title={`Assigned Sales Representative: ${dedicatedTeam.salesRepName}`}>
+                      <div className="cd-avatar-wrapper">
+                        <div className="cd-sales-avatar-sm">{dedicatedTeam.salesRepInitials}</div>
+                        <span className="cd-online-indicator" title="Active Representative" />
+                      </div>
                       <div className="cd-manager-details">
                         <h3>{dedicatedTeam.salesRepName}</h3>
-                        <p className="cd-sales-role">{dedicatedTeam.salesRepRole}</p>
+                        <span className="cd-sales-role">{dedicatedTeam.salesRepRole}</span>
                       </div>
                     </div>
 
                     <div className="cd-manager-actions">
-                      <a href={`tel:${dedicatedTeam.managerPhone}`} className="cd-call-btn" title="Call Sales Manager">
-                        <DashboardIcon name="phone" size={13} /> Call Manager
+                      <a
+                        href={`tel:${dedicatedTeam.salesRepPhone}`}
+                        className="cd-call-btn"
+                        title={`Call Salesperson: ${dedicatedTeam.salesRepName} (${dedicatedTeam.salesRepPhone})`}
+                      >
+                        <DashboardIcon name="phone" size={13} /> Call Salesperson
                       </a>
                       <button
                         type="button"
-                        className="cd-email-btn"
-                        onClick={() => setNewRequestOpen(true)}
-                        title="Contact Sales Representative"
+                        className={`cd-email-btn ${contactManagerStatus === "sent" ? "cd-btn-success" : ""}`}
+                        onClick={handleContactManager}
+                        disabled={contactManagerStatus === "sending"}
+                        title={`Send notification to Sales Manager ${dedicatedTeam.managerName}`}
                       >
-                        <DashboardIcon name="arrow" size={13} /> Contact Rep
+                        {contactManagerStatus === "sending" ? (
+                          <>Sending...</>
+                        ) : contactManagerStatus === "sent" ? (
+                          <>
+                            <DashboardIcon name="check" size={13} /> Notification Sent ✓
+                          </>
+                        ) : (
+                          <>
+                            <DashboardIcon name="arrow" size={13} /> Contact Manager
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
