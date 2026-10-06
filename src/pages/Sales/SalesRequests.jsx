@@ -100,8 +100,53 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
               };
             }
 
+            const isSecondaryScheme = Boolean(
+              pendingData?.schemeName ||
+              pendingData?.cover ||
+              pendingData?.tag ||
+              (typeof pendingData?.detail === "string" && pendingData?.detail.includes("scheme enrollment")) ||
+              String(r.reason || "").toLowerCase().includes("self-enrollment") ||
+              String(r.reason || "").toLowerCase().includes("secondary scheme")
+            );
+
+            if (isSecondaryScheme) {
+              const statusStr = String(r.status || "").toLowerCase();
+              const isDeclined = statusStr.includes("decline") || statusStr.includes("reject");
+              const isApproved = statusStr.includes("approved");
+              const displayStatus = isDeclined ? "Declined" : isApproved ? "Approved" : "Pending";
+              const schemeName = pendingData?.schemeName || pendingData?.name || r.reason?.replace(/Client self-enrollment for /i, "").split(" (")[0] || "Eligible Scheme";
+              return {
+                id: r.requestCode || r.id,
+                rawId: r.id,
+                clientName,
+                companyName: clientName,
+                clientEmail: r.client?.email || pendingData?.clientEmail || pendingData?.email || "",
+                phone: r.client?.phone || pendingData?.phone || "+91 98765 43210",
+                requestType: "Eligible Scheme",
+                status: displayStatus,
+                category: "Eligible Scheme",
+                schemeName: schemeName,
+                pitchedAmount: pendingData?.price || 0,
+                amountRequired: pendingData?.cover || pendingData?.amountRequired || 0,
+                decisionDate: r.decisionDate ? new Date(r.decisionDate).toISOString().split("T")[0] : "",
+                managerRemarks: r.managerRemarks || "",
+                reason: r.reason || "",
+                targetDepartment: "Sales & Schemes",
+                managerName: pendingData?.salesPerson || "Sales Representative",
+                createdAt: r.createdAt,
+                submittedDate: r.createdAt ? new Date(r.createdAt).toISOString().split("T")[0] : "",
+                currentStage: r.currentStage,
+                approvalChain: r.approvalChain,
+                currentChainIndex: r.currentChainIndex,
+                auditHistory: r.auditHistory,
+                requestedChanges: pendingData,
+                raw: r,
+              };
+            }
+
             return {
               id: r.requestCode || r.id,
+              rawId: r.id,
               clientName,
               companyName: clientName,
               requestType: r.requestType === "NEW_SERVICE" ? "Client Create" : r.requestType === "DELETE_CLIENT" ? "Delete Client" : r.requestType === "TRANSFER_CLIENT" ? "Transfer Client" : r.requestType === "EDIT_CLIENT" ? "Edit Client" : r.requestType,
@@ -155,7 +200,17 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
                     existingMap.set(r.id, { ...curr, status: "Declined" });
                   }
                 } else {
-                  existingMap.set(r.id, r);
+                  // Only add if not already represented in existingMap by scheme name and client
+                  const rNorm = String(r.schemeName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                  const rClient = String(r.clientName || "").toLowerCase().trim();
+                  const alreadyInPrev = Array.from(existingMap.values()).some((p) => {
+                    const pNorm = String(p.schemeName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                    const pClient = String(p.clientName || "").toLowerCase().trim();
+                    return pNorm && rNorm && (pNorm === rNorm) && (!rClient || !pClient || pClient === rClient);
+                  });
+                  if (!alreadyInPrev) {
+                    existingMap.set(r.id, r);
+                  }
                 }
               });
               return Array.from(existingMap.values());
@@ -414,13 +469,62 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
         });
       }
 
+      // Also patch backend DB request decision if dbId exists!
+      let dbId = approvingScheme.raw?.id || approvingScheme.rawId || (String(approvingScheme.id).includes("-") && !String(approvingScheme.id).startsWith("req-") ? approvingScheme.id : null);
+      if (!dbId && approvingScheme.schemeName) {
+        const normS = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const targetNorm = normS(approvingScheme.schemeName);
+        const foundDbReq = requests.find((r) => {
+          const rId = String(r.id || "");
+          const isDb = !rId.startsWith("req-") && (r.raw?.id || r.id);
+          const rNorm = normS(r.schemeName || r.raw?.requestedChanges?.schemeName || r.raw?.reason);
+          return isDb && (rNorm === targetNorm || rNorm.includes(targetNorm) || targetNorm.includes(rNorm));
+        });
+        if (foundDbReq) {
+          dbId = foundDbReq.raw?.id || foundDbReq.id;
+        }
+      }
+
+      if (dbId) {
+        try {
+          await apiFetch(`/requests/${dbId}/decision`, {
+            method: "PATCH",
+            body: {
+              decision: "APPROVED",
+              remarks: `Scheme approved with ${details.totalPayment || details.pitchedAmount || 0} pitched amount`,
+            },
+          });
+        } catch (err) {
+          console.warn("Could not patch DB request approval:", err);
+        }
+      }
+
+      // Optimistically update request in local table
+      setRequests((prev) =>
+        prev.map((r) => {
+          const isMatch = r.id === approvingScheme.id || (dbId && (r.id === dbId || r.raw?.id === dbId));
+          return isMatch
+            ? {
+                ...r,
+                status: "Approved",
+                decisionDate: new Date().toISOString().split("T")[0],
+                managerRemarks: `Scheme approved with ${details.totalPayment || details.pitchedAmount || 0} pitched amount`,
+              }
+            : r;
+        })
+      );
+
       window.dispatchEvent(new Event("agni_pending_updated"));
       window.dispatchEvent(new CustomEvent("agni_pending_updated"));
       window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+      window.dispatchEvent(new CustomEvent("agni_requests_updated"));
       window.dispatchEvent(new Event("storage"));
 
       setNotification(`✓ Scheme ${approvingScheme.schemeName} approved successfully for ${approvingScheme.clientName}!`);
       setTimeout(() => setNotification(""), 4500);
+
+      // Refresh requests list from server
+      fetchRequests();
     } catch (e) {
       console.error(e);
     }

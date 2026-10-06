@@ -55,24 +55,51 @@ export function initRealtimeService() {
             ? `✓ ${payload.requestType ? payload.requestType.replace(/_/g, " ") : "Request"} for ${payload.clientName || "Client"} was approved by ${payload.reviewerRole || "Management"}!`
             : `✕ ${payload.requestType ? payload.requestType.replace(/_/g, " ") : "Request"} for ${payload.clientName || "Client"} was rejected: ${payload.managerRemarks || "No remarks"}`;
 
-          // Save notification to local storage for the notification bell
+          // Determine if the current logged-in user is the intended recipient of this personal approval alert
+          let isRecipient = true;
           try {
-            const savedNotifs = JSON.parse(localStorage.getItem("agni_sales_notifications") || "[]");
-            const newNotif = {
-              id: Date.now(),
-              title,
-              message: msg,
-              time: "Just now",
-              read: false,
-              type: isApproved ? "approval" : "rejection",
-              createdAt: new Date().toISOString(),
-            };
-            localStorage.setItem("agni_sales_notifications", JSON.stringify([newNotif, ...savedNotifs.slice(0, 49)]));
-          } catch (e) {}
+            const rawUser = localStorage.getItem("agni_user");
+            const currentUser = rawUser ? JSON.parse(rawUser) : null;
+            const currentUserId = currentUser?.id || currentUser?.userId || null;
+            const currentUserEmail = (localStorage.getItem("agni_user_email") || currentUser?.email || "").toLowerCase().trim();
+            const currentUserRole = (localStorage.getItem("agni_user_role") || currentUser?.role || "").toLowerCase();
 
-          // Dispatch update events across the UI
-          window.dispatchEvent(new CustomEvent("agni_notifications_updated", { detail: { title, message: msg } }));
-          window.dispatchEvent(new CustomEvent("agni_toast_notification", { detail: msg }));
+            // When the user is a salesperson, ONLY notify the specific representative who owns/requested the client
+            if (currentUserRole.includes("sales")) {
+              const targetUserIds = [payload.requesterId, payload.targetSalesPersonId].filter(Boolean);
+              const targetEmails = [payload.requesterEmail, payload.targetSalesPersonEmail].filter(Boolean).map((e) => e.toLowerCase().trim());
+
+              const matchesId = currentUserId && targetUserIds.some((id) => String(id) === String(currentUserId));
+              const matchesEmail = currentUserEmail && targetEmails.some((e) => e === currentUserEmail);
+
+              isRecipient = Boolean(matchesId || matchesEmail);
+            }
+          } catch (e) {
+            isRecipient = true;
+          }
+
+          if (isRecipient) {
+            // Save notification to local storage for the notification bell
+            try {
+              const savedNotifs = JSON.parse(localStorage.getItem("agni_sales_notifications") || "[]");
+              const newNotif = {
+                id: Date.now(),
+                title,
+                message: msg,
+                time: "Just now",
+                read: false,
+                type: isApproved ? "approval" : "rejection",
+                createdAt: new Date().toISOString(),
+              };
+              localStorage.setItem("agni_sales_notifications", JSON.stringify([newNotif, ...savedNotifs.slice(0, 49)]));
+            } catch (e) {}
+
+            // Dispatch notification events ONLY for the intended recipient
+            window.dispatchEvent(new CustomEvent("agni_notifications_updated", { detail: { title, message: msg } }));
+            window.dispatchEvent(new CustomEvent("agni_toast_notification", { detail: msg }));
+          }
+
+          // Always dispatch data update events so live lists/tables remain in sync for all roles
           window.dispatchEvent(new CustomEvent("agni_requests_updated", { detail: payload }));
           window.dispatchEvent(new CustomEvent("agni_clients_updated", { detail: payload }));
           window.dispatchEvent(new CustomEvent("agni_pending_updated", { detail: payload }));
@@ -83,7 +110,24 @@ export function initRealtimeService() {
           const payload = data.payload || {};
           const msg = `⭐ Milestone Updated: ${payload.clientName || "Client"} reached ${payload.applicationStatus || "Stage"} (${payload.progressPercent || 0}%)`;
 
-          window.dispatchEvent(new CustomEvent("agni_toast_notification", { detail: msg }));
+          // Only display personal milestone toast if the rep owns the client or is a management role
+          let shouldToast = true;
+          try {
+            const rawUser = localStorage.getItem("agni_user");
+            const currentUser = rawUser ? JSON.parse(rawUser) : null;
+            const currentUserId = currentUser?.id || currentUser?.userId || null;
+            const currentUserRole = (localStorage.getItem("agni_user_role") || currentUser?.role || "").toLowerCase();
+
+            if (currentUserRole.includes("sales") && payload.salesPersonId && currentUserId) {
+              shouldToast = String(payload.salesPersonId) === String(currentUserId);
+            }
+          } catch (e) {
+            shouldToast = true;
+          }
+
+          if (shouldToast) {
+            window.dispatchEvent(new CustomEvent("agni_toast_notification", { detail: msg }));
+          }
           window.dispatchEvent(new CustomEvent("agni_clients_updated", { detail: payload }));
           window.dispatchEvent(new CustomEvent("agni_pending_updated", { detail: payload }));
         }

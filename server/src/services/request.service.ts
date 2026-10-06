@@ -2,6 +2,7 @@ import { RequestType, RequestStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { generateRequestCode } from "../utils/idGenerator";
+import { broadcastSseEvent } from "./sse.service";
 import {
   resolveApprovalChain,
   getStageForRole,
@@ -35,7 +36,21 @@ export async function getRequestsService(user: AuthenticatedUser) {
   let whereClause: any = { isDeleted: false };
 
   if (user.role === "SALES_PERSON") {
-    whereClause.requesterId = user.userId;
+    let repBranchId = user.branchId;
+    if (!repBranchId) {
+      const dbUser = await prisma.user.findFirst({
+        where: { id: user.userId, isDeleted: false },
+        select: { branchId: true },
+      });
+      repBranchId = dbUser?.branchId || undefined;
+    }
+
+    whereClause.OR = [
+      { requesterId: user.userId },
+      { client: { salesPersonId: user.userId } },
+      { targetEntityId: user.userId },
+      ...(repBranchId ? [{ client: { branchId: repBranchId } }] : []),
+    ];
   } else if (user.role === "CLIENT") {
     whereClause.OR = [
       { requesterId: user.userId },
@@ -86,7 +101,25 @@ export async function createRequestService(user: AuthenticatedUser, data: Create
   const approvalChain = resolveApprovalChain(rawReqType, user.role);
   const currentStage = approvalChain.length > 0 ? getStageForRole(approvalChain[0]) : "PENDING_SALES_MANAGER";
   const entityType = data.targetEntityType || (data.clientId ? "CLIENT" : "EMPLOYEE");
-  const entityId = data.targetEntityId || data.clientId;
+  let resolvedClientId: string | null = data.clientId || (entityType === "CLIENT" ? data.targetEntityId || null : null);
+
+  // If requester is a client, safely resolve valid clientId in database
+  if (user.role === "CLIENT") {
+    let clientRecord = null;
+    if (resolvedClientId) {
+      clientRecord = await prisma.client.findFirst({
+        where: { id: resolvedClientId, isDeleted: false },
+      });
+    }
+    if (!clientRecord) {
+      clientRecord = await prisma.client.findFirst({
+        where: { email: { equals: user.email, mode: "insensitive" }, isDeleted: false },
+      });
+    }
+    resolvedClientId = clientRecord?.id || null;
+  }
+
+  const entityId = data.targetEntityId || resolvedClientId;
 
   // Prevent duplicate pending requests for the same scheme
   if (rawReqType === "NEW_SERVICE") {
@@ -133,9 +166,9 @@ export async function createRequestService(user: AuthenticatedUser, data: Create
       requestedChanges: data.requestedChanges ? (data.requestedChanges as any) : [],
       reason: data.reason,
       status: RequestStatus.PENDING,
-      clientId: data.clientId || (entityType === "CLIENT" ? entityId : null),
+      clientId: resolvedClientId || null,
       targetEntityType: entityType,
-      targetEntityId: entityId,
+      targetEntityId: entityId || null,
       currentStage: currentStage,
       approvalChain: approvalChain,
       currentChainIndex: 0,
@@ -158,6 +191,24 @@ export async function createRequestService(user: AuthenticatedUser, data: Create
   }).catch(() => {});
 
   invalidateRequestsCache();
+
+  // Broadcast real-time SSE event to all connected devices across laptops
+  broadcastSseEvent({
+    type: "REQUEST_CREATED",
+    payload: {
+      requestId: newRequest.id,
+      requestCode: newRequest.requestCode,
+      requestType: newRequest.requestType,
+      clientId: resolvedClientId || null,
+      clientName: newRequest.client?.name || (data.requestedChanges as any)?.clientName || (data.requestedChanges as any)?.companyName || "Client",
+      requesterId: user.userId,
+      requesterRole: user.role,
+      requesterEmail: user.email,
+      reason: data.reason,
+      data: newRequest,
+    },
+  });
+
   return {
     success: true,
     statusCode: 201,
