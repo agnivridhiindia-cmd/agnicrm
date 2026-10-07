@@ -185,6 +185,47 @@ export default function MoreServicesPage({
     };
   }, []);
 
+  // Bug #4 fix: Clear optimisticRequested for schemes that are now declined or approved.
+  // Ensures the "Request Scheme" button reverts after a salesperson declines the request.
+  React.useEffect(() => {
+    function clearSettledOptimistic() {
+      try {
+        const saved = localStorage.getItem("agni_pending_scheme_requests");
+        if (!saved) return;
+        const list = JSON.parse(saved);
+        if (!Array.isArray(list) || list.length === 0) return;
+        const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+        const settled = new Set();
+        const normFn = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        list.forEach((r) => {
+          const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+          const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+          if (!emailMatch) return;
+          const statusStr = String(r.status || "").toLowerCase();
+          if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+            const sNorm = normFn(r.schemeName || r.name);
+            const sName = String(r.schemeName || r.name || "").toLowerCase().trim();
+            if (sNorm) settled.add(sNorm);
+            if (sName) settled.add(sName);
+          }
+        });
+        if (settled.size === 0) return;
+        setOptimisticRequested((prev) => {
+          const next = new Set(prev);
+          settled.forEach((key) => next.delete(key));
+          return next.size === prev.size ? prev : next;
+        });
+      } catch (e) { }
+    }
+    clearSettledOptimistic();
+    window.addEventListener("agni_pending_updated", clearSettledOptimistic);
+    window.addEventListener("storage", clearSettledOptimistic);
+    return () => {
+      window.removeEventListener("agni_pending_updated", clearSettledOptimistic);
+      window.removeEventListener("storage", clearSettledOptimistic);
+    };
+  }, [userEmail]);
+
   const norm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
   const isServiceRequested = React.useCallback((service) => {
@@ -217,7 +258,7 @@ export default function MoreServicesPage({
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const inPendingProp = (pendingRequests || []).some((r) => {
       const rNorm = norm(r.schemeName || r.name);
@@ -261,7 +302,7 @@ export default function MoreServicesPage({
           if (foundName) return normalizeSalesPersonName(foundName);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const email = userEmail || localStorage.getItem("agni_user_email") || "";
     const details = getManagerBranchDetails(email);
@@ -376,7 +417,7 @@ export default function MoreServicesPage({
           <section key={group.title} className="cd-service-group-section">
             <div className="cd-service-group-head">
               <div className="cd-service-group-icon" style={{ background: group.grad, color: '#ffffff' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
               </div>
               <h3>{group.title}</h3>
             </div>
@@ -433,7 +474,7 @@ export default function MoreServicesPage({
                         </svg>
                       ) : (
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
+                          <path d="M5 12h14" /><path d="m13 6 6 6-6 6" />
                         </svg>
                       )}
                     </button>

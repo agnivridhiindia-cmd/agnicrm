@@ -616,10 +616,25 @@ export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) 
   const companyName = client.company || client.companyName || client.name || "";
   const compKey = getClientCompositeKey(companyName, emailKey);
 
+  const normVal = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const compNorm = normVal(companyName);
+  const nameNorm = normVal(client.name || client.representativeName || "");
+  const emailNorm = normVal(emailKey.split("@")[0] || "");
+
+  const isClientIdentity = (val) => {
+    const vNorm = normVal(val);
+    if (!vNorm) return false;
+    if (compNorm && (vNorm === compNorm || (vNorm.includes(compNorm) && !vNorm.includes("pmegp") && !vNorm.includes("mudra")))) return true;
+    if (nameNorm && vNorm === nameNorm) return true;
+    if (emailNorm && vNorm === emailNorm) return true;
+    return false;
+  };
+
   const schemeNamesSet = new Set();
   const addSchemeName = (name) => {
-    if (!name || isPaymentDemandOrSettlement(name)) return;
+    if (!name || isPaymentDemandOrSettlement(name) || isClientIdentity(name)) return;
     const canonical = getCanonicalSchemeName(name);
+    if (isClientIdentity(canonical)) return;
     schemeNamesSet.add(canonical);
   };
 
@@ -672,9 +687,9 @@ export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) 
     }
   } catch (e) { }
 
-  const schemeList = Array.from(schemeNamesSet).filter((sName) => !isPaymentDemandOrSettlement(sName));
+  const schemeList = Array.from(schemeNamesSet).filter((sName) => !isPaymentDemandOrSettlement(sName) && !isClientIdentity(sName));
   if (schemeList.length === 0) {
-    const fallbackScheme = client.scheme && !isPaymentDemandOrSettlement(client.scheme) ? client.scheme : "PMEGP";
+    const fallbackScheme = client.scheme && !isPaymentDemandOrSettlement(client.scheme) && !isClientIdentity(client.scheme) ? client.scheme : "PMEGP";
     schemeList.push(fallbackScheme);
   }
 

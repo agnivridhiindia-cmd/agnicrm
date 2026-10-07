@@ -54,8 +54,8 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
   const gstAmount     = isOnline ? Math.round(basePitched * 0.18) : 0;
   const totalPayable  = isOnline ? basePitched + gstAmount : basePitched;
 
-  // Amount Received & Pending
-  const received      = Math.max(0, Number(amountReceived) || 0);
+  // Amount Received & Pending (defaults to totalPayable so full approved deal adds to quota)
+  const received      = amountReceived !== "" ? Math.max(0, Number(amountReceived) || 0) : totalPayable;
   const pending       = Math.max(0, totalPayable - received);
 
   // Net Revenue (strips GST from gross received — matches revenueCalculator formula)
@@ -167,7 +167,7 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
                 ? "1px solid #dc2626"
                 : "1px solid #cbd5e1",
             }}
-            placeholder="Enter amount collected so far"
+            placeholder={totalPayable > 0 ? `Full collection: ₹${totalPayable.toLocaleString("en-IN")}` : "Enter amount collected so far"}
             min="0"
           />
           {received > totalPayable && totalPayable > 0 && (

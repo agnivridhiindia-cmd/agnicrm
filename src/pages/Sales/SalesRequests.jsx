@@ -447,26 +447,160 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
         localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
       }
 
-      const clientEmail = approvingScheme.raw?.clientEmail || approvingScheme.raw?.email || approvingScheme.email;
-      if (clientEmail) {
-        await apiFetch("/clients", {
-          method: "POST",
-          body: {
-            companyName: approvingScheme.companyName || approvingScheme.clientName,
-            contactPerson: approvingScheme.clientName,
-            name: approvingScheme.clientName,
-            email: clientEmail,
-            phone: approvingScheme.raw?.phone || "+91 98765 43210",
-            serviceName: approvingScheme.schemeName,
-            serviceType: "CONSULTANCY",
-            amount: details.totalPayment || details.pitchedAmount,
-            paymentMode: (details.paymentMode || "ONLINE").toUpperCase(),
-            paymentReceived: details.paymentReceived || 0,
-            paymentPending: details.paymentPending || details.totalPayment || 0,
-            fundingRequirement: details.amountRequired,
-            approvalStatus: "ACTIVE",
-          }
+      // Robust client email resolution from all potential paths
+      const rawEmail = (
+        approvingScheme.clientEmail ||
+        approvingScheme.raw?.clientEmail ||
+        approvingScheme.raw?.client?.email ||
+        approvingScheme.raw?.requestedChanges?.clientEmail ||
+        approvingScheme.raw?.requestedChanges?.email ||
+        approvingScheme.raw?.email ||
+        approvingScheme.email ||
+        ""
+      ).trim().toLowerCase();
+
+      // Find matching primary client from loaded clients
+      const existingClient =
+        (effectiveClients || []).find((c) => c.email && rawEmail && c.email.toLowerCase().trim() === rawEmail) ||
+        (dbClients || []).find((c) => c.email && rawEmail && c.email.toLowerCase().trim() === rawEmail) ||
+        (effectiveClients || []).find((c) => {
+          const cComp = String(c.company || c.companyName || c.name || "").toLowerCase().trim();
+          const targetComp = String(approvingScheme.companyName || approvingScheme.clientName || "").toLowerCase().trim();
+          return cComp && targetComp && (cComp === targetComp || cComp.includes(targetComp) || targetComp.includes(cComp));
         });
+
+      const clientEmail = rawEmail || existingClient?.email?.toLowerCase().trim() || "";
+      const compName = existingClient?.company || existingClient?.companyName || approvingScheme.companyName || approvingScheme.clientName || "Client Company";
+      const contactPerson = existingClient?.contactPerson || approvingScheme.clientName || compName;
+      const clientName = existingClient?.name || compName;
+      const phone = existingClient?.phone || approvingScheme.phone || approvingScheme.raw?.phone || approvingScheme.raw?.client?.phone || "+91 98765 43210";
+      const schemeName = approvingScheme.schemeName || approvingScheme.raw?.requestedChanges?.schemeName || approvingScheme.raw?.schemeName || "Eligible Scheme";
+
+      // Deduce service type from scheme keywords
+      let serviceType = "CONSULTANCY";
+      const sLower = schemeName.toLowerCase();
+      if (sLower.includes("cert") || sLower.includes("iso") || sLower.includes("dsc") || sLower.includes("trademark") || sLower.includes("audit") || sLower.includes("registration")) {
+        serviceType = "CERTIFICATE";
+      } else if (sLower.includes("web") || sLower.includes("crm") || sLower.includes("it") || sLower.includes("cyber") || sLower.includes("portal")) {
+        serviceType = "IT";
+      } else if (sLower.includes("market") || sLower.includes("brand") || sLower.includes("campaign") || sLower.includes("b2b")) {
+        serviceType = "MARKETING";
+      }
+
+      const totalPay = Number(details.totalPayment || details.pitchedAmount || 0);
+      const payRec = details.paymentReceived !== undefined && details.paymentReceived !== ""
+        ? Number(details.paymentReceived)
+        : totalPay;
+      const payPend = Math.max(0, totalPay - payRec);
+      const payMode = (String(details.paymentMode || "ONLINE").toUpperCase() === "OFFLINE") ? "OFFLINE" : "ONLINE";
+      const fundingReq = Number(details.amountRequired || existingClient?.fundingRequirement || 1000000);
+
+      let createdClientData = null;
+      if (clientEmail) {
+        try {
+          const res = await apiFetch("/clients", {
+            method: "POST",
+            body: {
+              companyName: compName,
+              contactPerson: contactPerson,
+              name: clientName,
+              email: clientEmail,
+              phone: phone,
+              serviceName: schemeName,
+              serviceType: serviceType,
+              amount: totalPay,
+              paymentMode: payMode,
+              paymentReceived: payRec,
+              fundingRequirement: fundingReq,
+              approvalStatus: "ACTIVE",
+              salesPersonEmail: userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || undefined,
+            }
+          });
+          if (res.ok) {
+            const resJson = await res.json();
+            if (resJson.data) createdClientData = resJson.data;
+          }
+        } catch (apiErr) {
+          console.warn("Could not post secondary client to server:", apiErr);
+        }
+      }
+
+      // Build secondary client record for local sales caches to update Sales Client Directory and Quota instantly
+      const secondaryClientObj = {
+        id: createdClientData?.id || `client-sec-${Date.now()}`,
+        appId: createdClientData?.appId || `APP-WZ-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase().slice(-5)}`,
+        name: clientName,
+        company: compName,
+        companyName: compName,
+        contactPerson: contactPerson,
+        email: clientEmail,
+        phone: phone,
+        branch: existingClient?.branch || "West Zone (Mumbai)",
+        region: existingClient?.region || "West Zone",
+        scheme: schemeName,
+        serviceName: schemeName,
+        serviceType: serviceType,
+        assignedSalesPerson: salesPersonName || existingClient?.assignedSalesPerson || "Sales Representative",
+        salesRep: salesPersonName || existingClient?.salesRep || "Sales Representative",
+        owner: salesPersonName || existingClient?.owner || "Sales Representative",
+        stage: "ACTIVE",
+        applicationStatus: "Reports",
+        completedSteps: ["CRM Creation", "Agreement", "Reports"],
+        progress: 60,
+        progressPercent: 60,
+        revenue: String(totalPay),
+        totalPayment: String(totalPay),
+        amount: String(Math.round(totalPay / 1.18)),
+        paymentReceived: String(payRec),
+        paymentPending: String(payPend),
+        paymentStatus: payPend === 0 && payRec > 0 ? "Paid" : (payRec > 0 ? "Partial" : "Pending"),
+        approvalStatus: "ACTIVE",
+        documentStatus: existingClient?.documentStatus || "NOT_SUBMITTED",
+        processType: "secondary",
+        isPrimary: false,
+        createdAt: new Date().toISOString(),
+        dueDate: existingClient?.dueDate || null,
+      };
+
+      // Add secondary client into local storage collections so Sales Client Directory and Quota update immediately
+      ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
+        try {
+          const saved = localStorage.getItem(key);
+          let list = saved ? JSON.parse(saved) : [];
+          if (Array.isArray(list)) {
+            list = list.filter((c) => !(
+              String(c.email || "").toLowerCase().trim() === clientEmail &&
+              String(c.serviceName || c.scheme || "").toLowerCase().trim() === schemeName.toLowerCase().trim()
+            ));
+            list.unshift(secondaryClientObj);
+            localStorage.setItem(key, JSON.stringify(list));
+          }
+        } catch (e) {}
+      });
+
+      // Also persist into client's approved plans cache so Client Dashboard shows the approved plan
+      if (clientEmail) {
+        try {
+          const planKey = `agni_approved_client_plans_${clientEmail}`;
+          const savedPlans = localStorage.getItem(planKey);
+          let plansList = savedPlans ? JSON.parse(savedPlans) : [];
+          if (Array.isArray(plansList)) {
+            const hasPlan = plansList.some((p) => String(p.name || p.schemeName || p).toLowerCase().trim() === schemeName.toLowerCase().trim());
+            if (!hasPlan) {
+              plansList.push({
+                name: schemeName,
+                schemeName: schemeName,
+                serviceType: serviceType,
+                amount: totalPay,
+                fundingRequirement: fundingReq,
+                amountRequired: fundingReq,
+                status: "Active",
+                enrollmentDate: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+              });
+              localStorage.setItem(planKey, JSON.stringify(plansList));
+            }
+          }
+        } catch (e) {}
       }
 
       // Also patch backend DB request decision if dbId exists!
@@ -491,7 +625,7 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
             method: "PATCH",
             body: {
               decision: "APPROVED",
-              remarks: `Scheme approved with ${details.totalPayment || details.pitchedAmount || 0} pitched amount`,
+              remarks: `Scheme approved with ${totalPay} pitched amount`,
             },
           });
         } catch (err) {
@@ -508,7 +642,7 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
                 ...r,
                 status: "Approved",
                 decisionDate: new Date().toISOString().split("T")[0],
-                managerRemarks: `Scheme approved with ${details.totalPayment || details.pitchedAmount || 0} pitched amount`,
+                managerRemarks: `Scheme approved with ${totalPay} pitched amount`,
               }
             : r;
         })
@@ -520,11 +654,12 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
       window.dispatchEvent(new CustomEvent("agni_requests_updated"));
       window.dispatchEvent(new Event("storage"));
 
-      setNotification(`✓ Scheme ${approvingScheme.schemeName} approved successfully for ${approvingScheme.clientName}!`);
+      setNotification(`✓ Scheme ${schemeName} approved successfully for ${clientName}!`);
       setTimeout(() => setNotification(""), 4500);
 
       // Refresh requests list from server
       fetchRequests();
+      fetchClients();
     } catch (e) {
       console.error(e);
     }
