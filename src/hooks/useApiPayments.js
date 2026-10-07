@@ -67,6 +67,45 @@ export function useApiPayments() {
               status: resolvedStatus,
             };
           });
+
+          // Synchronize Paid/Settled records back into local storage caches so stale "Requested" entries are cleaned up
+          try {
+            const paidKeys = new Set(apiMapped.filter((p) => p.status === "Paid").map((p) => String(p.id)));
+            const awaitingKeys = new Set(apiMapped.filter((p) => p.status === "Awaiting Approval").map((p) => String(p.id)));
+
+            const syncLocal = (key) => {
+              const raw = localStorage.getItem(key);
+              if (!raw) return;
+              const list = JSON.parse(raw);
+              if (!Array.isArray(list)) return;
+              let changed = false;
+              const nextList = list.map((item) => {
+                const iId = String(item.paymentId || item.id || "");
+                if (paidKeys.has(iId) && item.status !== "Paid") {
+                  changed = true;
+                  return { ...item, status: "Paid" };
+                }
+                if (awaitingKeys.has(iId) && item.status !== "Awaiting Approval" && item.status !== "Paid") {
+                  changed = true;
+                  return { ...item, status: "Awaiting Approval" };
+                }
+                return item;
+              });
+              if (changed) {
+                localStorage.setItem(key, JSON.stringify(nextList));
+              }
+            };
+
+            syncLocal("agni_sales_payments");
+            syncLocal("agni_payment_demands");
+            syncLocal("agni_client_requests");
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i) || "";
+              if (k.startsWith("agni_payment_demands_")) {
+                syncLocal(k);
+              }
+            }
+          } catch (e) {}
         }
       }
     } catch (err) {

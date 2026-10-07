@@ -342,7 +342,12 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
           const list = JSON.parse(saved);
           if (!Array.isArray(list)) return;
           const updated = list.map((p) => {
-            if (String(p.id) === String(pay.id) || String(p.paymentId) === String(pay.id)) {
+            const matchesId =
+              String(p.id) === String(pay.id) ||
+              String(p.paymentId) === String(pay.id) ||
+              String(p.id) === String(pay.paymentId) ||
+              String(p.paymentId) === String(pay.paymentId);
+            if (matchesId) {
               return {
                 ...p,
                 status: "Awaiting Approval",
@@ -360,6 +365,13 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
       updatePaymentStatusLocal("agni_sales_payments");
       updatePaymentStatusLocal("agni_payment_demands");
       updatePaymentStatusLocal("agni_client_requests");
+      if (cleanEmail) updatePaymentStatusLocal(`agni_payment_demands_${cleanEmail}`);
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) || "";
+        if (k.startsWith("agni_payment_demands_")) {
+          updatePaymentStatusLocal(k);
+        }
+      }
       // 2. Update status in backend PostgreSQL database so Salesperson on other PCs sees Awaiting Approval
       try {
         const targetPayId = pay.id || pay.paymentId;

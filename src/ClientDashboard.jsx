@@ -1117,37 +1117,14 @@ export default function Dashboard({ onSignOut, userEmail }) {
     const companyKey = (clientInfo?.companyName || clientInfo?.company || "").trim().toLowerCase();
     const nameKey = (clientInfo?.name || clientInfo?.representativeName || "").trim().toLowerCase();
     const clientIdKey = String(clientInfo?.clientId || clientInfo?.id || "").trim().toLowerCase();
-    let allDemands = [];
-    try {
-      const s1 = localStorage.getItem("agni_sales_payments");
-      const s2 = localStorage.getItem("agni_payment_demands");
-      const s3 = localStorage.getItem("agni_client_requests");
-      const l1 = s1 ? JSON.parse(s1) : [];
-      const l2 = s2 ? JSON.parse(s2) : [];
-      const l3 = s3 ? JSON.parse(s3) : [];
-      allDemands = [...l1, ...l2, ...l3];
 
-      if (emailKey) {
-        const perEmail = localStorage.getItem(`agni_payment_demands_${emailKey}`);
-        if (perEmail) {
-          try {
-            const parsed = JSON.parse(perEmail);
-            if (Array.isArray(parsed)) allDemands.push(...parsed);
-          } catch (e) { }
-        }
-      }
-    } catch (e) { }
+    // Deduplicate demands by normalized payment identifier
+    const demandMap = new Map();
 
-    // Merge API payments from database so demands sync across all PCs
-    if (Array.isArray(apiPayments)) {
-      allDemands.push(...apiPayments);
-    }
-
-    const matchMap = new Map();
-    allDemands.forEach((p) => {
-      if (!p || !p.id) return;
-      const statusLower = (p.status || "").toLowerCase();
-      if (statusLower === "paid" || statusLower === "success" || statusLower === "cancelled") return;
+    const processItem = (p) => {
+      if (!p) return;
+      const idKey = String(p.paymentId || p.id || "").trim();
+      if (!idKey) return;
 
       const pEmail = (p.clientEmail || p.email || "").trim().toLowerCase();
       const pComp = (p.clientCompany || p.companyName || p.company || "").trim().toLowerCase();
@@ -1161,12 +1138,61 @@ export default function Dashboard({ onSignOut, userEmail }) {
       const matchCross = (companyKey && pName && (companyKey.includes(pName) || pName.includes(companyKey))) ||
                          (nameKey && pComp && (nameKey.includes(pComp) || pComp.includes(nameKey)));
 
-      if (matchEmail || matchComp || matchName || matchClientId || matchCross) {
-        matchMap.set(String(p.id), p);
+      if (!matchEmail && !matchComp && !matchName && !matchClientId && !matchCross) {
+        return;
       }
-    });
 
-    return Array.from(matchMap.values());
+      const statusLower = String(p.status || "").toLowerCase().trim();
+      const isPaid = statusLower === "paid" || statusLower === "success" || statusLower === "settled" || statusLower === "verified";
+      const isCancelled = statusLower === "cancelled" || statusLower === "rejected";
+
+      // If Paid or Cancelled, remove from pending demands
+      if (isPaid || isCancelled) {
+        demandMap.delete(idKey);
+        if (p.id) demandMap.delete(String(p.id));
+        if (p.paymentId) demandMap.delete(String(p.paymentId));
+        return;
+      }
+
+      // If Awaiting Approval, upgrade status
+      const isAwaiting = statusLower.includes("awaiting");
+      if (demandMap.has(idKey)) {
+        const existing = demandMap.get(idKey);
+        if (isAwaiting) {
+          demandMap.set(idKey, { ...existing, ...p, status: "Awaiting Approval" });
+        } else {
+          demandMap.set(idKey, { ...existing, ...p });
+        }
+      } else {
+        demandMap.set(idKey, p);
+      }
+    };
+
+    // 1. Process local storage demands first (optimistic cache)
+    try {
+      const s1 = localStorage.getItem("agni_sales_payments");
+      const s2 = localStorage.getItem("agni_payment_demands");
+      const s3 = localStorage.getItem("agni_client_requests");
+      const l1 = s1 ? JSON.parse(s1) : [];
+      const l2 = s2 ? JSON.parse(s2) : [];
+      const l3 = s3 ? JSON.parse(s3) : [];
+      [...l1, ...l2, ...l3].forEach(processItem);
+
+      if (emailKey) {
+        const perEmail = localStorage.getItem(`agni_payment_demands_${emailKey}`);
+        if (perEmail) {
+          const parsed = JSON.parse(perEmail);
+          if (Array.isArray(parsed)) parsed.forEach(processItem);
+        }
+      }
+    } catch (e) { }
+
+    // 2. Authoritative: Process apiPayments (synced from DB across PCs)
+    if (Array.isArray(apiPayments)) {
+      apiPayments.forEach(processItem);
+    }
+
+    return Array.from(demandMap.values());
   }, [userEmail, clientInfo, trackerSyncTick, apiPayments]);
 
   // Re-sync enrolled plans when storage event fires or user logs in
