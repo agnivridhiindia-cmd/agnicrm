@@ -53,7 +53,7 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
           : normalizeAgreementData({
               id: refId,
               clientId: client.id,
-              applicationId: client.appId || `APP-${client.id}`,
+              applicationId: client.appId || `CRM-${client.id}`,
               client: {
                 clientName: client.name,
                 companyName: client.company,

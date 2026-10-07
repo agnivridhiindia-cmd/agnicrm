@@ -633,18 +633,57 @@ export async function executeWorkflowDecision(
       },
     });
 
-    if (existingRequest.requestType === RequestType.NEW_SERVICE && decision === "APPROVED" && result.data?.currentStage === "APPLIED") {
-      if (existingRequest.requestedChanges) {
-        const payload = existingRequest.requestedChanges as any;
-        if (payload.email) {
-          sendWelcomeEmail(
-            payload.email,
-            payload.contactPerson || "Client",
-            payload.companyName || ""
-          ).catch(err => console.error("Failed to send welcome email:", err));
+    const isNewClientApproval =
+      (existingRequest.requestType === RequestType.NEW_SERVICE ||
+       String(existingRequest.requestType || "").toUpperCase() === "NEW_SERVICE" ||
+       String(existingRequest.reason || "").toLowerCase().includes("new client registration")) &&
+      decision === "APPROVED";
+
+    if (isNewClientApproval) {
+      let payload = existingRequest.requestedChanges as any;
+      if (typeof payload === "string") {
+        try {
+          payload = JSON.parse(payload);
+        } catch (_) {}
+      }
+
+      let targetEmail = payload?.email || existingRequest.client?.email;
+      let contactPerson = payload?.contactPerson || existingRequest.client?.contactPerson || existingRequest.client?.name || "Client";
+      let companyName = payload?.companyName || existingRequest.client?.companyName || existingRequest.client?.name || "";
+
+      // Fallback: If targetEmail is still missing but we have clientId, query the newly created client directly
+      if (!targetEmail && existingRequest.clientId) {
+        try {
+          const clientRec = await prisma.client.findUnique({
+            where: { id: existingRequest.clientId },
+            select: { email: true, contactPerson: true, companyName: true, name: true },
+          });
+          if (clientRec) {
+            targetEmail = clientRec.email;
+            contactPerson = clientRec.contactPerson || clientRec.name || contactPerson;
+            companyName = clientRec.companyName || clientRec.name || companyName;
+          }
+        } catch (dbErr) {
+          console.warn("[Workflow] Error fetching client for welcome email:", dbErr);
         }
       }
+
+      if (targetEmail) {
+        console.log(`[Workflow] Triggering welcome email to approved client: ${targetEmail} (${contactPerson} / ${companyName})`);
+        sendWelcomeEmail(targetEmail, contactPerson, companyName)
+          .then((sent) => {
+            if (sent) {
+              console.log(`[Workflow] ✓ Welcome email successfully delivered to ${targetEmail}`);
+            } else {
+              console.warn(`[Workflow] ⚠️ Welcome email could not be delivered to ${targetEmail}`);
+            }
+          })
+          .catch((err) => console.error("[Workflow] ✕ Failed to send welcome email:", err));
+      } else {
+        console.warn(`[Workflow] ⚠️ No email address found for approved request ${existingRequest.requestCode || requestId}; skipping welcome email.`);
+      }
     }
+
   }
 
   return {

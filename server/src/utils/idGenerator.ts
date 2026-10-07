@@ -10,9 +10,19 @@ function getUniqueSuffix(): string {
   return `${timeMs}${randomHex}`.slice(0, 5);
 }
 
-export function generateAppId(branchCode: string = "WZ"): string {
-  const year = new Date().getFullYear();
-  return `APP-${branchCode.toUpperCase()}-${year}-${getUniqueSuffix()}`;
+/**
+ * Generates client application ID in the format: CRM-YYYY-XXX
+ * e.g., CRM-2026-001, CRM-2026-002, etc.
+ */
+export function generateAppId(seqOrBranch?: number | string, year: number = new Date().getFullYear()): string {
+  const yyyy = year || new Date().getFullYear();
+  if (typeof seqOrBranch === "number") {
+    return `CRM-${yyyy}-${String(seqOrBranch).padStart(3, "0")}`;
+  }
+  if (typeof seqOrBranch === "string" && /^\d+$/.test(seqOrBranch)) {
+    return `CRM-${yyyy}-${seqOrBranch.padStart(3, "0")}`;
+  }
+  return `CRM-${yyyy}-001`;
 }
 
 export function generateInvoiceNo(seq: number = 1, date: Date = new Date()): string {

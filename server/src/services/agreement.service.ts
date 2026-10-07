@@ -154,7 +154,13 @@ export async function generateAgreementService(body: GenerateAgreementInput) {
   const templateType = isPrivate ? "PRIVATE_FUNDING" : "SCHEME";
   const templateName = isPrivate ? "Private Funding Agreement" : "Common Scheme Agreement";
 
-  const branchCode = client.appId?.split("-")[1] || "WZ";
+  let branchCode = "WZ";
+  if (client.branchId) {
+    const br = await prisma.branch.findUnique({ where: { id: client.branchId } });
+    if (br?.code) branchCode = br.code.replace(/[^a-zA-Z0-9]/g, "");
+  } else if (client.appId?.startsWith("APP-")) {
+    branchCode = client.appId.split("-")[1] || "WZ";
+  }
   const agreementCode = generateAgreementCode(branchCode);
 
   const numPitched = body.pitchedMoney ? parseFloat(String(body.pitchedMoney).replace(/[^0-9.]/g, "")) : 50000;

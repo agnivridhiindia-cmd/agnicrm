@@ -344,7 +344,29 @@ export async function createActiveClientCore(
   initialApprovalStatus: string,
   branchCode: string = "WZ"
 ) {
-  const appId = generateAppId(branchCode);
+  const year = new Date().getFullYear();
+  const yearPrefix = `CRM-${year}-`;
+  const existingClientsThisYear = await tx.client.findMany({
+    where: { appId: { startsWith: yearPrefix } },
+    select: { appId: true },
+  });
+
+  let maxSeq = 0;
+  for (const c of existingClientsThisYear) {
+    const match = c.appId?.match(/^CRM-\d{4}-(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxSeq) maxSeq = num;
+    }
+  }
+
+  let nextSeq = maxSeq + 1;
+  let appId = generateAppId(nextSeq, year);
+  while (await tx.client.findUnique({ where: { appId } })) {
+    nextSeq++;
+    appId = generateAppId(nextSeq, year);
+  }
+
   const schemeCode = generateSchemeCode();
 
   const existingUser = await tx.user.findFirst({

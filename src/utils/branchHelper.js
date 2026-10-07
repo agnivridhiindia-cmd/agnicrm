@@ -427,7 +427,7 @@ export function sanitizeClientRecord(c = {}) {
   return {
     ...c,
     id: c.id || c.appId || `client-${Date.now()}`,
-    appId: c.appId || `APP-${branchDetails.code ? branchDetails.code.replace('BR-', '') : '01'}-${new Date().getFullYear()}-001`,
+    appId: c.appId || `CRM-${new Date().getFullYear()}-001`,
     name,
     company,
     contactPerson,

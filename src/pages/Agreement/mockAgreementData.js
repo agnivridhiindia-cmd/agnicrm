@@ -28,7 +28,7 @@ export {
 export const initialAgreements = [
   normalizeAgreementData({
     id: "AGR-WZ-2026-001",
-    applicationId: "APP-WZ-2026-001",
+    applicationId: "CRM-2026-001",
     client: {
       id: "1",
       companyName: "Reliance Retail Ltd",

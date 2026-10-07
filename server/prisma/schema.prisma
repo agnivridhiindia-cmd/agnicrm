@@ -178,7 +178,7 @@ model ServiceCatalog {
 
 model Client {
   id                String          @id @default(uuid())
-  appId             String          @unique // e.g. APP-WZ-2026-001
+  appId             String          @unique // e.g. CRM-2026-001
   name              String          // Trade/Client Name
   companyName       String
   contactPerson     String

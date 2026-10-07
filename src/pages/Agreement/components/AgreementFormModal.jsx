@@ -98,7 +98,7 @@ export default function AgreementFormModal({
       id: agreementId,
       crmId: activeClient.id,
       clientId: activeClient.id,
-      appId: activeClient.appId || `APP-${activeClient.id}`,
+      appId: activeClient.appId || `CRM-${activeClient.id}`,
       clientName: activeClient.name,
       companyName: companyName.trim(),
       companyAddress: companyAddress.trim(),

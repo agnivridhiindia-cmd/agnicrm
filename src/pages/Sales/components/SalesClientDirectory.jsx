@@ -123,7 +123,7 @@ export default function SalesClientDirectory({
             <table className="sales-clients-table">
               <thead>
                 <tr>
-                  <th style={{ width: 60 }}>ID</th>
+                  <th style={{ minWidth: 125, width: 125 }}>ID</th>
                   <th>Client & Company</th>
                   <th>Contact Info</th>
                   <th>Scheme</th>
@@ -149,7 +149,7 @@ export default function SalesClientDirectory({
 
                   return (
                     <tr key={client.id}>
-                      <td>
+                      <td style={{ whiteSpace: "nowrap" }}>
                         <span style={{ fontWeight: 700, color: "#8c5ff8", fontFamily: "monospace", fontSize: 13 }}>
                           {client.appId ? client.appId : (client.id && String(client.id).length > 12 ? `#${String(client.id).slice(0, 8)}` : `#${client.id}`)}
                         </span>

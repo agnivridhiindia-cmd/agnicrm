@@ -26,7 +26,7 @@ function escapeHtml(str) {
 export function generateClientDossierHTML(client) {
   const compName = client.companyName || client.company || client.name || "Client Enterprise";
   const contactPerson = client.contactPerson || client.representativeName || client.name || "N/A";
-  const appId = client.appId || client.clientCode || (client.id ? `APP-${String(client.id).slice(-6).toUpperCase()}` : "AGNI-CL-001");
+  const appId = client.appId || client.clientCode || (client.id ? `CRM-${new Date().getFullYear()}-${String(client.id).slice(-3).toUpperCase()}` : `CRM-${new Date().getFullYear()}-001`);
   const email = client.email || "N/A";
   const phone = client.phone || client.contactNumber || "N/A";
   const address = client.address || "Corporate Office, Metro City";
@@ -462,7 +462,7 @@ export function generateClientDossierHTML(client) {
  */
 export function generateClientStatementHTML(client) {
   const compName = client.companyName || client.company || client.name || "Client Account";
-  const appId = client.appId || (client.id ? `APP-${String(client.id).slice(-6).toUpperCase()}` : "AGNI-ACC");
+  const appId = client.appId || (client.id ? `CRM-${new Date().getFullYear()}-${String(client.id).slice(-3).toUpperCase()}` : `CRM-${new Date().getFullYear()}-001`);
   const salesRep = client.salesPerson?.fullName || client.salesRep || client.owner || "Sales Executive";
   const branchName = typeof client.branch === "object" ? client.branch?.name : (client.branch || "Regional Branch");
 

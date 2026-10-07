@@ -1,7 +1,7 @@
 export const initialAdminRequests = [
   {
     id: "ARQ-301",
-    clientAppId: "APP-WZ-2026-001",
+    clientAppId: "CRM-2026-001",
     clientName: "Bright Retail",
     company: "Bright Retail Pvt Ltd",
     branch: "West Zone (Mumbai)",
@@ -22,7 +22,7 @@ export const initialAdminRequests = [
   },
   {
     id: "ARQ-302",
-    clientAppId: "APP-WZ-2026-002",
+    clientAppId: "CRM-2026-002",
     clientName: "Urban Foods",
     company: "Urban Foods Ltd",
     branch: "West Zone (Mumbai)",
@@ -43,7 +43,7 @@ export const initialAdminRequests = [
   },
   {
     id: "ARQ-303",
-    clientAppId: "APP-WZ-2026-004",
+    clientAppId: "CRM-2026-004",
     clientName: "Nova Textiles",
     company: "Nova Textiles Co",
     branch: "West Zone (Mumbai)",
@@ -63,7 +63,7 @@ export const initialAdminRequests = [
   },
   {
     id: "ARQ-304",
-    clientAppId: "APP-WZ-2026-001",
+    clientAppId: "CRM-2026-001",
     clientName: "Bright Retail",
     company: "Bright Retail Pvt Ltd",
     branch: "West Zone (Mumbai)",

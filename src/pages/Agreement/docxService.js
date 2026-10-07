@@ -137,7 +137,7 @@ export function getAgreementDynamicFields(agr) {
     isPrivate,
     schemeName: norm.scheme?.name || norm.serviceType || "PMEGP",
     id: norm.id || "AGR-WZ-2026-001",
-    appId: norm.applicationId || norm.appId || "APP-WZ-2026-001",
+    appId: norm.applicationId || norm.appId || "CRM-2026-001",
     clientName: norm.clientName || company,
   };
 }

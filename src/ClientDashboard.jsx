@@ -485,7 +485,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       activeSalesClient?.appId ||
       activeSalesClient?.clientId ||
       activeSalesClient?.id ||
-      "APP-2026-001";
+      "CRM-2026-001";
 
     const rawReq =
       dbProfile?.fundingRequirement ||

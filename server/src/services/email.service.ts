@@ -3,25 +3,41 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_EMAIL,
-    pass: process.env.SMTP_PASSWORD,
-  },
-});
+function getTransporter() {
+  dotenv.config();
+  const user = process.env.SMTP_EMAIL?.trim();
+  const pass = (process.env.SMTP_PASSWORD || "").replace(/\s+/g, "");
+
+  if (!user || !pass) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user, pass },
+  });
+}
 
 export async function sendWelcomeEmail(
   clientEmail: string,
   contactPerson: string,
   companyName: string
-) {
+): Promise<boolean> {
   try {
-    if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
-      console.warn("Email credentials not configured. Skipping welcome email.");
-      return;
+    const user = process.env.SMTP_EMAIL?.trim();
+    const pass = (process.env.SMTP_PASSWORD || "").replace(/\s+/g, "");
+
+    if (!user || !pass) {
+      console.warn("[EmailService] Email credentials not configured (SMTP_EMAIL or SMTP_PASSWORD missing). Skipping welcome email.");
+      return false;
+    }
+
+    const transporter = getTransporter();
+    if (!transporter) {
+      console.warn("[EmailService] Failed to initialize SMTP transporter. Skipping welcome email.");
+      return false;
     }
 
     const htmlContent = `
@@ -48,15 +64,20 @@ export async function sendWelcomeEmail(
       </div>
     `;
 
+    console.log(`[EmailService] Sending welcome email to ${clientEmail} via ${user}...`);
+
     const info = await transporter.sendMail({
-      from: `"Agnivridhi India" <${process.env.SMTP_EMAIL}>`,
+      from: `"Agnivridhi India" <${user}>`,
       to: clientEmail,
       subject: "Welcome to Agnivridhi India - Your Account is Ready",
       html: htmlContent,
     });
 
-    console.log("Welcome email sent: %s", info.messageId);
-  } catch (error) {
-    console.error("Error sending welcome email:", error);
+    console.log(`[EmailService] ✓ Welcome email successfully sent to ${clientEmail} (ID: ${info.messageId})`);
+    return true;
+  } catch (error: any) {
+    console.error(`[EmailService] ✕ Error sending welcome email to ${clientEmail}:`, error.message || error);
+    return false;
   }
 }
+
