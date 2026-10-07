@@ -152,3 +152,43 @@ export async function markPaymentPaid(req: AuthenticatedRequest, res: Response, 
   }
 }
 
+const verifyRazorpaySchema = z.object({
+  razorpay_payment_id: z.string().min(1, "Razorpay Payment ID is required"),
+  razorpay_order_id: z.string().min(1, "Razorpay Order ID is required"),
+  razorpay_signature: z.string().min(1, "Razorpay Signature is required"),
+});
+
+export async function createRazorpayOrder(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const user = req.user!;
+    const { createRazorpayOrderService } = await import("../services/invoice.service");
+    const result = await createRazorpayOrderService(user, paymentId);
+    if (!result.success || !("data" in result)) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function verifyRazorpayPayment(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const data = verifyRazorpaySchema.parse(req.body);
+    const user = req.user!;
+    const { verifyRazorpayPaymentService } = await import("../services/invoice.service");
+    const result = await verifyRazorpayPaymentService(user, paymentId, data);
+    if (!result.success || !("data" in result)) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+

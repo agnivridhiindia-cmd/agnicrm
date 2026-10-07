@@ -300,6 +300,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
   const [passwordError, setPasswordError] = React.useState("");
   const [passwordSuccess, setPasswordSuccess] = React.useState("");
   const [selectedScheme, setSelectedScheme] = React.useState(null);
+  const [activePaymentToSettle, setActivePaymentToSettle] = React.useState(null);
 
   // Quick Action Modals
   const [newRequestOpen, setNewRequestOpen] = React.useState(false);
@@ -2286,7 +2287,12 @@ export default function Dashboard({ onSignOut, userEmail }) {
         ) : activeNav === "Invoices" ? (
           <InvoicesPage userEmail={userEmail} />
         ) : activeNav === "Payments" ? (
-          <PaymentsPage userEmail={userEmail} clientInfo={clientInfo} />
+          <PaymentsPage
+            userEmail={userEmail}
+            clientInfo={clientInfo}
+            initialPayment={activePaymentToSettle}
+            onClearInitialPayment={() => setActivePaymentToSettle(null)}
+          />
         ) : (
           <>
             {/* ── PENDING PAYMENT DEMAND ALERT BANNER ── */}
@@ -2354,7 +2360,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
                       </strong>
                       <button
                         type="button"
-                        onClick={() => setActiveNav("Payments")}
+                        onClick={() => {
+                          setActivePaymentToSettle(target);
+                          setActiveNav("Payments");
+                        }}
                         style={{
                           padding: "10px 22px",
                           borderRadius: 10,
@@ -2430,7 +2439,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
                       </strong>
                       <button
                         type="button"
-                        onClick={() => setActiveNav("Payments")}
+                        onClick={() => {
+                          setActivePaymentToSettle(target);
+                          setActiveNav("Payments");
+                        }}
                         style={{
                           padding: "10px 22px",
                           borderRadius: 10,

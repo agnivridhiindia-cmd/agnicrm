@@ -1,5 +1,7 @@
+import crypto from "crypto";
 import { InvoiceType, PaymentMode, PaymentStatus, Role, TransactionStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
+import { ENV } from "../config/env";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { generateInvoiceNo, generatePaymentId } from "../utils/idGenerator";
 
@@ -637,3 +639,230 @@ export async function addPaymentService(user: AuthenticatedUser, invoiceId: stri
     };
   });
 }
+
+export async function createRazorpayOrderService(
+  user: AuthenticatedUser,
+  paymentIdOrId: string
+) {
+  const cleanId = paymentIdOrId.replace(/^SETTLE-/, "");
+  const payment = await prisma.payment.findFirst({
+    where: {
+      OR: [
+        { id: paymentIdOrId },
+        { paymentId: paymentIdOrId },
+        { paymentId: cleanId },
+      ],
+      isDeleted: false,
+    },
+    include: {
+      client: true,
+      invoice: true,
+    },
+  });
+
+  if (!payment) {
+    return { success: false, statusCode: 404, message: "Payment request not found" };
+  }
+
+  const keyId = ENV.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "";
+  const keySecret = ENV.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || "";
+
+  if (!keyId || !keySecret) {
+    return {
+      success: false,
+      statusCode: 400,
+      message: "Razorpay keys not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in server/.env",
+    };
+  }
+
+  const amountInPaise = Math.round(Number(payment.amount) * 100);
+
+  // Call Razorpay API to create an order
+  const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+  const response = await fetch("https://api.razorpay.com/v1/orders", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${authHeader}`,
+    },
+    body: JSON.stringify({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt: (payment.paymentId || "REC-" + Date.now()).slice(0, 40),
+      notes: {
+        paymentId: payment.paymentId,
+        clientId: payment.clientId,
+        clientEmail: payment.client?.email || "",
+        clientName: payment.client?.name || payment.client?.companyName || "",
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error("Razorpay order creation failed:", errText);
+    return {
+      success: false,
+      statusCode: response.status,
+      message: `Razorpay API error: ${errText}`,
+    };
+  }
+
+  const orderData = (await response.json()) as any;
+
+  return {
+    success: true,
+    statusCode: 200,
+    data: {
+      orderId: orderData.id,
+      amount: orderData.amount, // in paise
+      currency: orderData.currency || "INR",
+      keyId,
+      paymentId: payment.paymentId,
+      clientName: payment.client?.name || payment.client?.companyName || "Client",
+      clientEmail: payment.client?.email || user.email || "",
+      clientPhone: payment.client?.phone || "",
+      description: payment.remarks?.replace(/^PAYMENT_REQUEST:\s*/i, "") || `Payment demand for ${payment.client?.companyName || payment.client?.name}`,
+    },
+  };
+}
+
+export async function verifyRazorpayPaymentService(
+  user: AuthenticatedUser,
+  paymentIdOrId: string,
+  data: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }
+) {
+  const keySecret = ENV.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || "";
+  if (!keySecret) {
+    return {
+      success: false,
+      statusCode: 400,
+      message: "Razorpay secret key not configured.",
+    };
+  }
+
+  const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = data;
+  if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+    return {
+      success: false,
+      statusCode: 400,
+      message: "Missing Razorpay verification parameters.",
+    };
+  }
+
+  // Verify HMAC SHA256 signature
+  const generatedSignature = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest("hex");
+
+  if (generatedSignature !== razorpay_signature) {
+    return {
+      success: false,
+      statusCode: 400,
+      message: "Invalid payment signature. Verification failed.",
+    };
+  }
+
+  // Payment verified! Transition in PostgreSQL atomically via transaction:
+  const cleanId = paymentIdOrId.replace(/^SETTLE-/, "");
+  return await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findFirst({
+      where: {
+        OR: [
+          { id: paymentIdOrId },
+          { paymentId: paymentIdOrId },
+          { paymentId: cleanId },
+        ],
+        isDeleted: false,
+      },
+      include: {
+        invoice: true,
+        client: true,
+      },
+    });
+
+    if (!payment) {
+      return { success: false, statusCode: 404, message: "Payment record not found." };
+    }
+
+    if (payment.status === TransactionStatus.SUCCESS) {
+      return {
+        success: true,
+        statusCode: 200,
+        data: { payment, message: "Payment already verified and marked as paid." },
+      };
+    }
+
+    const payAmount = Number(payment.amount);
+
+    // 1. Update Payment status to SUCCESS
+    const updatedPayment = await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: TransactionStatus.SUCCESS,
+        referenceNumber: razorpay_payment_id,
+        remarks: `PAID: Settled via Razorpay (Order: ${razorpay_order_id}, Payment: ${razorpay_payment_id})`,
+        updatedAt: new Date(),
+      },
+      include: {
+        invoice: { select: { id: true, invoiceNo: true, rawTotal: true, dueDate: true, paymentPending: true } },
+        client: { select: { id: true, name: true, companyName: true, email: true, phone: true } },
+        recordedBy: { select: { id: true, fullName: true, role: true, email: true } },
+      },
+    });
+
+    // 2. Update Invoice
+    if (payment.invoiceId) {
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: payment.invoiceId },
+        data: {
+          paymentReceived: { increment: payAmount },
+          paymentPending: { decrement: payAmount },
+          updatedAt: new Date(),
+        },
+      });
+
+      if (Number(updatedInvoice.paymentPending) <= 0) {
+        await tx.invoice.update({
+          where: { id: payment.invoiceId },
+          data: {
+            status: PaymentStatus.PAID,
+            invoiceType: InvoiceType.TAX,
+            paymentPending: 0,
+          },
+        });
+      } else if (Number(updatedInvoice.paymentReceived) > 0) {
+        await tx.invoice.update({
+          where: { id: payment.invoiceId },
+          data: { status: PaymentStatus.PARTIAL },
+        });
+      }
+    }
+
+    // 3. Update Client metrics
+    if (payment.clientId) {
+      await tx.client.update({
+        where: { id: payment.clientId },
+        data: {
+          paymentReceived: { increment: payAmount },
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: {
+        payment: updatedPayment,
+        message: "Payment verified and settled successfully via Razorpay.",
+      },
+    };
+  });
+}
+

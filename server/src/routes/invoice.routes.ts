@@ -9,6 +9,8 @@ import {
   createPaymentRequest,
   settlePaymentDemand,
   markPaymentPaid,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
 } from "../controllers/invoice.controller";
 
 const router = Router();
@@ -42,6 +44,20 @@ router.post(
   authenticateJWT,
   authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON, Role.CLIENT),
   settlePaymentDemand
+);
+
+// Razorpay Online Payment Gateway Checkout & Signature Verification
+router.post(
+  ["/payments/:id/create-razorpay-order", "/payments/:id(*)/create-razorpay-order"],
+  authenticateJWT,
+  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON, Role.CLIENT),
+  createRazorpayOrder
+);
+router.post(
+  ["/payments/:id/verify-razorpay", "/payments/:id(*)/verify-razorpay"],
+  authenticateJWT,
+  authorizeRoles(Role.OWNER, Role.ADMIN, Role.BRANCH_MANAGER, Role.MANAGER, Role.SALES_PERSON, Role.CLIENT),
+  verifyRazorpayPayment
 );
 
 // Mark payment as paid by sales representative / manager / owner

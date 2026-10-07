@@ -235,10 +235,37 @@ export function generatePaymentReceiptHTML(payment) {
 </html>`;
 }
 
-export default function PaymentsPage({ userEmail, clientInfo }) {
+export default function PaymentsPage({ userEmail, clientInfo, initialPayment, onClearInitialPayment }) {
   const [activeTab, setActiveTab] = useState("All Transactions");
-  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState(() => {
+    if (initialPayment) {
+      const amt = Number(initialPayment.amount || 0);
+      return {
+        ...initialPayment,
+        isPaid: isPaymentSettled(initialPayment.status),
+        isAwaitingApproval: String(initialPayment.status || "").toLowerCase().includes("awaiting"),
+        formattedAmt: `₹${amt.toLocaleString("en-IN")}`,
+      };
+    }
+    return null;
+  });
   const [notice, setNotice] = useState(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  useEffect(() => {
+    if (initialPayment) {
+      const amt = Number(initialPayment.amount || 0);
+      setSelectedPayment({
+        ...initialPayment,
+        isPaid: isPaymentSettled(initialPayment.status),
+        isAwaitingApproval: String(initialPayment.status || "").toLowerCase().includes("awaiting"),
+        formattedAmt: `₹${amt.toLocaleString("en-IN")}`,
+      });
+      if (typeof onClearInitialPayment === "function") {
+        onClearInitialPayment();
+      }
+    }
+  }, [initialPayment, onClearInitialPayment]);
 
   const { payments: apiPayments, refreshPayments } = useApiPayments();
   
@@ -329,12 +356,147 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
     setNotice(`Downloaded official payment receipt for ${pay.id}!`);
   }
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (typeof window !== "undefined" && window.Razorpay) {
+        return resolve(true);
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   async function handlePayDemand(pay) {
+    if (isProcessingPayment) return;
+    setIsProcessingPayment(true);
+
     try {
-      const txnRef = pay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
+      const targetPayId = pay.id || pay.paymentId;
       const cleanEmail = (pay.clientEmail || userEmail || "").toLowerCase().trim();
 
-      // 1. Update status to "Awaiting Approval" in localStorage across all payment demand arrays
+      // 1. Request Razorpay order from backend API
+      let orderData = null;
+      try {
+        const orderRes = await apiFetch(`/invoices/payments/${targetPayId}/create-razorpay-order`, {
+          method: "POST",
+        });
+
+        if (orderRes.ok) {
+          orderData = await orderRes.json();
+        } else {
+          const errRes = await orderRes.json().catch(() => ({}));
+          console.warn("Razorpay order creation response:", errRes);
+          if (errRes.message && errRes.message.includes("keys not configured")) {
+            setNotice("Razorpay API Key & Secret not yet added. Please configure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in server/.env");
+          }
+        }
+      } catch (orderErr) {
+        console.warn("Could not reach backend for Razorpay order:", orderErr);
+      }
+
+      // 2. If order created, launch Razorpay Checkout modal
+      if (orderData && orderData.orderId && orderData.keyId) {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          setNotice("Unable to load Razorpay payment gateway. Please check your internet connection.");
+          setIsProcessingPayment(false);
+          return;
+        }
+
+        const options = {
+          key: orderData.keyId,
+          amount: orderData.amount, // in paise
+          currency: orderData.currency || "INR",
+          name: "Agnivridhi India",
+          description: pay.description || `Payment demand for ${pay.clientCompany || pay.clientName || "Client"}`,
+          order_id: orderData.orderId,
+          prefill: {
+            name: orderData.clientName || pay.clientName || "",
+            email: orderData.clientEmail || cleanEmail || "",
+            contact: orderData.clientPhone || pay.clientPhone || "",
+          },
+          theme: {
+            color: "#10b981",
+          },
+          handler: async function (response) {
+            try {
+              // Verify cryptographic HMAC signature on backend
+              const verifyRes = await apiFetch(`/invoices/payments/${targetPayId}/verify-razorpay`, {
+                method: "POST",
+                body: {
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_signature: response.razorpay_signature,
+                },
+              });
+
+              if (verifyRes.ok) {
+                // Update local storage so that all caches are marked Paid
+                const updateStatusPaid = (key) => {
+                  try {
+                    const saved = localStorage.getItem(key);
+                    if (!saved) return;
+                    const list = JSON.parse(saved);
+                    if (!Array.isArray(list)) return;
+                    const updated = list.map((p) => {
+                      const curId = String(p.id || p.paymentId || "");
+                      if (curId === String(pay.id) || curId === String(pay.paymentId)) {
+                        return { ...p, status: "Paid", transactionRef: response.razorpay_payment_id, paidAt: new Date().toISOString() };
+                      }
+                      return p;
+                    });
+                    localStorage.setItem(key, JSON.stringify(updated));
+                  } catch (e) {}
+                };
+
+                updateStatusPaid("agni_sales_payments");
+                updateStatusPaid("agni_payment_demands");
+                updateStatusPaid("agni_client_requests");
+                if (cleanEmail) updateStatusPaid(`agni_payment_demands_${cleanEmail}`);
+                for (let i = 0; i < localStorage.length; i++) {
+                  const k = localStorage.key(i) || "";
+                  if (k.startsWith("agni_payment_demands_")) updateStatusPaid(k);
+                }
+
+                setNotice(`✓ Payment of ${pay.formattedAmt} successfully settled & verified via Razorpay! Receipt is now downloadable.`);
+                setSelectedPayment(null);
+                window.dispatchEvent(new Event("agni_payments_updated"));
+                window.dispatchEvent(new Event("agni_pending_updated"));
+                window.dispatchEvent(new Event("storage"));
+                refreshPayments();
+              } else {
+                setNotice("Payment captured by Razorpay. Official confirmation is being processed by server.");
+              }
+            } catch (vErr) {
+              console.error("Verification error:", vErr);
+            } finally {
+              setIsProcessingPayment(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setIsProcessingPayment(false);
+            },
+          },
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.on("payment.failed", function (failResp) {
+          console.warn("Payment failed:", failResp.error);
+          setNotice(`Payment attempt unsuccessful: ${failResp.error.description || "Transaction cancelled."}`);
+          setIsProcessingPayment(false);
+        });
+        rzp.open();
+        return;
+      }
+
+      // 3. Fallback: If Razorpay keys are not yet configured in server/.env,
+      // fallback to manual submission so client workflow is never blocked
+      const txnRef = pay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
       const updatePaymentStatusLocal = (key) => {
         try {
           const saved = localStorage.getItem(key);
@@ -372,9 +534,8 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
           updatePaymentStatusLocal(k);
         }
       }
-      // 2. Update status in backend PostgreSQL database so Salesperson on other PCs sees Awaiting Approval
+
       try {
-        const targetPayId = pay.id || pay.paymentId;
         await apiFetch(`/invoices/payments/${targetPayId}/settle`, {
           method: "PATCH",
           body: {
@@ -386,18 +547,19 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
         console.warn("Could not submit settlement to backend API:", apiErr);
       }
 
-      setNotice(`Payment settlement submitted! Your status is now Awaiting Approval. Your assigned Sales Representative will verify your external payment proof and mark it as paid.`);
+      setNotice(`Payment demand submitted for verification. To enable direct Razorpay / PhonePe / Paytm checkout, add RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET to server/.env.`);
 
       window.dispatchEvent(new Event("agni_payments_updated"));
       window.dispatchEvent(new Event("agni_pending_updated"));
       window.dispatchEvent(new Event("storage"));
 
       refreshPayments();
+      setSelectedPayment(null);
     } catch (e) {
       console.warn("Could not update payment status:", e);
+    } finally {
+      setIsProcessingPayment(false);
     }
-
-    setSelectedPayment(null);
   }
 
   return (
@@ -639,10 +801,19 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
                 <button
                   type="button"
                   className="cd-submit-btn"
-                  style={{ background: "#10b981" }}
+                  style={{
+                    background: isProcessingPayment ? "#059669" : "#10b981",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    cursor: isProcessingPayment ? "not-allowed" : "pointer",
+                    opacity: isProcessingPayment ? 0.85 : 1,
+                  }}
+                  disabled={isProcessingPayment}
                   onClick={() => handlePayDemand(selectedPayment)}
                 >
-                  Pay {selectedPayment.formattedAmt} & Settle Demand
+                  {isProcessingPayment ? "Connecting to Payment Gateway..." : `Pay ${selectedPayment.formattedAmt} & Settle Demand`}
                 </button>
               )}
             </div>

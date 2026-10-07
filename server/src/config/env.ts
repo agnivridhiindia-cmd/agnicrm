@@ -28,4 +28,6 @@ export const ENV = {
         "http://127.0.0.1:5173",
         "https://agnicrm-peach.vercel.app"
       ],
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID || "",
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET || "",
 };
