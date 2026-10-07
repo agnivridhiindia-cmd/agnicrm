@@ -106,7 +106,7 @@ function CreatePaymentRequestModal({ clients = [], onClose, onSubmit, salesPerso
     const resolvedEmail = (selectedClient?.email || "").toLowerCase().trim();
     const resolvedPhone = selectedClient?.phone || selectedClient?.contactNumber || "";
     const resolvedScheme = selectedClient?.scheme || selectedClient?.serviceName || selectedClient?.serviceType || "Consultancy Service";
-    const resolvedClientId = selectedClient?.id || selectedClient?.clientId || "";
+    const resolvedClientId = selectedClient?.dbId || selectedClient?.id || selectedClient?.clientId || "";
 
     const spName = salesPersonName || localStorage.getItem("agni_user_name") || "Sales Representative";
     const spEmail = userEmail || localStorage.getItem("agni_user_email") || "";
@@ -468,24 +468,54 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
 
   const { clients: apiClients } = useApiClients();
 
-  // Consolidate current salesperson's active clients
+  // Consolidate current salesperson's active clients, prioritizing PostgreSQL database records
   const userSalesClients = useMemo(() => {
     const list = [];
     const addedKeys = new Set();
+
+    const apiByEmail = new Map();
+    const apiByName = new Map();
+    (apiClients || []).forEach((c) => {
+      if (!c) return;
+      if (c.email) apiByEmail.set(String(c.email).toLowerCase().trim(), c);
+      if (c.companyName) apiByName.set(String(c.companyName).toLowerCase().trim(), c);
+      if (c.name) apiByName.set(String(c.name).toLowerCase().trim(), c);
+    });
+
     const addC = (c) => {
       if (!c) return;
       if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
         if (!isClientCreatedByUser(c, currentSalesName, currentUserEmail)) return;
       }
-      const key = String((c.company || c.name || c.email || c.id) + "_" + (c.scheme || "")).trim().toLowerCase();
+
+      const cEmail = String(c.email || "").toLowerCase().trim();
+      const cCompany = String(c.company || c.companyName || "").toLowerCase().trim();
+      const cName = String(c.name || "").toLowerCase().trim();
+      const matchedDb = (cEmail && apiByEmail.get(cEmail)) || (cCompany && apiByName.get(cCompany)) || (cName && apiByName.get(cName));
+
+      const merged = matchedDb
+        ? {
+            ...c,
+            ...matchedDb,
+            id: matchedDb.id,
+            dbId: matchedDb.id,
+            clientId: matchedDb.id,
+            email: matchedDb.email || c.email,
+            company: matchedDb.companyName || matchedDb.name || c.company,
+            companyName: matchedDb.companyName || matchedDb.name || c.companyName,
+            name: matchedDb.name || matchedDb.contactPerson || c.name,
+          }
+        : c;
+
+      const key = String((merged.email || merged.company || merged.name || merged.id) + "_" + (merged.scheme || "")).trim().toLowerCase();
       if (key && !addedKeys.has(key)) {
         addedKeys.add(key);
-        list.push(c);
+        list.push(merged);
       }
     };
 
-    if (Array.isArray(propClients)) propClients.forEach(addC);
     if (Array.isArray(apiClients)) apiClients.forEach(addC);
+    if (Array.isArray(propClients)) propClients.forEach(addC);
 
     return list;
   }, [propClients, apiClients, currentSalesName, currentUserEmail, userRole]);
@@ -654,17 +684,49 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
 
       // 3. Post to backend PostgreSQL database so request survives and syncs across all PCs
       try {
-        await apiFetch("/invoices/payment-requests", {
-          method: "POST",
-          body: {
-            clientId: newReq.clientId || newReq.clientEmail || newReq.email,
-            amount: Number(newReq.amount || 0),
-            paymentId: newReq.id || newReq.paymentId,
-            dueDate: newReq.dueDate,
-            description: newReq.description || `Payment demand for ${newReq.clientCompany || newReq.clientName}`,
-            paymentMode: "ONLINE",
-          },
+        const cEmail = (newReq.clientEmail || newReq.email || "").toLowerCase().trim();
+        const cComp = newReq.clientCompany || newReq.companyName || newReq.company || "";
+        const cName = newReq.clientName || newReq.name || "";
+
+        // Attempt to resolve real DB UUID from apiClients
+        const matchedDbClient = (apiClients || []).find((c) => {
+          if (!c) return false;
+          const dbEmail = (c.email || "").toLowerCase().trim();
+          const dbComp = (c.companyName || c.company || c.name || "").toLowerCase().trim();
+          const dbName = (c.name || "").toLowerCase().trim();
+          return (
+            (cEmail && dbEmail === cEmail) ||
+            (cComp && dbComp === cComp.toLowerCase().trim()) ||
+            (cName && dbName === cName.toLowerCase().trim()) ||
+            (newReq.clientId && c.id === newReq.clientId)
+          );
         });
+
+        const effectiveClientId = matchedDbClient?.id || (newReq.clientId && !newReq.clientId.startsWith("client-") ? newReq.clientId : undefined);
+
+        const requestPayload = {
+          clientId: effectiveClientId || newReq.clientId,
+          clientEmail: cEmail,
+          clientName: cName,
+          companyName: cComp,
+          amount: Number(newReq.amount || 0),
+          paymentId: newReq.id || newReq.paymentId,
+          dueDate: newReq.dueDate,
+          description: newReq.description || `Payment demand for ${cComp || cName}`,
+          paymentMode: "ONLINE",
+        };
+
+        const res = await apiFetch("/invoices/payment-requests", {
+          method: "POST",
+          body: requestPayload,
+        });
+
+        if (res.ok) {
+          const resJson = await res.json().catch(() => null);
+          console.log("✓ Payment request successfully recorded in PostgreSQL database:", resJson);
+        } else {
+          console.warn("Backend API returned non-OK status for payment-request:", res.status);
+        }
       } catch (backendErr) {
         console.warn("Could not post payment request to backend API:", backendErr);
       }

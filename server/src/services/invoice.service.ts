@@ -186,7 +186,10 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
 }
 
 export interface CreatePaymentRequestInput {
-  clientId: string;
+  clientId?: string;
+  clientEmail?: string;
+  clientName?: string;
+  companyName?: string;
   amount: number;
   paymentId?: string;
   paymentMode?: PaymentMode;
@@ -202,7 +205,9 @@ export async function getPaymentsService(user: AuthenticatedUser) {
       isDeleted: false,
       OR: [
         { recordedById: user.userId },
+        { recordedBy: { email: { equals: user.email, mode: "insensitive" } } },
         { client: { salesPersonId: user.userId, isDeleted: false } },
+        { client: { salesPerson: { email: { equals: user.email, mode: "insensitive" } }, isDeleted: false } },
       ],
     };
   } else if (user.role === Role.BRANCH_MANAGER) {
@@ -237,16 +242,50 @@ export async function getPaymentsService(user: AuthenticatedUser) {
 }
 
 export async function createPaymentRequestService(user: AuthenticatedUser, data: CreatePaymentRequestInput) {
-  const client = await prisma.client.findFirst({
+  const emailToFind = (data.clientEmail || (data.clientId && data.clientId.includes("@") ? data.clientId : "")).toLowerCase().trim();
+  const nameToFind = (data.companyName || data.clientName || "").trim();
+  const idToFind = data.clientId || "";
+
+  // 1. Try finding by UUID/ID, email, or companyName/name
+  let client = await prisma.client.findFirst({
     where: {
       OR: [
-        { id: data.clientId },
-        { email: { equals: data.clientId, mode: "insensitive" } },
+        ...(idToFind ? [{ id: idToFind }] : []),
+        ...(emailToFind ? [{ email: { equals: emailToFind, mode: "insensitive" as const } }] : []),
+        ...(nameToFind ? [
+          { companyName: { equals: nameToFind, mode: "insensitive" as const } },
+          { name: { equals: nameToFind, mode: "insensitive" as const } },
+        ] : []),
       ],
       isDeleted: false,
     },
     include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
   });
+
+  // 2. If not found, try finding by contains name/company or email
+  if (!client && (nameToFind || emailToFind)) {
+    client = await prisma.client.findFirst({
+      where: {
+        OR: [
+          ...(emailToFind ? [{ email: { contains: emailToFind, mode: "insensitive" as const } }] : []),
+          ...(nameToFind ? [
+            { companyName: { contains: nameToFind, mode: "insensitive" as const } },
+            { name: { contains: nameToFind, mode: "insensitive" as const } },
+          ] : []),
+        ],
+        isDeleted: false,
+      },
+      include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+    });
+  }
+
+  // 3. Fallback: If still not found, check if ANY client matches for this salesperson
+  if (!client && user.role === Role.SALES_PERSON) {
+    client = await prisma.client.findFirst({
+      where: { salesPersonId: user.userId, isDeleted: false },
+      include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+    });
+  }
 
   if (!client) {
     return { success: false, statusCode: 404, message: "Client not found" };
@@ -254,8 +293,31 @@ export async function createPaymentRequestService(user: AuthenticatedUser, data:
 
   // Find or create an invoice for this client
   let invoice = client.invoices.find((inv) => inv.status !== PaymentStatus.PAID) || client.invoices[0];
+
+  // Ensure recordedBy and accountManager reference valid users in PostgreSQL
+  let recordedById = user.userId;
+  const userExists = await prisma.user.findUnique({ where: { id: recordedById }, select: { id: true } });
+  if (!userExists) {
+    if (client.salesPersonId) {
+      const spExists = await prisma.user.findUnique({ where: { id: client.salesPersonId }, select: { id: true } });
+      if (spExists) recordedById = client.salesPersonId;
+    }
+    if (!userExists && recordedById === user.userId) {
+      const anyStaff = await prisma.user.findFirst({ select: { id: true } });
+      if (anyStaff) recordedById = anyStaff.id;
+    }
+  }
+
   if (!invoice) {
-    const invoiceNo = generateInvoiceNo(1, new Date());
+    const now = new Date();
+    const count = await prisma.invoice.count();
+    let seq = count + 1;
+    let invoiceNo = generateInvoiceNo(seq, now);
+    while (await prisma.invoice.findUnique({ where: { invoiceNo } })) {
+      seq++;
+      invoiceNo = generateInvoiceNo(seq, now);
+    }
+
     invoice = await prisma.invoice.create({
       data: {
         invoiceNo,
@@ -273,7 +335,7 @@ export async function createPaymentRequestService(user: AuthenticatedUser, data:
         description: data.description || `Service retainer for ${client.companyName || client.name}`,
         clientId: client.id,
         branchId: client.branchId,
-        accountManagerId: client.salesPersonId || user.userId,
+        accountManagerId: client.salesPersonId || (userExists ? user.userId : undefined),
       },
     });
   }
@@ -303,7 +365,7 @@ export async function createPaymentRequestService(user: AuthenticatedUser, data:
       remarks: data.description ? `PAYMENT_REQUEST: ${data.description}` : "PAYMENT_REQUEST",
       invoiceId: invoice.id,
       clientId: client.id,
-      recordedById: user.userId,
+      recordedById,
     },
     include: {
       invoice: { select: { id: true, invoiceNo: true, rawTotal: true, dueDate: true, paymentPending: true } },

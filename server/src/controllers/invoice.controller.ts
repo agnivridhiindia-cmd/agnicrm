@@ -87,7 +87,10 @@ export async function addPayment(req: AuthenticatedRequest, res: Response, next:
 }
 
 const createPaymentRequestSchema = z.object({
-  clientId: z.string().min(1, "Client ID or email is required"),
+  clientId: z.string().optional(),
+  clientEmail: z.string().optional(),
+  clientName: z.string().optional(),
+  companyName: z.string().optional(),
   amount: z.number().positive("Requested amount must be positive"),
   paymentId: z.string().optional(),
   paymentMode: z.nativeEnum(PaymentMode).optional(),
