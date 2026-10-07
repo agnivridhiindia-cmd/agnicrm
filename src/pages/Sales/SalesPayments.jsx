@@ -42,7 +42,7 @@ function getPendingPayment(client) {
   return Math.max(0, total - rec);
 }
 
-function CreatePaymentRequestModal({ clients = [], onClose, onSubmit }) {
+function CreatePaymentRequestModal({ clients = [], onClose, onSubmit, salesPersonName, userEmail }) {
   const pendingClients = useMemo(() => {
     const filtered = (clients || []).filter((c) => getPendingPayment(c) > 0);
     return filtered.length > 0 ? filtered : (clients || []);
@@ -97,13 +97,33 @@ function CreatePaymentRequestModal({ clients = [], onClose, onSubmit }) {
       return;
     }
 
+    const year = new Date().getFullYear();
+    const uniqueSuffix = Date.now().toString(36).slice(-4).toUpperCase() + Math.floor(Math.random() * 90 + 10);
+    const reqId = `REQ-${year}-${uniqueSuffix}`;
+
+    const resolvedCompany = selectedClient?.companyName || selectedClient?.company || selectedClient?.name || "Client";
+    const resolvedClientName = selectedClient?.name || selectedClient?.representativeName || selectedClient?.contactPerson || resolvedCompany;
+    const resolvedEmail = (selectedClient?.email || "").toLowerCase().trim();
+    const resolvedPhone = selectedClient?.phone || selectedClient?.contactNumber || "";
+    const resolvedScheme = selectedClient?.scheme || selectedClient?.serviceName || selectedClient?.serviceType || "Consultancy Service";
+    const resolvedClientId = selectedClient?.id || selectedClient?.clientId || "";
+
+    const spName = salesPersonName || localStorage.getItem("agni_user_name") || "Sales Representative";
+    const spEmail = userEmail || localStorage.getItem("agni_user_email") || "";
+    const spId = localStorage.getItem("agni_user_id") || "";
+
     const request = {
-      id: generatePaymentId([]),
-      clientId: selectedClient ? (selectedClient.id || selectedClient.email) : 1,
-      clientName: selectedClient?.company || selectedClient?.name || "Client",
-      clientEmail: selectedClient?.email ?? "",
-      clientPhone: selectedClient?.phone ?? "",
-      clientCompany: selectedClient?.company || selectedClient?.name || "",
+      id: reqId,
+      paymentId: reqId,
+      clientId: resolvedClientId,
+      clientName: resolvedClientName,
+      clientCompany: resolvedCompany,
+      company: resolvedCompany,
+      companyName: resolvedCompany,
+      clientEmail: resolvedEmail,
+      email: resolvedEmail,
+      clientPhone: resolvedPhone,
+      phone: resolvedPhone,
       type: "Payment Request",
       amount: Number(formData.amount),
       paymentMode: "Online Gateway",
@@ -111,9 +131,14 @@ function CreatePaymentRequestModal({ clients = [], onClose, onSubmit }) {
       date: new Date().toISOString().split("T")[0],
       dueDate: formData.dueDate,
       status: "Requested",
-      relatedInvoice: "",
-      description: `Payment demand for ${selectedClient?.company || selectedClient?.name || "Client"} (${selectedClient?.scheme || "Service"}).`,
-      receivedBy: "Sales Person",
+      relatedInvoice: selectedClient?.invoices?.[0]?.invoiceNo || "",
+      relatedInvoiceId: selectedClient?.invoices?.[0]?.id || "",
+      description: `Payment demand for ${resolvedCompany} (${resolvedScheme}).`,
+      salesPerson: spName,
+      salesPersonEmail: spEmail,
+      salesPersonId: spId,
+      receivedBy: spName,
+      createdAt: new Date().toISOString(),
     };
 
     onSubmit(request);
@@ -397,33 +422,18 @@ function PaymentDetailsModal({ payment, onClose, onDownload, onApprove, onReject
 
         {/* Action Buttons */}
         <div style={{ display: "flex", justifyContent: "flex-end", flexWrap: "wrap", gap: 12, marginTop: 6 }}>
-          {isAwaiting && onApprove && (
-            <>
-              <button
-                type="button"
-                className="sales-add-btn"
-                style={{ background: "#10b981", borderColor: "#10b981", padding: "9px 20px" }}
-                onClick={() => {
-                  onApprove(payment);
-                  onClose();
-                }}
-              >
-                <span>✓ Approve Settlement</span>
-              </button>
-              {onReject && (
-                <button
-                  type="button"
-                  className="sales-btn-secondary"
-                  style={{ color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.4)", padding: "9px 18px" }}
-                  onClick={() => {
-                    onReject(payment);
-                    onClose();
-                  }}
-                >
-                  <span>✕ Reject</span>
-                </button>
-              )}
-            </>
+          {payment.status !== "Paid" && onApprove && (
+            <button
+              type="button"
+              className="sales-add-btn"
+              style={{ background: "#10b981", borderColor: "#10b981", padding: "9px 20px" }}
+              onClick={() => {
+                onApprove(payment);
+                onClose();
+              }}
+            >
+              <span>✓ Mark as Paid</span>
+            </button>
           )}
           {payment.status === "Paid" && (
             <button className="sales-btn-secondary" type="button" onClick={() => onDownload(payment)} style={{ padding: "9px 18px" }}>
@@ -485,12 +495,16 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
     return payments.filter((p) => {
       if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
         const pSalesperson = (p.salesPerson || p.salesPersonEmail || p.receivedBy || "").toLowerCase();
-        const pClientEmail = (p.clientEmail || "").toLowerCase();
-        const pClientCompany = (p.clientCompany || p.clientName || "").toLowerCase();
+        const pClientEmail = (p.clientEmail || p.email || "").toLowerCase().trim();
+        const pClientCompany = (p.clientCompany || p.clientName || p.company || p.companyName || "").toLowerCase().trim();
+        const pClientId = String(p.clientId || "").toLowerCase().trim();
+
         const matchesClient = userSalesClients.some((c) => {
-          const cEmail = (c.email || "").toLowerCase();
-          const cCompany = (c.company || c.name || "").toLowerCase();
-          return (cEmail && pClientEmail && (cEmail === pClientEmail || pClientEmail.includes(cEmail))) ||
+          const cEmail = (c.email || "").toLowerCase().trim();
+          const cCompany = (c.company || c.name || c.companyName || "").toLowerCase().trim();
+          const cId = String(c.id || "").toLowerCase().trim();
+          return (cId && pClientId && cId === pClientId) ||
+                 (cEmail && pClientEmail && (cEmail === pClientEmail || pClientEmail.includes(cEmail))) ||
                  (cCompany && pClientCompany && (cCompany === pClientCompany || pClientCompany.includes(cCompany)));
         });
         const matchesSalesperson = pSalesperson && currentSalesName && (pSalesperson.includes(currentSalesName.toLowerCase()) || (currentUserEmail && pSalesperson.includes(currentUserEmail.toLowerCase())));
@@ -539,24 +553,7 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
   }, [userPayments, userSalesClients]);
 
   const filteredPayments = useMemo(() => {
-    return payments.filter((p) => {
-      if (userRole !== "Admin" && userRole !== "Owner" && userRole !== "Branch Manager" && userRole !== "Manager") {
-        const pSalesperson = (p.salesPerson || p.salesPersonEmail || p.receivedBy || "").toLowerCase();
-        const pClientEmail = (p.clientEmail || "").toLowerCase();
-        const pClientCompany = (p.clientCompany || p.clientName || "").toLowerCase();
-        const matchesClient = userSalesClients.some((c) => {
-          const cEmail = (c.email || "").toLowerCase();
-          const cCompany = (c.company || c.name || "").toLowerCase();
-          return (cEmail && pClientEmail && (cEmail === pClientEmail || pClientEmail.includes(cEmail))) ||
-                 (cCompany && pClientCompany && (cCompany === pClientCompany || pClientCompany.includes(cCompany)));
-        });
-        const matchesSalesperson = pSalesperson && currentSalesName && (pSalesperson.includes(currentSalesName.toLowerCase()) || (currentUserEmail && pSalesperson.includes(currentUserEmail.toLowerCase())));
-
-        if (!matchesClient && !matchesSalesperson) {
-          return false;
-        }
-      }
-
+    return userPayments.filter((p) => {
       // Tab filter
       const isSettlement = String(p.status || "").toLowerCase().includes("awaiting");
       if (activeTab === "Payment Requests") {
@@ -584,7 +581,7 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
 
       return true;
     });
-  }, [payments, activeTab, searchTerm, userRole, currentSalesName, currentUserEmail, userSalesClients]);
+  }, [userPayments, activeTab, searchTerm]);
 
   const updateClientPaymentMetrics = (clientIdentifier, amountDiff, actionType) => {
     if (!amountDiff || amountDiff <= 0) return;
@@ -653,20 +650,23 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
       // 2. Dispatch global events
       window.dispatchEvent(new Event("agni_payments_updated"));
       window.dispatchEvent(new Event("agni_clients_updated"));
-
       window.dispatchEvent(new Event("agni_invoices_updated"));
 
-      if (newReq.relatedInvoiceId || newReq.invoiceId) {
-        try {
-          await apiFetch(`/invoices/${newReq.relatedInvoiceId || newReq.invoiceId}/payments`, {
-            method: "POST",
-            body: {
-              amount: Number(newReq.amount || 0),
-              paymentMode: "ONLINE",
-              remarks: "Payment request added",
-            }
-          });
-        } catch (e) {}
+      // 3. Post to backend PostgreSQL database so request survives and syncs across all PCs
+      try {
+        await apiFetch("/invoices/payment-requests", {
+          method: "POST",
+          body: {
+            clientId: newReq.clientId || newReq.clientEmail || newReq.email,
+            amount: Number(newReq.amount || 0),
+            paymentId: newReq.id || newReq.paymentId,
+            dueDate: newReq.dueDate,
+            description: newReq.description || `Payment demand for ${newReq.clientCompany || newReq.clientName}`,
+            paymentMode: "ONLINE",
+          },
+        });
+      } catch (backendErr) {
+        console.warn("Could not post payment request to backend API:", backendErr);
       }
 
       refreshPayments();
@@ -809,6 +809,19 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
             } catch (invErr) {}
           }
         }
+      }
+
+      // Mark payment as paid in database so all PCs update
+      try {
+        await apiFetch(`/invoices/payments/${cleanPayId}/mark-paid`, {
+          method: "PATCH",
+        });
+      } catch (markErr) {
+        try {
+          await apiFetch(`/invoices/payments/${pId}/mark-paid`, {
+            method: "PATCH",
+          });
+        } catch (e) {}
       }
 
       // Update client caches in localStorage
@@ -1246,35 +1259,15 @@ Thank you for choosing AgniCRM.
                         <Icon name="eye" size={13} />
                         <span>View</span>
                       </button>
-                      {String(payment.status || "").toLowerCase().includes("awaiting") && (
-                        <>
-                          <button
-                            type="button"
-                            className="sales-settle-btn"
-                            style={{ background: "#10b981", borderColor: "#10b981", color: "#ffffff", fontWeight: 700 }}
-                            onClick={() => approvePaymentSettlement(payment)}
-                            title="Verify and approve payment settlement"
-                          >
-                            <span>✓ Approve</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="sales-btn-secondary"
-                            style={{ color: "#ef4444", borderColor: "rgba(239, 68, 68, 0.4)", padding: "5px 10px", fontSize: 12 }}
-                            onClick={() => rejectPaymentSettlement(payment)}
-                            title="Reject payment settlement"
-                          >
-                            <span>✕</span>
-                          </button>
-                        </>
-                      )}
-                      {(payment.status === "Requested" || payment.status === "Pending") && !String(payment.status || "").toLowerCase().includes("awaiting") && (
+                      {payment.status !== "Paid" && (
                         <button
                           type="button"
                           className="sales-settle-btn"
-                          onClick={() => markAsPaid(payment.id)}
+                          style={{ background: "#10b981", borderColor: "#10b981", color: "#ffffff", fontWeight: 700 }}
+                          onClick={() => markAsPaid(payment)}
+                          title="Verify and mark payment as paid"
                         >
-                          <span>✓ Mark Paid</span>
+                          <span>✓ Mark as Paid</span>
                         </button>
                       )}
                     </div>
@@ -1296,6 +1289,8 @@ Thank you for choosing AgniCRM.
       {showCreateModal && (
         <CreatePaymentRequestModal
           clients={userSalesClients.length > 0 ? userSalesClients : (propClients && propClients.length > 0 ? propClients : [])}
+          salesPersonName={currentSalesName}
+          userEmail={currentUserEmail}
           onClose={() => setShowCreateModal(false)}
           onSubmit={addPaymentRequest}
         />

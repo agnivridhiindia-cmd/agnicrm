@@ -85,3 +85,67 @@ export async function addPayment(req: AuthenticatedRequest, res: Response, next:
     next(error);
   }
 }
+
+const createPaymentRequestSchema = z.object({
+  clientId: z.string().min(1, "Client ID or email is required"),
+  amount: z.number().positive("Requested amount must be positive"),
+  paymentId: z.string().optional(),
+  paymentMode: z.nativeEnum(PaymentMode).optional(),
+  dueDate: z.string().optional(),
+  description: z.string().optional(),
+});
+
+const settlePaymentDemandSchema = z.object({
+  referenceNumber: z.string().optional(),
+  remarks: z.string().optional(),
+});
+
+export async function createPaymentRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const data = createPaymentRequestSchema.parse(req.body);
+    const user = req.user!;
+    const { createPaymentRequestService } = await import("../services/invoice.service");
+    const result = await createPaymentRequestService(user, data);
+    if (!result.success) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function settlePaymentDemand(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const data = settlePaymentDemandSchema.parse(req.body || {});
+    const user = req.user!;
+    const { settlePaymentDemandService } = await import("../services/invoice.service");
+    const result = await settlePaymentDemandService(user, paymentId, data);
+    if (!result.success) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function markPaymentPaid(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const user = req.user!;
+    const { markPaymentPaidService } = await import("../services/invoice.service");
+    const result = await markPaymentPaidService(user, paymentId);
+    if (!result.success) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+

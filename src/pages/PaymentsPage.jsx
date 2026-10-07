@@ -243,18 +243,39 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
   const { payments: apiPayments, refreshPayments } = useApiPayments();
   
   const payments = useMemo(() => {
-    if (!userEmail) return apiPayments;
-    const cleanUserEmail = userEmail.trim().toLowerCase();
-    const clientComp = (clientInfo?.companyName || "").trim().toLowerCase();
+    if (!userEmail && !clientInfo) return apiPayments;
+    const cleanUserEmail = (userEmail || "").trim().toLowerCase();
+    const clientComp = (clientInfo?.companyName || clientInfo?.company || "").trim().toLowerCase();
+    const clientName = (clientInfo?.name || clientInfo?.representativeName || "").trim().toLowerCase();
+    const clientId = String(clientInfo?.clientId || clientInfo?.id || "").trim().toLowerCase();
     
     return apiPayments.filter((p) => {
       const pEmail = (p.clientEmail || p.email || "").trim().toLowerCase();
-      const pComp = (p.clientCompany || p.clientName || p.company || "").trim().toLowerCase();
+      const pComp = (p.clientCompany || p.companyName || p.company || "").trim().toLowerCase();
+      const pName = (p.clientName || p.name || "").trim().toLowerCase();
+      const pClientId = String(p.clientId || p.raw?.clientId || "").trim().toLowerCase();
+
       if (cleanUserEmail && pEmail && pEmail === cleanUserEmail) return true;
-      if (clientComp && pComp && (pComp.includes(clientComp) || clientComp.includes(pComp))) return true;
+      if (clientId && pClientId && (clientId === pClientId || clientId.includes(pClientId) || pClientId.includes(clientId))) return true;
+      if (clientComp && pComp && (clientComp.includes(pComp) || pComp.includes(clientComp))) return true;
+      if (clientName && pName && (clientName.includes(pName) || pName.includes(clientName))) return true;
+      if (clientComp && pName && (clientComp.includes(pName) || pName.includes(clientComp))) return true;
+      if (clientName && pComp && (clientName.includes(pComp) || clientComp.includes(pName))) return true;
       return false;
     });
   }, [apiPayments, userEmail, clientInfo]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      refreshPayments();
+    };
+    window.addEventListener("agni_payments_updated", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("agni_payments_updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, [refreshPayments]);
 
   const filteredPayments = useMemo(() => {
     if (activeTab === "Completed Settlements") {
@@ -310,7 +331,10 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
 
   async function handlePayDemand(pay) {
     try {
-      // 1. Update status to "Awaiting Sales Approval" in localStorage across all payment demand arrays
+      const txnRef = pay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
+      const cleanEmail = (pay.clientEmail || userEmail || "").toLowerCase().trim();
+
+      // 1. Update status to "Awaiting Approval" in localStorage across all payment demand arrays
       const updatePaymentStatusLocal = (key) => {
         try {
           const saved = localStorage.getItem(key);
@@ -318,11 +342,11 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
           const list = JSON.parse(saved);
           if (!Array.isArray(list)) return;
           const updated = list.map((p) => {
-            if (String(p.id) === String(pay.id)) {
+            if (String(p.id) === String(pay.id) || String(p.paymentId) === String(pay.id)) {
               return {
                 ...p,
-                status: "Awaiting Sales Approval",
-                transactionRef: p.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`,
+                status: "Awaiting Approval",
+                transactionRef: txnRef,
                 settledAt: new Date().toISOString(),
                 submissionDate: new Date().toISOString().split("T")[0],
               };
@@ -336,79 +360,23 @@ export default function PaymentsPage({ userEmail, clientInfo }) {
       updatePaymentStatusLocal("agni_sales_payments");
       updatePaymentStatusLocal("agni_payment_demands");
       updatePaymentStatusLocal("agni_client_requests");
-      const cleanEmail = (pay.clientEmail || userEmail || "").toLowerCase().trim();
-      if (cleanEmail) updatePaymentStatusLocal(`agni_payment_demands_${cleanEmail}`);
-
-      // 2. Dispatch official Payment Settlement Request for Sales Approval
-      const txnRef = pay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
-      const cCompany = pay.clientCompany || pay.clientName || clientInfo?.companyName || "Client Account";
-      const resolvedClientId = pay.clientId || pay.raw?.clientId || clientInfo?.id || "";
-      const settlementReq = {
-        id: `SETTLE-${pay.id || Date.now()}`,
-        paymentId: pay.id,
-        rawId: pay.id,
-        clientId: resolvedClientId,
-        clientName: cCompany,
-        companyName: cCompany,
-        clientEmail: cleanEmail,
-        clientPhone: pay.clientPhone || clientInfo?.phone || "",
-        requestType: "Payment Settlement",
-        category: "Payment Settlement",
-        amount: Number(pay.amount || 0),
-        pitchedAmount: Number(pay.amount || 0),
-        totalPayment: Number(pay.amount || 0),
-        paymentMode: pay.paymentMode || "Online Gateway",
-        transactionRef: txnRef,
-        status: "Pending",
-        targetDepartment: "Sales & Accounts",
-        managerName: pay.salesPerson || "Sales Representative",
-        reason: `Payment Settlement verification for demand ${pay.id} (₹${Number(pay.amount || 0).toLocaleString("en-IN")}) via ${pay.paymentMode || "Online Gateway"}. Reference: ${txnRef}.`,
-        createdAt: new Date().toISOString(),
-        submittedDate: new Date().toISOString().split("T")[0],
-        raw: {
-          ...pay,
-          clientId: resolvedClientId,
-          status: "Awaiting Sales Approval",
-          transactionRef: txnRef,
-        },
-      };
-
+      // 2. Update status in backend PostgreSQL database so Salesperson on other PCs sees Awaiting Approval
       try {
-        const savedSettlements = localStorage.getItem("agni_pending_payment_settlement_requests");
-        const list = savedSettlements ? JSON.parse(savedSettlements) : [];
-        const filtered = Array.isArray(list)
-          ? list.filter((r) => String(r.paymentId || r.id) !== String(pay.id) && r.id !== settlementReq.id)
-          : [];
-        localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify([settlementReq, ...filtered]));
-      } catch (err) {
-        console.warn("Could not save settlement request locally:", err);
+        const targetPayId = pay.id || pay.paymentId;
+        await apiFetch(`/invoices/payments/${targetPayId}/settle`, {
+          method: "PATCH",
+          body: {
+            referenceNumber: txnRef,
+            remarks: "Settlement submitted by client",
+          },
+        });
+      } catch (apiErr) {
+        console.warn("Could not submit settlement to backend API:", apiErr);
       }
 
-      // Also persist to backend /requests if available
-      try {
-        apiFetch("/requests", {
-          method: "POST",
-          body: {
-            requestType: "NEW_SERVICE",
-            reason: `Payment Settlement verification for demand ${pay.id} (₹${Number(pay.amount || 0).toLocaleString("en-IN")}) via ${pay.paymentMode || "Online Gateway"}. Reference: ${txnRef}.`,
-            requestedChanges: {
-              isPaymentSettlement: true,
-              category: "Payment Settlement",
-              paymentId: pay.id,
-              amount: Number(pay.amount || 0),
-              paymentMode: pay.paymentMode || "Online Gateway",
-              transactionRef: txnRef,
-              companyName: cCompany,
-              clientEmail: cleanEmail,
-            },
-          },
-        }).catch(() => {});
-      } catch (apiErr) {}
-
-      setNotice(`Payment settlement submitted! Your assigned Sales Representative will verify and approve the transaction before your official receipt is generated.`);
+      setNotice(`Payment settlement submitted! Your status is now Awaiting Approval. Your assigned Sales Representative will verify your external payment proof and mark it as paid.`);
 
       window.dispatchEvent(new Event("agni_payments_updated"));
-      window.dispatchEvent(new Event("agni_requests_updated"));
       window.dispatchEvent(new Event("agni_pending_updated"));
       window.dispatchEvent(new Event("storage"));
 

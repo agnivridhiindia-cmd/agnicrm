@@ -260,61 +260,6 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
         } catch (e) {}
       }
 
-      // Auto-reconcile any pending payment demands across local storage that are awaiting approval
-      const awaitingDemands = [];
-      const demandKeys = ["agni_sales_payments", "agni_payment_demands", "agni_client_requests"];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i) || "";
-        if (k.startsWith("agni_payment_demands_")) {
-          demandKeys.push(k);
-        }
-      }
-      demandKeys.forEach((key) => {
-        try {
-          const raw = localStorage.getItem(key);
-          if (!raw) return;
-          const items = JSON.parse(raw);
-          if (Array.isArray(items)) {
-            items.forEach((p) => {
-              const s = String(p.status || "").toLowerCase();
-              if (s.includes("awaiting") || s.includes("pending sales")) {
-                if (!awaitingDemands.some((x) => String(x.id) === String(p.id))) {
-                  awaitingDemands.push(p);
-                }
-              }
-            });
-          }
-        } catch (e) {}
-      });
-
-      const synthesizedDemands = awaitingDemands.map((p) => {
-        const cName = p.clientCompany || p.clientName || "Client Account";
-        return {
-          id: `SETTLE-${p.id}`,
-          paymentId: p.id,
-          rawId: p.id,
-          clientName: cName,
-          companyName: cName,
-          clientEmail: p.clientEmail || "",
-          requestType: "Payment Settlement",
-          category: "Payment Settlement",
-          status: "Pending",
-          amount: Number(p.amount || 0),
-          pitchedAmount: Number(p.amount || 0),
-          totalPayment: Number(p.amount || 0),
-          paymentMode: p.paymentMode || "Online Gateway",
-          transactionRef: p.transactionRef || "",
-          decisionDate: "",
-          managerRemarks: "",
-          reason: `Payment Settlement verification for demand ${p.id} (₹${Number(p.amount || 0).toLocaleString("en-IN")}) via ${p.paymentMode || "Online Gateway"}.`,
-          targetDepartment: "Sales & Accounts",
-          managerName: p.salesPerson || "Sales Representative",
-          createdAt: p.settledAt || p.date || new Date().toISOString(),
-          submittedDate: p.submissionDate || p.date || new Date().toISOString().split("T")[0],
-          raw: p,
-        };
-      });
-
       setRequests((prev) => {
         const existingMap = new Map();
         prev.forEach((p) => existingMap.set(p.id, p));
@@ -327,15 +272,6 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
             }
           } else {
             existingMap.set(s.id, s);
-          }
-        });
-
-        synthesizedDemands.forEach((syn) => {
-          const matchExisting = Array.from(existingMap.values()).find(
-            (r) => String(r.paymentId) === String(syn.paymentId) || String(r.id) === String(syn.id)
-          );
-          if (!matchExisting) {
-            existingMap.set(syn.id, syn);
           }
         });
 

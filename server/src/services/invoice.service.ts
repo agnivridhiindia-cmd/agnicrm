@@ -185,28 +185,277 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
   return { success: true, statusCode: 201, data: invoice };
 }
 
+export interface CreatePaymentRequestInput {
+  clientId: string;
+  amount: number;
+  paymentId?: string;
+  paymentMode?: PaymentMode;
+  dueDate?: string;
+  description?: string;
+}
+
 export async function getPaymentsService(user: AuthenticatedUser) {
   let whereClause: any = { isDeleted: false };
 
   if (user.role === Role.SALES_PERSON) {
-    whereClause.client = { salesPersonId: user.userId, isDeleted: false };
+    whereClause = {
+      isDeleted: false,
+      OR: [
+        { recordedById: user.userId },
+        { client: { salesPersonId: user.userId, isDeleted: false } },
+      ],
+    };
   } else if (user.role === Role.BRANCH_MANAGER) {
-    whereClause.client = { branchId: user.branchId, isDeleted: false };
+    whereClause = {
+      isDeleted: false,
+      OR: [
+        { client: { branchId: user.branchId, isDeleted: false } },
+        { invoice: { branchId: user.branchId, isDeleted: false } },
+      ],
+    };
   } else if (user.role === Role.CLIENT) {
-    whereClause.client = { email: user.email, isDeleted: false };
+    whereClause = {
+      isDeleted: false,
+      client: {
+        email: { equals: user.email, mode: "insensitive" },
+        isDeleted: false,
+      },
+    };
   }
 
   const payments = await prisma.payment.findMany({
     where: whereClause,
     include: {
-      invoice: { select: { invoiceNo: true, rawTotal: true } },
-      client: { select: { name: true, companyName: true, email: true } },
-      recordedBy: { select: { fullName: true, role: true } },
+      invoice: { select: { id: true, invoiceNo: true, rawTotal: true, dueDate: true, paymentPending: true } },
+      client: { select: { id: true, name: true, companyName: true, email: true, phone: true } },
+      recordedBy: { select: { id: true, fullName: true, role: true, email: true } },
     },
-    orderBy: { paymentDate: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 
   return { success: true, statusCode: 200, data: payments };
+}
+
+export async function createPaymentRequestService(user: AuthenticatedUser, data: CreatePaymentRequestInput) {
+  const client = await prisma.client.findFirst({
+    where: {
+      OR: [
+        { id: data.clientId },
+        { email: { equals: data.clientId, mode: "insensitive" } },
+      ],
+      isDeleted: false,
+    },
+    include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+  });
+
+  if (!client) {
+    return { success: false, statusCode: 404, message: "Client not found" };
+  }
+
+  // Find or create an invoice for this client
+  let invoice = client.invoices.find((inv) => inv.status !== PaymentStatus.PAID) || client.invoices[0];
+  if (!invoice) {
+    const invoiceNo = generateInvoiceNo(1, new Date());
+    invoice = await prisma.invoice.create({
+      data: {
+        invoiceNo,
+        invoiceType: InvoiceType.PROFORMA,
+        issueDate: new Date(),
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        paymentMode: data.paymentMode || PaymentMode.ONLINE,
+        rawAmount: data.amount,
+        gstRate: data.paymentMode === PaymentMode.OFFLINE ? 0 : 0.18,
+        gstAmount: 0,
+        rawTotal: data.amount,
+        paymentReceived: 0,
+        paymentPending: data.amount,
+        status: PaymentStatus.PENDING,
+        description: data.description || `Service retainer for ${client.companyName || client.name}`,
+        clientId: client.id,
+        branchId: client.branchId,
+        accountManagerId: client.salesPersonId || user.userId,
+      },
+    });
+  }
+
+  const paymentId = data.paymentId || generatePaymentId();
+
+  // If already exists, return existing
+  const existingPay = await prisma.payment.findUnique({
+    where: { paymentId },
+    include: {
+      invoice: { select: { id: true, invoiceNo: true, rawTotal: true, dueDate: true, paymentPending: true } },
+      client: { select: { id: true, name: true, companyName: true, email: true, phone: true } },
+      recordedBy: { select: { id: true, fullName: true, role: true, email: true } },
+    },
+  });
+  if (existingPay) {
+    return { success: true, statusCode: 200, data: existingPay };
+  }
+
+  const payment = await prisma.payment.create({
+    data: {
+      paymentId,
+      amount: data.amount,
+      paymentDate: new Date(),
+      paymentMode: data.paymentMode || PaymentMode.ONLINE,
+      status: TransactionStatus.PENDING,
+      remarks: data.description ? `PAYMENT_REQUEST: ${data.description}` : "PAYMENT_REQUEST",
+      invoiceId: invoice.id,
+      clientId: client.id,
+      recordedById: user.userId,
+    },
+    include: {
+      invoice: { select: { id: true, invoiceNo: true, rawTotal: true, dueDate: true, paymentPending: true } },
+      client: { select: { id: true, name: true, companyName: true, email: true, phone: true } },
+      recordedBy: { select: { id: true, fullName: true, role: true, email: true } },
+    },
+  });
+
+  return { success: true, statusCode: 201, data: payment };
+}
+
+export async function settlePaymentDemandService(
+  user: AuthenticatedUser,
+  paymentIdOrId: string,
+  data: { referenceNumber?: string; remarks?: string }
+) {
+  const cleanId = paymentIdOrId.replace(/^SETTLE-/, "");
+  const payment = await prisma.payment.findFirst({
+    where: {
+      OR: [
+        { id: paymentIdOrId },
+        { paymentId: paymentIdOrId },
+        { paymentId: cleanId },
+      ],
+      isDeleted: false,
+    },
+  });
+
+  if (!payment) {
+    return { success: false, statusCode: 404, message: "Payment request not found" };
+  }
+
+  const txnRef = data.referenceNumber || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
+  const remarkText = data.remarks ? `AWAITING_APPROVAL: ${data.remarks}` : "AWAITING_APPROVAL: Settle proof submitted by client";
+
+  const updatedPayment = await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      referenceNumber: txnRef,
+      remarks: remarkText,
+      updatedAt: new Date(),
+    },
+    include: {
+      invoice: { select: { id: true, invoiceNo: true, rawTotal: true, dueDate: true, paymentPending: true } },
+      client: { select: { id: true, name: true, companyName: true, email: true, phone: true } },
+      recordedBy: { select: { id: true, fullName: true, role: true, email: true } },
+    },
+  });
+
+  return { success: true, statusCode: 200, data: updatedPayment };
+}
+
+export async function markPaymentPaidService(
+  user: AuthenticatedUser,
+  paymentIdOrId: string
+) {
+  return await prisma.$transaction(async (tx) => {
+    const cleanId = paymentIdOrId.replace(/^SETTLE-/, "");
+    const payment = await tx.payment.findFirst({
+      where: {
+        OR: [
+          { id: paymentIdOrId },
+          { paymentId: paymentIdOrId },
+          { paymentId: cleanId },
+        ],
+        isDeleted: false,
+      },
+      include: {
+        invoice: true,
+        client: true,
+      },
+    });
+
+    if (!payment) {
+      return { success: false, statusCode: 404, message: "Payment record not found" };
+    }
+
+    if (payment.status === TransactionStatus.SUCCESS) {
+      return { success: true, statusCode: 200, data: { payment, message: "Already marked as paid" } };
+    }
+
+    const payAmount = Number(payment.amount);
+
+    // 1. Update Payment status to SUCCESS
+    const updatedPayment = await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: TransactionStatus.SUCCESS,
+        remarks: payment.remarks
+          ? `${payment.remarks.replace(/^AWAITING_APPROVAL:\s*/, "")} (Verified & Marked Paid)`
+          : "Verified & Marked Paid",
+        updatedAt: new Date(),
+      },
+      include: {
+        invoice: { select: { id: true, invoiceNo: true, rawTotal: true, dueDate: true, paymentPending: true } },
+        client: { select: { id: true, name: true, companyName: true, email: true, phone: true } },
+        recordedBy: { select: { id: true, fullName: true, role: true, email: true } },
+      },
+    });
+
+    // 2. Update Invoice
+    let finalInvoice = payment.invoice;
+    if (payment.invoiceId) {
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: payment.invoiceId },
+        data: {
+          paymentReceived: { increment: payAmount },
+          paymentPending: { decrement: payAmount },
+        },
+      });
+
+      const updatedPending = Number(updatedInvoice.paymentPending);
+      let newStatus = updatedInvoice.status;
+      if (updatedPending <= 0) {
+        newStatus = PaymentStatus.PAID;
+      } else {
+        newStatus = PaymentStatus.PARTIAL;
+      }
+
+      finalInvoice = await tx.invoice.update({
+        where: { id: payment.invoiceId },
+        data: {
+          status: newStatus,
+          ...(newStatus === PaymentStatus.PAID ? { invoiceType: InvoiceType.TAX } : {}),
+        },
+      });
+    }
+
+    // 3. Update Client balances
+    if (payment.clientId) {
+      await tx.client.update({
+        where: { id: payment.clientId },
+        data: {
+          paymentReceived: { increment: payAmount },
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.clientScheme.updateMany({
+        where: { clientId: payment.clientId },
+        data: {
+          receivedAmount: { increment: payAmount },
+        },
+      });
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: { payment: updatedPayment, invoice: finalInvoice },
+    };
+  });
 }
 
 export async function addPaymentService(user: AuthenticatedUser, invoiceId: string, data: CreatePaymentInput) {

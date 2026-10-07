@@ -7,6 +7,7 @@ import MoreServicesPage from "./pages/MoreServicesPage";
 import EligibilityPage from "./pages/EligibilityPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import PaymentsPage from "./pages/PaymentsPage";
+import { useApiPayments } from "./hooks/useApiPayments";
 import { getTrackerState, getSchemeCompletedStages, getClientAllSchemeTrackers, getClientCompositeKey, isClientPrimaryScheme, isPaymentDemandOrSettlement, getCanonicalSchemeName } from "./utils/schemeTracker";
 import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, repairClientStorageData, syncTeamHierarchyFromDB, getCachedHierarchy } from "./utils/branchHelper";
 import ClientInstallButton from "./components/ClientInstallButton";
@@ -283,6 +284,7 @@ const chartPoints = [
 
 /* ── MAIN DASHBOARD COMPONENT ── */
 export default function Dashboard({ onSignOut, userEmail }) {
+  const { payments: apiPayments } = useApiPayments();
   const [activeNav, setActiveNav] = React.useState("Dashboard");
   const [dark, setDark] = React.useState(false);
   const [schemeQuery, setSchemeQuery] = React.useState("");
@@ -1112,7 +1114,9 @@ export default function Dashboard({ onSignOut, userEmail }) {
   // Pending payment demands sent by Sales for this client
   const pendingPaymentDemands = React.useMemo(() => {
     const emailKey = (userEmail || "").trim().toLowerCase();
-    const companyKey = (clientInfo?.companyName || "").trim().toLowerCase();
+    const companyKey = (clientInfo?.companyName || clientInfo?.company || "").trim().toLowerCase();
+    const nameKey = (clientInfo?.name || clientInfo?.representativeName || "").trim().toLowerCase();
+    const clientIdKey = String(clientInfo?.clientId || clientInfo?.id || "").trim().toLowerCase();
     let allDemands = [];
     try {
       const s1 = localStorage.getItem("agni_sales_payments");
@@ -1134,6 +1138,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
       }
     } catch (e) { }
 
+    // Merge API payments from database so demands sync across all PCs
+    if (Array.isArray(apiPayments)) {
+      allDemands.push(...apiPayments);
+    }
+
     const matchMap = new Map();
     allDemands.forEach((p) => {
       if (!p || !p.id) return;
@@ -1141,18 +1150,24 @@ export default function Dashboard({ onSignOut, userEmail }) {
       if (statusLower === "paid" || statusLower === "success" || statusLower === "cancelled") return;
 
       const pEmail = (p.clientEmail || p.email || "").trim().toLowerCase();
-      const pComp = (p.clientCompany || p.clientName || p.company || "").trim().toLowerCase();
+      const pComp = (p.clientCompany || p.companyName || p.company || "").trim().toLowerCase();
+      const pName = (p.clientName || p.name || "").trim().toLowerCase();
+      const pClientId = String(p.clientId || p.raw?.clientId || "").trim().toLowerCase();
 
       const matchEmail = emailKey && pEmail && pEmail === emailKey;
       const matchComp = companyKey && pComp && (companyKey.includes(pComp) || pComp.includes(companyKey));
+      const matchName = nameKey && pName && (nameKey.includes(pName) || pName.includes(nameKey));
+      const matchClientId = clientIdKey && pClientId && (clientIdKey === pClientId || clientIdKey.includes(pClientId));
+      const matchCross = (companyKey && pName && (companyKey.includes(pName) || pName.includes(companyKey))) ||
+                         (nameKey && pComp && (nameKey.includes(pComp) || pComp.includes(nameKey)));
 
-      if (matchEmail || matchComp) {
+      if (matchEmail || matchComp || matchName || matchClientId || matchCross) {
         matchMap.set(String(p.id), p);
       }
     });
 
     return Array.from(matchMap.values());
-  }, [userEmail, clientInfo, trackerSyncTick]);
+  }, [userEmail, clientInfo, trackerSyncTick, apiPayments]);
 
   // Re-sync enrolled plans when storage event fires or user logs in
   React.useEffect(() => {
