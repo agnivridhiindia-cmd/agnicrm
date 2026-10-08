@@ -640,6 +640,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .cd-notif-popover-header h2 {
@@ -660,9 +662,27 @@
   background: transparent;
   border: none;
   color: var(--cd-primary);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  padding: 8px 10px;
+  min-height: 38px;
+  min-width: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.cd-mark-read-btn:hover {
+  background: rgba(78, 124, 255, 0.08);
+}
+
+.cd-mark-read-btn:active {
+  background: rgba(78, 124, 255, 0.16);
 }
 
 .cd-notif-tabs {
@@ -779,6 +799,7 @@
 
 .cd-profile-menu button {
   padding: 10px 14px;
+  min-height: 40px;
   text-align: left;
   background: transparent;
   border: none;
@@ -788,6 +809,10 @@
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  touch-action: manipulation;
 }
 
 .cd-hero-banner {
@@ -1038,13 +1063,17 @@
 /* ── LAYOUT GRID ── */
 .cd-main-layout {
   display: grid;
-  grid-template-columns: 1fr 350px;
+  grid-template-columns: minmax(0, 1fr) 350px;
   gap: 28px;
+  min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 1200px) {
   .cd-main-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
   }
 }
 
@@ -1052,12 +1081,16 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
+  min-width: 0;
+  width: 100%;
 }
 
 .cd-right-column {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
+  width: 100%;
 }
 
 .cd-doc-vault-section,
@@ -1249,6 +1282,58 @@
 
 .cd-pipeline-line {
   display: none !important;
+}
+
+/* ── Overview Pipeline Selection Pills ── */
+.cd-pipeline-pills-container {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  padding: 4px 2px 8px 2px;
+  scrollbar-width: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cd-pipeline-pills-container::-webkit-scrollbar {
+  display: none;
+}
+
+.cd-pipeline-pill-btn {
+  min-height: 38px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  touch-action: manipulation;
+  border: 1px solid var(--cd-border);
+  background: rgba(30, 41, 59, 0.6);
+  color: var(--cd-muted);
+  box-shadow: none;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-pipeline-pill-btn:hover {
+  border-color: rgba(78, 124, 255, 0.5);
+  color: var(--cd-ink);
+}
+
+.cd-pipeline-pill-btn.active {
+  border: 1px solid #4e7cff;
+  background: linear-gradient(135deg, #4e7cff 0%, #3b66e8 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(78, 124, 255, 0.35);
 }
 
 /* ── ACTIVE SCHEMES GRID ── */
@@ -1833,21 +1918,25 @@
 
 .cd-modal-close {
   position: absolute;
-  top: 24px;
-  right: 24px;
-  width: 36px;
-  height: 36px;
+  top: 20px;
+  right: 20px;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.8);
   font-size: 22px;
   line-height: 1;
-  display: grid;
-  place-items: center;
+  display: grid !important;
+  place-items: center !important;
   color: var(--cd-muted);
   cursor: pointer;
   transition: all 0.25s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  touch-action: manipulation;
+  z-index: 10;
 }
 
 .cd-modal-close:hover {
@@ -1855,6 +1944,37 @@
   border-color: transparent;
   color: white;
   transform: rotate(90deg) scale(1.05);
+}
+
+/* Scheme Inspection Modal Grid */
+.cd-scheme-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.cd-scheme-modal-grid.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cd-scheme-modal-grid-item {
+  background: rgba(30, 41, 59, 0.5);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--cd-border);
+}
+
+.cd-scheme-modal-grid-item span {
+  font-size: 11px;
+  color: var(--cd-muted);
+  display: block;
+}
+
+.cd-scheme-modal-grid-item strong {
+  font-size: 14.5px;
+  display: block;
+  margin-top: 2px;
 }
 
 .cd-modal h2 {
@@ -2886,13 +3006,23 @@
   font-size: 15px !important;
 }
 
-/* ── COMPREHENSIVE RESPONSIVE MEDIA QUERIES ── */
+/* ═════════════════════════════════════════════════════════════════
+   COMPREHENSIVE RESPONSIVE CSS SYSTEM (TABLET & MOBILE VIEWS)
+   ═════════════════════════════════════════════════════════════════ */
 
-/* 1. Laptop & Mid-size Desktops (max-width: 1280px) */
+/* 1. Large Tablets & Mid-size Desktops (max-width: 1280px) */
 @media screen and (max-width: 1280px) {
   .cd-main-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 24px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .cd-left-column,
+  .cd-right-column {
+    min-width: 0;
+    width: 100%;
   }
 
   .cd-right-column {
@@ -2902,13 +3032,34 @@
   }
 }
 
-/* 2. Mobile & Tablet Navigation Dock Fixed at Bottom (max-width: 991px) */
+/* 2. Tablets & Mobile Navigation Dock Transition (max-width: 991px) */
 @media screen and (max-width: 991px) {
-  .cd-redesign {
+  .cd-redesign,
+  .client-dashboard.cd-redesign {
     grid-template-columns: 1fr !important;
-    padding-bottom: 78px !important;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+    background-attachment: scroll !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
   }
 
+  .cd-main-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .cd-left-column,
+  .cd-right-column {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Fixed Glassmorphic Bottom Dock */
+  .cd-redesign .client-sidebar,
+  .client-dashboard .client-sidebar,
   .client-sidebar {
     position: fixed !important;
     bottom: 0 !important;
@@ -2916,256 +3067,1452 @@
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    height: 66px !important;
-    max-height: 66px !important;
+    height: auto !important;
+    min-height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+    max-height: none !important;
     background: var(--cd-panel-solid) !important;
-    backdrop-filter: blur(24px) !important;
-    -webkit-backdrop-filter: blur(24px) !important;
+    backdrop-filter: blur(28px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
     border-top: 1px solid var(--cd-border) !important;
     border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
     border-radius: 0 !important;
-    padding: 6px 12px !important;
+    padding: 6px calc(6px + env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) calc(6px + env(safe-area-inset-left, 0px)) !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: space-around !important;
-    box-shadow: 0 -6px 24px rgba(23, 33, 53, 0.18) !important;
-    z-index: 9999 !important;
+    box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.16) !important;
+    z-index: 99999 !important;
+    box-sizing: border-box !important;
   }
 
+  .dashboard-dark.cd-redesign .client-sidebar,
+  .dashboard-dark .client-sidebar {
+    background: rgba(15, 23, 42, 0.94) !important;
+    border-top-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Hide Desktop Sidebar Elements in Bottom Dock */
   .client-sidebar .client-brand,
   .client-sidebar .sidebar-bottom,
   .client-sidebar .sidebar-section-label,
-  .client-sidebar .sidebar-active-indicator {
+  .client-sidebar .sidebar-active-indicator,
+  .cd-redesign .client-sidebar .client-brand,
+  .cd-redesign .client-sidebar .sidebar-bottom,
+  .cd-redesign .client-sidebar .sidebar-section-label,
+  .cd-redesign .client-sidebar .sidebar-active-indicator {
     display: none !important;
   }
 
-  .client-sidebar .sidebar-nav-icon-wrap {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    width: auto !important;
-    height: auto !important;
-  }
-
-  .client-sidebar nav {
+  .client-sidebar nav,
+  .cd-redesign .client-sidebar nav {
     display: flex !important;
     flex-direction: row !important;
     justify-content: space-around !important;
     align-items: center !important;
     width: 100% !important;
-    gap: 4px !important;
+    gap: 2px !important;
     padding: 0 !important;
     margin: 0 !important;
     overflow: visible !important;
   }
 
-  .client-sidebar nav button {
-    flex: 1 !important;
+  .client-sidebar nav button,
+  .cd-redesign .client-sidebar nav button {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 4px !important;
-    padding: 6px 4px !important;
-    height: 52px !important;
-    border-radius: 12px !important;
+    gap: 3px !important;
+    padding: 5px 2px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    border-radius: 10px !important;
     font-size: 10.5px !important;
     font-weight: 600 !important;
     color: var(--cd-muted) !important;
     background: transparent !important;
     border: none !important;
     transition: all 0.2s ease !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    touch-action: manipulation !important;
+  }
+
+  /* Force Bottom Dock Nav Labels to be visible */
+  .client-sidebar nav button span,
+  .cd-redesign .client-sidebar nav button span {
+    display: block !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: var(--cd-muted) !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    line-height: 1.15 !important;
+  }
+
+  .client-sidebar .sidebar-nav-icon-wrap,
+  .cd-redesign .client-sidebar .sidebar-nav-icon-wrap {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0 !important;
   }
 
   .client-sidebar nav button svg,
-  .client-sidebar nav button .dashboard-icon {
+  .client-sidebar nav button .dashboard-icon,
+  .cd-redesign .client-sidebar nav button svg,
+  .cd-redesign .client-sidebar nav button .dashboard-icon {
     width: 18px !important;
     height: 18px !important;
+    stroke: var(--cd-muted) !important;
   }
 
-  .client-sidebar nav button.selected {
+  .client-sidebar nav button.selected,
+  .cd-redesign .client-sidebar nav button.selected {
     color: var(--cd-primary) !important;
     background: rgba(78, 124, 255, 0.12) !important;
     font-weight: 700 !important;
   }
 
+  .client-sidebar nav button.selected span,
+  .cd-redesign .client-sidebar nav button.selected span {
+    color: var(--cd-primary) !important;
+    font-weight: 700 !important;
+  }
+
+  .client-sidebar nav button.selected svg,
+  .client-sidebar nav button.selected .dashboard-icon,
+  .cd-redesign .client-sidebar nav button.selected svg,
+  .cd-redesign .client-sidebar nav button.selected .dashboard-icon {
+    stroke: var(--cd-primary) !important;
+    stroke-width: 2.2 !important;
+  }
+
   .cd-redesign .dashboard-content,
   .client-dashboard .dashboard-content {
-    padding: 20px 20px 40px;
+    padding: 20px 18px calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 22px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .cd-hero-banner {
-    padding: 28px;
+    padding: 24px 20px !important;
   }
 
   .cd-hero-greeting h2 {
-    font-size: 28px;
+    font-size: 26px !important;
   }
 
   .cd-hero-greeting em {
-    font-size: 34px;
+    font-size: 30px !important;
   }
 }
 
-/* 3. Mobile Devices (max-width: 768px) */
+/* 3. Mobile Devices & Smartphones (max-width: 768px) */
 @media screen and (max-width: 768px) {
+  .cd-redesign,
+  .client-dashboard.cd-redesign {
+    overflow-x: hidden !important;
+  }
+
+  .cd-redesign .dashboard-content,
+  .client-dashboard .dashboard-content {
+    padding: 16px 14px calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── Header Navigation ── */
   .cd-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    padding: 16px;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) 12px calc(14px + env(safe-area-inset-left, 0px)) !important;
+    border-radius: 18px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .cd-header-left,
   .cd-header-actions {
-    width: 100%;
-    justify-content: space-between;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
   }
 
+  .cd-company-pill {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 6px 12px 6px 8px !important;
+    border-radius: 14px !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-company-avatar-wrap {
+    flex-shrink: 0 !important;
+  }
+
+  .cd-company-avatar {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 13.5px !important;
+    border-radius: 50% !important;
+  }
+
+  .cd-company-details {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .cd-company-details h1 {
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    line-height: 1.25 !important;
+  }
+
+  .cd-company-submeta,
   .cd-date-pill {
-    display: none;
+    display: none !important;
   }
 
-  .cd-company-submeta {
-    display: none;
+  .cd-header-actions {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
   }
 
-  .cd-search-field {
-    width: 100%;
+  .cd-install-pwa-btn {
+    padding: 8px 12px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    font-size: 12px !important;
+    border-radius: 10px !important;
+    gap: 6px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    touch-action: manipulation !important;
   }
 
-  @keyframes expandSearch {
-    0% {
-      width: 44px;
-      opacity: 0;
-    }
-
-    100% {
-      width: 100%;
-      opacity: 1;
-    }
+  .cd-icon-btn,
+  .cd-profile-btn {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    font-size: 13px !important;
+    display: grid !important;
+    place-items: center !important;
+    box-sizing: border-box !important;
+    touch-action: manipulation !important;
   }
 
+  /* Popovers centered / pinned on screen for mobile */
+  .cd-notif-popover {
+    position: fixed !important;
+    top: calc(128px + env(safe-area-inset-top, 0px)) !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+    border-radius: 18px !important;
+    padding: 16px !important;
+    z-index: 100000 !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4) !important;
+    max-height: calc(100vh - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    overflow-y: auto !important;
+  }
+
+  .cd-notif-list {
+    max-height: 240px !important;
+  }
+
+  .cd-profile-popover {
+    position: fixed !important;
+    top: calc(128px + env(safe-area-inset-top, 0px)) !important;
+    right: 12px !important;
+    left: auto !important;
+    width: 230px !important;
+    max-width: calc(100vw - 24px) !important;
+    border-radius: 16px !important;
+    z-index: 100000 !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .cd-mark-read-btn {
+    padding: 8px 10px !important;
+    min-height: 38px !important;
+    min-width: 38px !important;
+    font-size: 11.5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+    touch-action: manipulation !important;
+  }
+
+  .cd-profile-menu button {
+    min-height: 40px !important;
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    display: flex !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+    touch-action: manipulation !important;
+  }
+
+  /* ── Pending Demand Alert Banner ── */
+  .cd-pending-demand-alert-banner {
+    padding: 14px 16px !important;
+    border-radius: 16px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    margin: 0 0 16px 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:first-child {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:first-child > div:first-child {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    font-size: 18px !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:first-child > div:last-child {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:first-child h3 {
+    font-size: 14px !important;
+    line-height: 1.3 !important;
+    margin: 2px 0 4px !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:first-child p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:last-child {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    padding-top: 10px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:last-child strong {
+    font-size: 18px !important;
+  }
+
+  .cd-pending-demand-alert-banner > div:last-child button {
+    flex: 1 !important;
+    max-width: 170px !important;
+    padding: 9px 12px !important;
+    font-size: 12.5px !important;
+    border-radius: 10px !important;
+    text-align: center !important;
+  }
+
+  /* ── Hero Banner & Metrics Ribbon ── */
   .cd-hero-banner {
-    padding: 22px;
+    padding: 18px 16px !important;
+    border-radius: 20px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .cd-hero-greeting {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .cd-kicker {
+    font-size: 10px !important;
+    letter-spacing: 1px !important;
   }
 
   .cd-hero-greeting h2 {
-    font-size: 24px;
+    font-size: clamp(18px, 4.5vw, 22px) !important;
+    line-height: 1.25 !important;
   }
 
   .cd-hero-greeting em {
-    font-size: 28px;
+    font-size: clamp(20px, 5.5vw, 25px) !important;
+    word-break: break-word !important;
+  }
+
+  .cd-hero-greeting p {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    margin: 2px 0 0 !important;
+  }
+
+  .cd-quick-status-pill {
+    align-self: flex-start !important;
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+    border-radius: 99px !important;
   }
 
   .cd-metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    margin-top: 16px !important;
+    width: 100% !important;
   }
 
   .cd-metric-card {
-    padding: 14px;
-    gap: 12px;
+    padding: 12px 10px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .cd-metric-icon-box {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    font-size: 16px !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-metric-info {
+    min-width: 0 !important;
+    flex: 1 !important;
   }
 
   .cd-metric-value {
-    font-size: 18px;
+    font-size: clamp(14px, 3.5vw, 17px) !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
-  .cd-tracker-ring-wrap {
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    text-align: center;
+  .cd-metric-label {
+    font-size: 10.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
-  .cd-steps-pipeline {
-    grid-template-columns: 1fr;
-    gap: 14px;
+  /* ── Main Layout & Columns ── */
+  .cd-main-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 18px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
 
-  .cd-step-connector {
-    display: none;
+  .cd-left-column,
+  .cd-right-column {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 18px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
+  .cd-section-card,
+  .cd-tracker-section,
+  .cd-schemes-section,
+  .cd-doc-vault-section,
+  .cd-manager-section {
+    padding: 20px 16px !important;
+    border-radius: 18px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-section-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .cd-section-head h2 {
+    font-size: 18px !important;
+    letter-spacing: -0.3px !important;
+  }
+
+  .cd-pill-badge {
+    font-size: 11px !important;
+    padding: 4px 12px !important;
+  }
+
+  /* ── Pipeline Tracker Section & Stepper ── */
+  .cd-tracker-section {
+    padding: 18px 16px !important;
+    border-radius: 18px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Pipeline Scheme selection buttons row */
+  .cd-pipeline-pills-container,
+  .cd-tracker-section div:has(> button[type="button"]) {
+    display: flex !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    padding: 4px 2px 8px 2px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    scrollbar-width: none !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-pipeline-pills-container::-webkit-scrollbar,
+  .cd-tracker-section div:has(> button[type="button"])::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .cd-pipeline-pill-btn,
+  .cd-tracker-section div:has(> button[type="button"]) > button {
+    min-height: 38px !important;
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+    border-radius: 9999px !important;
+    flex-shrink: 0 !important;
+    scroll-snap-align: start !important;
+    touch-action: manipulation !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Stepper wrapper and header */
+  .cd-tracker-section .activity-status-wrapper {
+    padding: 14px 12px !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .activity-status-header-bar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .activity-status-header-left,
+  .activity-status-header-right {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+
+  .activity-status-kicker {
+    font-size: 10px !important;
+  }
+
+  .activity-status-count-badge {
+    font-size: 10.5px !important;
+    padding: 2px 7px !important;
+  }
+
+  .activity-status-meter-bar {
+    width: 90px !important;
+    height: 6px !important;
+  }
+
+  .activity-status-percent-pill {
+    font-size: 12px !important;
+    min-width: 36px !important;
+  }
+
+  /* Stepper Horizontal Scroll Container */
+  .activity-status-points-container {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    gap: 12px !important;
+    padding: 6px 4px 10px 4px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    scrollbar-width: thin !important;
+    box-sizing: border-box !important;
+  }
+
+  .activity-point-item {
+    flex: 0 0 auto !important;
+    flex-shrink: 0 !important;
+    min-width: 90px !important;
+    max-width: 115px !important;
+    width: auto !important;
+    scroll-snap-align: start !important;
+  }
+
+  .activity-point-node {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    font-size: 14px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .activity-point-name {
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
+    font-weight: 700 !important;
+    max-width: 100% !important;
+  }
+
+  .activity-point-status {
+    font-size: 9.5px !important;
+    line-height: 1.2 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .activity-point-pct-tag {
+    font-size: 9px !important;
+  }
+
+  /* ── Active Schemes Portfolio Grid ── */
+  .cd-schemes-cards-grid,
   .cd-schemes-grid,
   .cd-eligibility-grid,
   .cd-deals-grid,
   .cd-service-items-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
 
-  .cd-subpage-intro {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 20px;
+  .cd-scheme-card-box {
+    border-radius: 16px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  .cd-count-pill {
-    align-self: flex-start;
+  .cd-scheme-card-body {
+    padding: 18px 16px !important;
   }
 
-  .cd-right-column {
-    grid-template-columns: 1fr;
+  .cd-scheme-card-body h3 {
+    font-size: 16px !important;
+    margin: 0 0 6px !important;
   }
 
-  .cd-modal-glass,
-  .cd-modal {
-    width: 94vw !important;
-    max-width: 94vw !important;
-    padding: 24px 20px !important;
-    margin: 10px auto;
+  .cd-scheme-card-body p {
+    font-size: 12.5px !important;
+    line-height: 1.45 !important;
+    margin: 0 0 14px !important;
   }
 
   .cd-scheme-meta-box {
     grid-template-columns: 1fr !important;
-    gap: 10px;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    margin-bottom: 14px !important;
   }
 
-  .cd-notif-popover {
-    width: 290px;
-    right: -40px;
+  .cd-scheme-meta-box span {
+    font-size: 10.5px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .cd-scheme-meta-box strong {
+    font-size: 13px !important;
+  }
+
+  .cd-scheme-btn-outline {
+    padding: 11px 14px !important;
+    font-size: 12.5px !important;
+    border-radius: 12px !important;
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* ── Document Vault & SPOC ── */
+  .cd-doc-vault-section,
+  .cd-manager-section {
+    padding: 18px 16px !important;
+    border-radius: 18px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-doc-vault-list {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-doc-item {
+    padding: 11px 12px !important;
+    border-radius: 12px !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-doc-item-left {
+    min-width: 0 !important;
+    flex: 1 !important;
+    gap: 10px !important;
+  }
+
+  .cd-doc-icon {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    border-radius: 8px !important;
+  }
+
+  .cd-doc-info {
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .cd-doc-info strong {
+    font-size: 12.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 170px !important;
+  }
+
+  .cd-doc-info small {
+    font-size: 10.5px !important;
+  }
+
+  .cd-doc-status-badge {
+    font-size: 10px !important;
+    padding: 3px 8px !important;
+    flex-shrink: 0 !important;
+    border-radius: 6px !important;
+  }
+
+  .cd-spoc-head {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  .cd-manager-profile-row,
+  .cd-sales-rep-chip {
+    padding: 10px 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .cd-manager-avatar,
+  .cd-sales-avatar-sm {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    font-size: 14px !important;
+  }
+
+  .cd-manager-details h3 {
+    font-size: 13.5px !important;
+  }
+
+  .cd-manager-role,
+  .cd-sales-role {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+  }
+
+  .cd-manager-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-top: 6px !important;
+    width: 100% !important;
+  }
+
+  .cd-call-btn,
+  .cd-email-btn {
+    padding: 9px 10px !important;
+    font-size: 11px !important;
+    border-radius: 10px !important;
+    justify-content: center !important;
+  }
+
+  /* ── Subpage Common Intro ── */
+  .cd-subpage-container {
+    gap: 16px !important;
+    width: 100% !important;
+  }
+
+  .cd-subpage-intro {
+    padding: 18px 16px !important;
+    border-radius: 18px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-subpage-intro h2 {
+    font-size: 20px !important;
+    margin: 2px 0 !important;
+  }
+
+  .cd-subpage-intro p {
+    font-size: 12.5px !important;
+    line-height: 1.4 !important;
+  }
+
+  .cd-count-pill {
+    align-self: flex-start !important;
+    font-size: 11.5px !important;
+    padding: 4px 12px !important;
+    border-radius: 99px !important;
+  }
+
+  /* ── Invoices & Payments Tables ── */
+  .cd-section-card:has(.cd-table-wrap) {
+    padding: 0 !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+  }
+
+  .cd-section-card .cd-section-head {
+    padding: 16px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    margin: 0 !important;
+  }
+
+  /* Tab Filters in Payments */
+  .cd-section-head > div:last-child {
+    display: flex !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  .cd-section-head > div:last-child button {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 11.5px !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+  }
+
+  .cd-table-wrap {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .cd-invoices-table {
+    min-width: 580px !important;
+    width: 100% !important;
+  }
+
+  .cd-invoices-table th {
+    padding: 10px 14px !important;
+    font-size: 10.5px !important;
+    white-space: nowrap !important;
+  }
+
+  .cd-invoices-table td {
+    padding: 12px 14px !important;
+    font-size: 12.5px !important;
+    white-space: nowrap !important;
+  }
+
+  .cd-table-action-btn {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+  }
+
+  /* ── Eligibility Page ── */
+  .cd-eligibility-compatibility-card {
+    padding: 16px !important;
+    border-radius: 16px !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-compat-icon-wrap {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-compat-title h3 {
+    font-size: 15px !important;
+  }
+
+  .cd-compat-info p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  .cd-eligibility-card {
+    padding: 18px 16px !important;
+    border-radius: 16px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-eligibility-card h3 {
+    font-size: 16px !important;
+    margin: 0 0 6px !important;
+  }
+
+  .cd-eligibility-card p {
+    font-size: 12.5px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .cd-eligibility-meta-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-feature-bullets {
+    gap: 6px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .cd-feature-chip {
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+  }
+
+  .cd-req-service-btn {
+    padding: 12px 16px !important;
+    font-size: 13px !important;
+    border-radius: 12px !important;
+  }
+
+  /* ── More Services Page ── */
+  .cd-category-filter-tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    padding-bottom: 6px !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+  }
+
+  .cd-filter-tab {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    padding: 8px 14px !important;
+    border-radius: 99px !important;
+  }
+
+  .cd-service-groups-layout {
+    gap: 18px !important;
+    width: 100% !important;
+  }
+
+  .cd-service-group-section {
+    padding: 18px 16px !important;
+    border-radius: 18px !important;
+    gap: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-service-group-head h3 {
+    font-size: 16px !important;
+  }
+
+  .cd-service-card {
+    padding: 16px !important;
+    border-radius: 14px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-service-card h4 {
+    font-size: 15px !important;
+  }
+
+  .cd-service-card p {
+    font-size: 12px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .cd-services-hero-banner {
+    padding: 20px 16px !important;
+    border-radius: 18px !important;
+  }
+
+  .cd-services-hero-content {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+  }
+
+  .cd-services-hero-content h2 {
+    font-size: 20px !important;
+  }
+
+  .cd-services-hero-content p {
+    font-size: 12.5px !important;
+  }
+
+  /* ── Modals & Popups ── */
+  .cd-modal-backdrop {
+    padding: 10px !important;
+    z-index: 100000 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .cd-modal,
+  .cd-modal-glass,
+  .cd-modal-profile,
+  .cd-modal-request,
+  .cd-modal-sm {
+    width: 100% !important;
+    max-width: calc(100vw - 20px) !important;
+    padding: 22px 16px !important;
+    border-radius: 20px !important;
+    max-height: 86vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-modal-close {
+    top: 12px !important;
+    right: 12px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    font-size: 22px !important;
+    display: grid !important;
+    place-items: center !important;
+    touch-action: manipulation !important;
+    z-index: 10 !important;
+  }
+
+  .cd-modal h2,
+  .cd-modal-title {
+    font-size: 18px !important;
+    padding-right: 30px !important;
+    line-height: 1.3 !important;
+  }
+
+  .cd-modal-desc {
+    font-size: 12.5px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .cd-modal select,
+  .cd-modal textarea,
+  .cd-modal input,
+  .cd-modal-select,
+  .cd-modal-textarea {
+    font-size: 16px !important; /* Prevents iOS auto-zoom on focus */
+    padding: 11px 13px !important;
+    border-radius: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cd-submit-btn,
+  .cd-submit-btn-glow {
+    padding: 12px 18px !important;
+    font-size: 13.5px !important;
+    border-radius: 12px !important;
+    width: 100% !important;
+  }
+
+  /* Profile Dossier Modal */
+  .cd-profile-dossier-hero {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 12px !important;
+    padding: 14px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  .cd-profile-dossier-avatar {
+    width: 50px !important;
+    height: 50px !important;
+    font-size: 18px !important;
+  }
+
+  .cd-profile-dossier-info {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .cd-profile-dossier-info h2 {
+    font-size: 17px !important;
+    text-align: center !important;
+    padding: 0 !important;
+  }
+
+  .cd-dossier-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .cd-dossier-card {
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .cd-dossier-policy-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+
+  .cd-dossier-policy-item > div:last-child {
+    text-align: left !important;
+  }
+
+  .cd-modal-profile div:has(> .cd-modal-btn-secondary) {
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+  }
+
+  .cd-modal-btn-secondary,
+  .cd-modal-profile .cd-action-btn-primary {
+    width: 100% !important;
+    text-align: center !important;
+    justify-content: center !important;
+    padding: 11px 18px !important;
+  }
+
+  /* Scheme inspection modal */
+  .cd-modal .cd-scheme-meta-box,
+  .cd-scheme-modal-grid,
+  .cd-scheme-modal-grid.cols-2,
+  .cd-scheme-modal-grid.cols-3 {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* PWA Install Modal */
+  .cd-install-modal-content {
+    max-width: calc(100vw - 20px) !important;
+    border-radius: 18px !important;
+  }
+
+  .cd-install-modal-close {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    display: grid !important;
+    place-items: center !important;
+    font-size: 20px !important;
+    touch-action: manipulation !important;
+  }
+
+  .cd-install-modal-header {
+    padding: 16px !important;
+  }
+
+  .cd-install-modal-body {
+    padding: 16px !important;
+  }
+
+  .cd-install-modal-footer {
+    padding: 12px 16px !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .cd-install-modal-dismiss-btn,
+  .cd-install-modal-confirm-btn {
+    width: 100% !important;
+    text-align: center !important;
+    min-height: 40px !important;
+    padding: 11px 18px !important;
+    font-size: 13.5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    touch-action: manipulation !important;
   }
 }
 
 /* 4. Small Mobile Phones (max-width: 480px) */
 @media screen and (max-width: 480px) {
+  .cd-redesign .dashboard-content,
+  .client-dashboard .dashboard-content {
+    padding: 12px 10px calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 14px !important;
+  }
+
+  .cd-company-pill {
+    padding: 5px 8px !important;
+  }
+
+  .cd-company-avatar {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 12.5px !important;
+  }
+
+  .cd-company-details h1 {
+    font-size: 13.5px !important;
+    max-width: 140px !important;
+  }
+
+  .cd-hero-banner {
+    padding: 16px 14px !important;
+  }
+
   .cd-metrics-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .cd-metric-card {
+    padding: 10px 8px !important;
+    gap: 8px !important;
+  }
+
+  .cd-metric-icon-box {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    font-size: 14px !important;
+  }
+
+  .cd-metric-value {
+    font-size: 14px !important;
+  }
+
+  .cd-metric-label {
+    font-size: 9.5px !important;
   }
 
   .cd-eligibility-meta-grid,
   .cd-deal-meta-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
   }
 
-  .cd-company-pill {
-    padding: 4px 8px;
+  .cd-manager-actions {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
   }
 
-  .cd-company-name {
-    max-width: 130px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .cd-call-btn,
+  .cd-email-btn {
+    width: 100% !important;
+    padding: 10px 14px !important;
+    font-size: 12px !important;
+    min-height: 38px !important;
   }
 
   .cd-modal-title {
-    font-size: 19px;
+    font-size: 17px !important;
+  }
+
+  .cd-modal-close {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    display: grid !important;
+    place-items: center !important;
+    touch-action: manipulation !important;
+  }
+
+  .activity-point-item {
+    min-width: 90px !important;
+    max-width: 115px !important;
+    scroll-snap-align: start !important;
+    flex-shrink: 0 !important;
+  }
+
+  .activity-point-name {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
+    line-height: 1.25 !important;
+  }
+
+  .cd-pipeline-pill-btn {
+    min-height: 38px !important;
+    padding: 8px 14px !important;
+  }
+
+  .cd-scheme-modal-grid,
+  .cd-scheme-modal-grid.cols-2,
+  .cd-scheme-modal-grid.cols-3 {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* 5. Extra-Small Mobile Devices (max-width: 360px) */
+@media screen and (max-width: 360px) {
+  .client-sidebar nav button,
+  .cd-redesign .client-sidebar nav button {
+    padding: 4px 1px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+  }
+
+  .client-sidebar nav button span,
+  .cd-redesign .client-sidebar nav button span {
+    font-size: 9px !important;
+  }
+
+  .client-sidebar nav button svg,
+  .client-sidebar nav button .dashboard-icon {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .cd-header {
+    padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 10px calc(12px + env(safe-area-inset-left, 0px)) !important;
+  }
+
+  .cd-notif-popover,
+  .cd-profile-popover {
+    top: calc(122px + env(safe-area-inset-top, 0px)) !important;
+  }
+
+  .cd-metrics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .cd-hero-banner {
+    padding: 14px 12px !important;
+  }
+
+  .cd-modal-close {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    display: grid !important;
+    place-items: center !important;
+    touch-action: manipulation !important;
+  }
+
+  .activity-point-item {
+    min-width: 90px !important;
+    max-width: 110px !important;
+    scroll-snap-align: start !important;
+    flex-shrink: 0 !important;
+  }
+
+  .activity-point-name {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
+    line-height: 1.25 !important;
+  }
+
+  .cd-pipeline-pill-btn {
+    min-height: 38px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .cd-scheme-modal-grid,
+  .cd-scheme-modal-grid.cols-2,
+  .cd-scheme-modal-grid.cols-3 {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
   }
 }
 
@@ -3435,7 +4782,7 @@ body.cd-profile-modal-open .cd-header,
 .cd-install-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: 100000 !important;
   background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -3510,12 +4857,19 @@ body.cd-profile-modal-open .cd-header,
 .cd-install-modal-close {
   background: transparent;
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   color: #64748b;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 8px;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border-radius: 10px;
   transition: all 0.15s;
+  touch-action: manipulation;
 }
 
 .cd-install-modal-close:hover {
@@ -3609,15 +4963,20 @@ body.cd-profile-modal-open .cd-header,
 }
 
 .cd-install-modal-dismiss-btn {
-  padding: 8px 16px;
+  padding: 10px 18px;
+  min-height: 40px;
   border-radius: 10px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #475569;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 13.5px;
   cursor: pointer;
   transition: all 0.15s;
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cd-install-modal-dismiss-btn:hover {
@@ -3635,15 +4994,20 @@ body.cd-profile-modal-open .cd-header,
 }
 
 .cd-install-modal-confirm-btn {
-  padding: 8px 18px;
+  padding: 10px 20px;
+  min-height: 40px;
   border-radius: 10px;
   border: none;
   background: #3b82f6;
   color: #ffffff;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 13.5px;
   cursor: pointer;
   transition: all 0.15s;
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .cd-install-modal-confirm-btn:hover {
@@ -3652,9 +5016,235 @@ body.cd-profile-modal-open .cd-header,
 
 @media screen and (max-width: 768px) {
   .cd-install-pwa-btn {
-    padding: 6px 12px;
-    height: 34px;
-    font-size: 12px;
+    padding: 8px 12px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    font-size: 12px !important;
   }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════
+   M3 — SUBVIEWS OVERHAUL (Eligibility, Invoices, Payments, More Services)
+   Touch targets >= 38px, alert dismiss, table action buttons, filter tabs
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Alert Dismiss Buttons — ensure >= 38px touch targets ── */
+.cd-alert-close-btn,
+.cd-alert-success-banner button,
+.cd-pending-demand-alert-banner button[type="button"] {
+  min-width: 38px !important;
+  min-height: 38px !important;
+  width: 38px !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  border-radius: 8px !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  touch-action: manipulation !important;
+  cursor: pointer;
+}
+
+/* ── Table Action Buttons — base desktop (slightly larger for usability) ── */
+.cd-table-action-btn {
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  touch-action: manipulation !important;
+  white-space: nowrap !important;
+}
+
+/* ── Service Items Grid — single column on mobile ── */
+.cd-service-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* ── Payments inline tab filter container override — scrollable on mobile ── */
+.cd-section-head .cd-tab-filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 4px;
+}
+
+.cd-section-head .cd-tab-filter-row button {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+/* ── Request Service Button — ensure always >= 38px ── */
+.cd-req-service-btn {
+  min-height: 38px !important;
+  touch-action: manipulation !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   M3 — MOBILE SUBVIEW RESPONSIVE OVERRIDES
+   ═══════════════════════════════════════════════════════════════ */
+
+@media screen and (max-width: 768px) {
+  /* ── Table action buttons: expand to >= 38px touch target on mobile ── */
+  .cd-table-action-btn {
+    min-height: 38px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    touch-action: manipulation !important;
+  }
+
+  /* ── Table row action container: wrap for narrow screens ── */
+  .cd-invoices-table td > div[style*="flex"] {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* ── Payments inline filter tab buttons (uses inline style) ── */
+  .cd-section-head > div > div[style*="display: flex"][style*="gap: 8"] button,
+  .cd-section-head > div > div[style*="display: flex"][style*="gap:8"] button {
+    min-height: 38px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    touch-action: manipulation !important;
+    flex-shrink: 0 !important;
+    scroll-snap-align: start !important;
+    white-space: nowrap !important;
+  }
+
+  /* Payments & Invoices tab filter wrapper — scrollable */
+  .cd-section-head > div[style*="display: flex"][style*="gap: 8"],
+  .cd-section-head > div > div[style*="display: flex"][style*="gap: 8"] {
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    padding-bottom: 4px !important;
+    width: 100% !important;
+  }
+
+  /* ── Alert success banner: responsive stacking ── */
+  .cd-alert-success-banner {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 12px 14px !important;
+  }
+
+  .cd-alert-success-banner span {
+    flex: 1 1 200px !important;
+    min-width: 0 !important;
+  }
+
+  /* ── More Services: service items single column ── */
+  .cd-service-items-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* ── Subview container overflow safety ── */
+  .cd-subpage-container {
+    overflow-x: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── Eligibility scheme cards: full width ── */
+  .cd-eligibility-card,
+  .cd-eligibility-compatibility-card {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── Service card request button mobile ── */
+  .cd-req-service-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    padding: 12px 16px !important;
+    font-size: 13px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    touch-action: manipulation !important;
+  }
+
+  /* ── Category filter tabs in More Services ── */
+  .cd-category-filter-tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    gap: 8px !important;
+    padding-bottom: 6px !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    width: 100% !important;
+  }
+
+  .cd-filter-tab {
+    flex-shrink: 0 !important;
+    scroll-snap-align: start !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    padding: 8px 16px !important;
+    min-height: 38px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 99px !important;
+    touch-action: manipulation !important;
+  }
+
+  /* ── Service hero banner ── */
+  .cd-services-hero-content {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  /* ── Table action buttons: full row width on very narrow screens ── */
+  .cd-invoices-table td:last-child > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+  }
+
+  .cd-table-action-btn {
+    width: 100% !important;
+    min-height: 40px !important;
+    justify-content: center !important;
+  }
+
+  /* ── Payments filter tabs compact ── */
+  .cd-section-head > div > div[style*="display: flex"][style*="gap: 8"] button,
+  .cd-section-head > div > div[style*="display: flex"][style*="gap:8"] button {
+    font-size: 11.5px !important;
+    padding: 8px 10px !important;
+  }
+
+  /* ── Service group section ── */
+  .cd-service-group-section {
+    padding: 16px 14px !important;
+    border-radius: 16px !important;
+  }
+
+  /* ── Alert close button ── */
+  .cd-alert-close-btn,
+  .cd-alert-success-banner button {
+    font-size: 18px !important;
+  }
+}
