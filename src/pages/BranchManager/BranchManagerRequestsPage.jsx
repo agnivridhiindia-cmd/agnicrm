@@ -71,7 +71,18 @@ export default function BranchManagerRequestsPage({
           .then((r) => r.json())
           .then((resData) => {
             if (resData.success && Array.isArray(resData.data)) {
-              const liveApiRequests = resData.data.map((r) => {
+              const liveApiRequests = resData.data
+                .filter((r) => {
+                  const changes = r.requestedChanges;
+                  const isPaymentSettlement =
+                    changes?.isPaymentSettlement === true ||
+                    changes?.category === "Payment Settlement" ||
+                    String(r.reason || "").toLowerCase().includes("payment settlement") ||
+                    String(r.reason || "").toLowerCase().includes("payment demand") ||
+                    String(r.reason || "").toLowerCase().includes("payment request");
+                  return !isPaymentSettlement;
+                })
+                .map((r) => {
                 const clientName = r.client?.companyName || r.client?.name || r.requestedChanges?.companyName || r.requestedChanges?.name || "Client Account";
                 return {
                   id: r.requestCode || r.id,

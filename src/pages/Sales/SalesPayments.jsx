@@ -33,13 +33,17 @@ const generatePaymentId = (existing) => {
 
 function getPendingPayment(client) {
   if (!client) return 0;
+  const isSec = client.isPrimary === false || client.processType === "secondary" || client.serviceType === "More Services" || (typeof client.appId === "string" && (client.appId.endsWith("-S") || client.appId.endsWith("-E")));
+  const rawTotal = parseFloat(String(client.totalPayment || client.amount || 0).replace(/[^0-9.]/g, "")) || 0;
+  const total = (!isSec && rawTotal === 0) ? 118000 : rawTotal;
+  const rawRec = parseFloat(String(client.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
+  const received = (!isSec && rawRec === 0 && (client.paymentStatus === "Paid" || client.approvalStatus === "ACTIVE")) ? total : rawRec;
+  if (total > 0) return Math.max(0, total - received);
   if (client.paymentPending !== undefined && client.paymentPending !== null && client.paymentPending !== "") {
     const parsed = parseFloat(String(client.paymentPending).replace(/[^0-9.]/g, ""));
     if (!isNaN(parsed) && parsed > 0) return parsed;
   }
-  const total = parseFloat(String(client.totalPayment || client.amount || 0).replace(/[^0-9.]/g, ""));
-  const rec = parseFloat(String(client.paymentReceived || 0).replace(/[^0-9.]/g, ""));
-  return Math.max(0, total - rec);
+  return 0;
 }
 
 function CreatePaymentRequestModal({ clients = [], onClose, onSubmit, salesPersonName, userEmail }) {
@@ -473,13 +477,19 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
     const list = [];
     const addedKeys = new Set();
 
-    const apiByEmail = new Map();
-    const apiByName = new Map();
+    const apiById = new Map();
+    const apiByAppId = new Map();
+    const apiByEmailScheme = new Map();
+
     (apiClients || []).forEach((c) => {
       if (!c) return;
-      if (c.email) apiByEmail.set(String(c.email).toLowerCase().trim(), c);
-      if (c.companyName) apiByName.set(String(c.companyName).toLowerCase().trim(), c);
-      if (c.name) apiByName.set(String(c.name).toLowerCase().trim(), c);
+      if (c.id) apiById.set(String(c.id), c);
+      if (c.appId) apiByAppId.set(String(c.appId), c);
+      const scheme = c.scheme || c.serviceName || "";
+      const email = c.email || "";
+      if (email && scheme) {
+        apiByEmailScheme.set(`${email.trim().toLowerCase()}_${scheme.trim().toLowerCase()}`, c);
+      }
     });
 
     const addC = (c) => {
@@ -488,10 +498,15 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         if (!isClientCreatedByUser(c, currentSalesName, currentUserEmail)) return;
       }
 
-      const cEmail = String(c.email || "").toLowerCase().trim();
-      const cCompany = String(c.company || c.companyName || "").toLowerCase().trim();
-      const cName = String(c.name || "").toLowerCase().trim();
-      const matchedDb = (cEmail && apiByEmail.get(cEmail)) || (cCompany && apiByName.get(cCompany)) || (cName && apiByName.get(cName));
+      const cId = c.id ? String(c.id) : "";
+      const cAppId = c.appId ? String(c.appId) : "";
+      const scheme = c.scheme || c.serviceName || "";
+      const email = (c.email || "").trim().toLowerCase();
+      const emailSchemeKey = email && scheme ? `${email}_${scheme.trim().toLowerCase()}` : "";
+
+      const matchedDb = (cId && apiById.get(cId)) ||
+                        (cAppId && apiByAppId.get(cAppId)) ||
+                        (emailSchemeKey && apiByEmailScheme.get(emailSchemeKey));
 
       const merged = matchedDb
         ? {
@@ -504,12 +519,23 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
             company: matchedDb.companyName || matchedDb.name || c.company,
             companyName: matchedDb.companyName || matchedDb.name || c.companyName,
             name: matchedDb.name || matchedDb.contactPerson || c.name,
+            scheme: matchedDb.scheme || matchedDb.serviceName || c.scheme || c.serviceName,
+            serviceName: matchedDb.serviceName || matchedDb.scheme || c.serviceName || c.scheme,
+            totalPayment: matchedDb.totalPayment ?? c.totalPayment,
+            paymentReceived: matchedDb.paymentReceived ?? c.paymentReceived,
+            paymentPending: matchedDb.paymentPending ?? c.paymentPending,
           }
-        : c;
+        : {
+            ...c,
+            scheme: c.scheme || c.serviceName,
+            serviceName: c.serviceName || c.scheme,
+          };
 
-      const key = String((merged.email || merged.company || merged.name || merged.id) + "_" + (merged.scheme || "")).trim().toLowerCase();
-      if (key && !addedKeys.has(key)) {
-        addedKeys.add(key);
+      const uniqueKey = merged.id || merged.appId || (emailSchemeKey || `${merged.email || merged.company || merged.name}_${merged.scheme || ""}`);
+      const normalizedKey = String(uniqueKey).trim().toLowerCase();
+
+      if (normalizedKey && !addedKeys.has(normalizedKey)) {
+        addedKeys.add(normalizedKey);
         list.push(merged);
       }
     };
@@ -537,9 +563,11 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
                  (cEmail && pClientEmail && (cEmail === pClientEmail || pClientEmail.includes(cEmail))) ||
                  (cCompany && pClientCompany && (cCompany === pClientCompany || pClientCompany.includes(cCompany)));
         });
-        const matchesSalesperson = pSalesperson && currentSalesName && (pSalesperson.includes(currentSalesName.toLowerCase()) || (currentUserEmail && pSalesperson.includes(currentUserEmail.toLowerCase())));
+        const matchesSalesperson =
+          (currentSalesName && pSalesperson.includes(currentSalesName.toLowerCase())) ||
+          (currentUserEmail && (pSalesperson.includes(currentUserEmail.toLowerCase()) || (p.salesPersonEmail && p.salesPersonEmail.toLowerCase() === currentUserEmail.toLowerCase())));
 
-        if (!matchesClient && !matchesSalesperson) {
+        if (!matchesClient) {
           return false;
         }
       }
@@ -564,7 +592,7 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
     // Sum pending demand directly from active client contracts/services belonging to salesperson
     let clientPendingDemand = 0;
     userSalesClients.forEach((c) => {
-      const pend = parseFloat(c.paymentPending) || 0;
+      const pend = getPendingPayment(c);
       if (pend > 0) {
         clientPendingDemand += pend;
       }
@@ -691,15 +719,19 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         // Attempt to resolve real DB UUID from apiClients
         const matchedDbClient = (apiClients || []).find((c) => {
           if (!c) return false;
-          const dbEmail = (c.email || "").toLowerCase().trim();
-          const dbComp = (c.companyName || c.company || c.name || "").toLowerCase().trim();
+          if (newReq.clientId && (c.id === newReq.clientId || c.dbId === newReq.clientId || c.appId === newReq.clientId)) return true;
+          return false;
+        }) || (apiClients || []).find((c) => {
+          if (!c) return false;
+          const dbComp = (c.companyName || c.company || "").toLowerCase().trim();
           const dbName = (c.name || "").toLowerCase().trim();
-          return (
-            (cEmail && dbEmail === cEmail) ||
-            (cComp && dbComp === cComp.toLowerCase().trim()) ||
-            (cName && dbName === cName.toLowerCase().trim()) ||
-            (newReq.clientId && c.id === newReq.clientId)
-          );
+          if (cComp && (dbComp === cComp.toLowerCase().trim() || dbName === cComp.toLowerCase().trim())) return true;
+          if (cName && (dbName === cName.toLowerCase().trim() || dbComp === cName.toLowerCase().trim())) return true;
+          return false;
+        }) || (apiClients || []).find((c) => {
+          if (!c) return false;
+          const dbEmail = (c.email || "").toLowerCase().trim();
+          return cEmail && dbEmail === cEmail;
         });
 
         const effectiveClientId = matchedDbClient?.id || (newReq.clientId && !newReq.clientId.startsWith("client-") ? newReq.clientId : undefined);
@@ -724,6 +756,12 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         if (res.ok) {
           const resJson = await res.json().catch(() => null);
           console.log("✓ Payment request successfully recorded in PostgreSQL database:", resJson);
+          if (resJson && (resJson.id || resJson.paymentId)) {
+            const dbReq = { ...newReq, ...resJson, id: resJson.paymentId || resJson.id || newReq.id };
+            saveToKey("agni_sales_payments");
+            saveToKey("agni_payment_demands");
+            if (cEmail) saveToKey(`agni_payment_demands_${cEmail}`);
+          }
         } else {
           console.warn("Backend API returned non-OK status for payment-request:", res.status);
         }
@@ -731,7 +769,7 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         console.warn("Could not post payment request to backend API:", backendErr);
       }
 
-      refreshPayments();
+      await refreshPayments();
       setNotification(`✓ Payment request for ${newReq.clientName} created successfully.`);
     } catch(err) {
       console.error("Could not send payment request:", err);
@@ -855,22 +893,6 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
           console.warn("Could not patch client paymentReceived from SalesPayments:", err);
         }
 
-        if (foundDbClient.invoices && foundDbClient.invoices.length > 0) {
-          const activeInv = foundDbClient.invoices.find((inv) => inv.status !== "PAID") || foundDbClient.invoices[0];
-          if (activeInv && activeInv.id) {
-            try {
-              await apiFetch(`/invoices/${activeInv.id}/payments`, {
-                method: "POST",
-                body: {
-                  amount: targetAmount,
-                  paymentMode: targetPay?.paymentMode || "ONLINE",
-                  referenceNumber: txnRef,
-                  remarks: "Settlement approved by sales representative",
-                },
-              });
-            } catch (invErr) {}
-          }
-        }
       }
 
       // Mark payment as paid in database so all PCs update

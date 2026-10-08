@@ -249,11 +249,18 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) {
-          // Secondary scheme requests (NEW_SERVICE) are handled by Sales Representatives & Sales Managers, not Owner Governance.
+          // Secondary scheme requests and payment settlement demands are handled by Sales Representatives & Sales Managers, not Owner Governance.
           const ownerGovernanceRequests = data.data.filter((r) => {
             const rawType = String(r.requestType || "").toUpperCase();
             const reason = String(r.reason || "").toLowerCase();
-            return rawType !== "NEW_SERVICE" && rawType !== "NEW_SCHEME" && !reason.includes("self-enrollment");
+            const changes = r.requestedChanges;
+            const isPaymentSettlement =
+              changes?.isPaymentSettlement === true ||
+              changes?.category === "Payment Settlement" ||
+              reason.includes("payment settlement") ||
+              reason.includes("payment demand") ||
+              reason.includes("payment request");
+            return rawType !== "NEW_SERVICE" && rawType !== "NEW_SCHEME" && !reason.includes("self-enrollment") && !isPaymentSettlement;
           });
 
           const mapped = ownerGovernanceRequests.map((r) => {

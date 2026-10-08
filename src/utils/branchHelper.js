@@ -478,7 +478,18 @@ export function mergeSecondaryClients(primaryList = [], secondaryList = []) {
   const map = new Map();
   primaryList.forEach((item) => {
     const key = (item.email || item.id || "").toLowerCase();
-    if (key) map.set(key, { ...item, secondarySchemes: [] });
+    if (key) {
+      if (!map.has(key)) {
+        map.set(key, { ...item, secondarySchemes: [] });
+      } else {
+        const existing = map.get(key);
+        if (!existing.isPrimary && item.isPrimary) {
+          map.set(key, { ...item, secondarySchemes: [...(existing.secondarySchemes || []), existing] });
+        } else {
+          existing.secondarySchemes.push(item);
+        }
+      }
+    }
   });
 
   secondaryList.forEach((sec) => {

@@ -116,9 +116,7 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
   const unallocatedClientPayment = Math.max(0, clientAlreadyPaid - alreadyInvoicedPaid);
 
   const isTaxType = data.invoiceType === InvoiceType.TAX;
-  const initialReceived = isTaxType
-    ? Math.min(data.rawTotal, Math.max(unallocatedClientPayment, data.rawTotal))
-    : Math.min(data.rawTotal, unallocatedClientPayment);
+  const initialReceived = unallocatedClientPayment > 0 ? Math.min(data.rawTotal, unallocatedClientPayment) : 0;
   const initialPending = Math.max(0, data.rawTotal - initialReceived);
   const initialStatus = initialPending === 0 && initialReceived > 0
     ? PaymentStatus.PAID
@@ -168,22 +166,6 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
     },
   });
 
-  if (initialReceived > 0) {
-    const paymentId = generatePaymentId();
-    await prisma.payment.create({
-      data: {
-        paymentId,
-        amount: initialReceived,
-        paymentMode: data.paymentMode,
-        status: TransactionStatus.SUCCESS,
-        clientId: client.id,
-        invoiceId: invoice.id,
-        recordedById: user.userId,
-        remarks: "Payment collected upon client registration / invoice generation",
-      },
-    });
-  }
-
   return { success: true, statusCode: 201, data: invoice };
 }
 
@@ -200,11 +182,21 @@ export interface CreatePaymentRequestInput {
 }
 
 export async function getPaymentsService(user: AuthenticatedUser) {
-  let whereClause: any = { isDeleted: false };
+  const baseFilter = {
+    isDeleted: false,
+    NOT: [
+      { remarks: { contains: "Payment collected upon client registration" } },
+      { paymentId: { in: ["PAY-2026-C4EF3", "PAY-2026-F981C"] } },
+    ],
+  };
+
+  let whereClause: any = {
+    ...baseFilter,
+  };
 
   if (user.role === Role.SALES_PERSON) {
     whereClause = {
-      isDeleted: false,
+      ...baseFilter,
       OR: [
         { recordedById: user.userId },
         { recordedBy: { email: { equals: user.email, mode: "insensitive" } } },
@@ -214,7 +206,7 @@ export async function getPaymentsService(user: AuthenticatedUser) {
     };
   } else if (user.role === Role.BRANCH_MANAGER) {
     whereClause = {
-      isDeleted: false,
+      ...baseFilter,
       OR: [
         { client: { branchId: user.branchId, isDeleted: false } },
         { invoice: { branchId: user.branchId, isDeleted: false } },
@@ -222,11 +214,11 @@ export async function getPaymentsService(user: AuthenticatedUser) {
     };
   } else if (user.role === Role.CLIENT) {
     whereClause = {
-      isDeleted: false,
-      client: {
-        email: { equals: user.email, mode: "insensitive" },
-        isDeleted: false,
-      },
+      ...baseFilter,
+      OR: [
+        { client: { email: { equals: user.email, mode: "insensitive" }, isDeleted: false } },
+        { clientId: user.userId },
+      ],
     };
   }
 
@@ -244,44 +236,111 @@ export async function getPaymentsService(user: AuthenticatedUser) {
 }
 
 export async function createPaymentRequestService(user: AuthenticatedUser, data: CreatePaymentRequestInput) {
+  const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
   const emailToFind = (data.clientEmail || (data.clientId && data.clientId.includes("@") ? data.clientId : "")).toLowerCase().trim();
   const nameToFind = (data.companyName || data.clientName || "").trim();
   const idToFind = data.clientId || "";
 
-  // 1. Try finding by UUID/ID, email, or companyName/name
-  let client = await prisma.client.findFirst({
-    where: {
-      OR: [
-        ...(idToFind ? [{ id: idToFind }] : []),
-        ...(emailToFind ? [{ email: { equals: emailToFind, mode: "insensitive" as const } }] : []),
-        ...(nameToFind ? [
-          { companyName: { equals: nameToFind, mode: "insensitive" as const } },
-          { name: { equals: nameToFind, mode: "insensitive" as const } },
-        ] : []),
-      ],
-      isDeleted: false,
-    },
-    include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
-  });
+  let client = null;
 
-  // 2. If not found, try finding by contains name/company or email
-  if (!client && (nameToFind || emailToFind)) {
-    client = await prisma.client.findFirst({
-      where: {
-        OR: [
-          ...(emailToFind ? [{ email: { contains: emailToFind, mode: "insensitive" as const } }] : []),
-          ...(nameToFind ? [
-            { companyName: { contains: nameToFind, mode: "insensitive" as const } },
-            { name: { contains: nameToFind, mode: "insensitive" as const } },
-          ] : []),
-        ],
-        isDeleted: false,
-      },
-      include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
-    });
+  // 1. Direct search by ID / UUID / App ID if provided
+  if (idToFind) {
+    if (isUuid(idToFind)) {
+      client = await prisma.client.findFirst({
+        where: { id: idToFind, isDeleted: false },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
+    if (!client) {
+      client = await prisma.client.findFirst({
+        where: { appId: idToFind, isDeleted: false },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
   }
 
-  // 3. Fallback: If still not found, check if ANY client matches for this salesperson
+  // 2. If not found by ID, and user is a salesperson, look for client matching name/company/email assigned to THIS salesperson
+  if (!client && user.role === Role.SALES_PERSON) {
+    if (nameToFind && emailToFind) {
+      client = await prisma.client.findFirst({
+        where: {
+          salesPersonId: user.userId,
+          email: { equals: emailToFind, mode: "insensitive" },
+          OR: [
+            { companyName: { equals: nameToFind, mode: "insensitive" } },
+            { name: { equals: nameToFind, mode: "insensitive" } },
+          ],
+          isDeleted: false,
+        },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
+    if (!client && nameToFind) {
+      client = await prisma.client.findFirst({
+        where: {
+          salesPersonId: user.userId,
+          OR: [
+            { companyName: { equals: nameToFind, mode: "insensitive" } },
+            { name: { equals: nameToFind, mode: "insensitive" } },
+          ],
+          isDeleted: false,
+        },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
+    if (!client && emailToFind) {
+      client = await prisma.client.findFirst({
+        where: {
+          salesPersonId: user.userId,
+          email: { equals: emailToFind, mode: "insensitive" },
+          isDeleted: false,
+        },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
+  }
+
+  // 3. Fallback: match by name or email across all clients
+  if (!client && (nameToFind || emailToFind)) {
+    if (nameToFind && emailToFind) {
+      client = await prisma.client.findFirst({
+        where: {
+          email: { equals: emailToFind, mode: "insensitive" },
+          OR: [
+            { companyName: { equals: nameToFind, mode: "insensitive" } },
+            { name: { equals: nameToFind, mode: "insensitive" } },
+          ],
+          isDeleted: false,
+        },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
+    if (!client && nameToFind) {
+      client = await prisma.client.findFirst({
+        where: {
+          OR: [
+            { companyName: { equals: nameToFind, mode: "insensitive" } },
+            { name: { equals: nameToFind, mode: "insensitive" } },
+            { companyName: { contains: nameToFind, mode: "insensitive" } },
+            { name: { contains: nameToFind, mode: "insensitive" } },
+          ],
+          isDeleted: false,
+        },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
+    if (!client && emailToFind) {
+      client = await prisma.client.findFirst({
+        where: {
+          email: { equals: emailToFind, mode: "insensitive" },
+          isDeleted: false,
+        },
+        include: { invoices: { where: { isDeleted: false }, orderBy: { createdAt: "desc" } } },
+      });
+    }
+  }
+
+  // 4. Ultimate fallback for salesperson
   if (!client && user.role === Role.SALES_PERSON) {
     client = await prisma.client.findFirst({
       where: { salesPersonId: user.userId, isDeleted: false },
@@ -293,8 +352,8 @@ export async function createPaymentRequestService(user: AuthenticatedUser, data:
     return { success: false, statusCode: 404, message: "Client not found" };
   }
 
-  // Find or create an invoice for this client
-  let invoice = client.invoices.find((inv) => inv.status !== PaymentStatus.PAID) || client.invoices[0];
+  // Find or create an invoice for this client (only unpaid invoices)
+  let invoice = client.invoices.find((inv) => inv.status !== PaymentStatus.PAID);
 
   // Ensure recordedBy and accountManager reference valid users in PostgreSQL
   let recordedById = user.userId;
@@ -470,28 +529,21 @@ export async function markPaymentPaidService(
 
     // 2. Update Invoice
     let finalInvoice = payment.invoice;
-    if (payment.invoiceId) {
-      const updatedInvoice = await tx.invoice.update({
-        where: { id: payment.invoiceId },
-        data: {
-          paymentReceived: { increment: payAmount },
-          paymentPending: { decrement: payAmount },
-        },
-      });
-
-      const updatedPending = Number(updatedInvoice.paymentPending);
-      let newStatus = updatedInvoice.status;
-      if (updatedPending <= 0) {
-        newStatus = PaymentStatus.PAID;
-      } else {
-        newStatus = PaymentStatus.PARTIAL;
-      }
+    if (payment.invoiceId && payment.invoice) {
+      const curRec = Number(payment.invoice.paymentReceived || 0);
+      const curTot = Number(payment.invoice.rawTotal || 0);
+      const newRec = curRec + payAmount;
+      const newPending = Math.max(0, curTot - newRec);
+      const newStatus = newPending <= 0 ? PaymentStatus.PAID : PaymentStatus.PARTIAL;
 
       finalInvoice = await tx.invoice.update({
         where: { id: payment.invoiceId },
         data: {
+          paymentReceived: newRec,
+          paymentPending: newPending,
           status: newStatus,
           ...(newStatus === PaymentStatus.PAID ? { invoiceType: InvoiceType.TAX } : {}),
+          updatedAt: new Date(),
         },
       });
     }
@@ -519,7 +571,7 @@ export async function markPaymentPaidService(
       statusCode: 200,
       data: { payment: updatedPayment, invoice: finalInvoice },
     };
-  });
+  }, { maxWait: 10000, timeout: 20000 });
 }
 
 export async function addPaymentService(user: AuthenticatedUser, invoiceId: string, data: CreatePaymentInput) {
@@ -800,13 +852,13 @@ export async function verifyRazorpayPaymentService(
 
     const payAmount = Number(payment.amount);
 
-    // 1. Update Payment status to SUCCESS
+    // 1. Update Payment record with Razorpay transaction proof and transition to AWAITING_APPROVAL
     const updatedPayment = await tx.payment.update({
       where: { id: payment.id },
       data: {
-        status: TransactionStatus.SUCCESS,
+        status: TransactionStatus.PENDING,
         referenceNumber: razorpay_payment_id,
-        remarks: `PAID: Settled via Razorpay (Order: ${razorpay_order_id}, Payment: ${razorpay_payment_id})`,
+        remarks: `AWAITING_APPROVAL: Settled via Razorpay (Order: ${razorpay_order_id}, Payment: ${razorpay_payment_id})`,
         updatedAt: new Date(),
       },
       include: {
@@ -816,51 +868,12 @@ export async function verifyRazorpayPaymentService(
       },
     });
 
-    // 2. Update Invoice
-    if (payment.invoiceId) {
-      const updatedInvoice = await tx.invoice.update({
-        where: { id: payment.invoiceId },
-        data: {
-          paymentReceived: { increment: payAmount },
-          paymentPending: { decrement: payAmount },
-          updatedAt: new Date(),
-        },
-      });
-
-      if (Number(updatedInvoice.paymentPending) <= 0) {
-        await tx.invoice.update({
-          where: { id: payment.invoiceId },
-          data: {
-            status: PaymentStatus.PAID,
-            invoiceType: InvoiceType.TAX,
-            paymentPending: 0,
-          },
-        });
-      } else if (Number(updatedInvoice.paymentReceived) > 0) {
-        await tx.invoice.update({
-          where: { id: payment.invoiceId },
-          data: { status: PaymentStatus.PARTIAL },
-        });
-      }
-    }
-
-    // 3. Update Client metrics
-    if (payment.clientId) {
-      await tx.client.update({
-        where: { id: payment.clientId },
-        data: {
-          paymentReceived: { increment: payAmount },
-          updatedAt: new Date(),
-        },
-      });
-    }
-
     return {
       success: true,
       statusCode: 200,
       data: {
         payment: updatedPayment,
-        message: "Payment verified and settled successfully via Razorpay.",
+        message: "Payment captured via Razorpay and submitted for salesperson approval.",
       },
     };
   });

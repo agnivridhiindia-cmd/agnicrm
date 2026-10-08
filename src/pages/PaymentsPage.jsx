@@ -270,13 +270,19 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
   const { payments: apiPayments, refreshPayments } = useApiPayments();
   
   const payments = useMemo(() => {
-    if (!userEmail && !clientInfo) return apiPayments;
-    const cleanUserEmail = (userEmail || "").trim().toLowerCase();
+    const rawList = apiPayments.filter((p) => {
+      const r = String(p.remarks || "").toLowerCase();
+      const pId = String(p.id || p.paymentId || "");
+      return !r.includes("payment collected upon client registration") && pId !== "PAY-2026-C4EF3" && pId !== "PAY-2026-F981C";
+    });
+
+    const cleanUserEmail = (userEmail || localStorage.getItem("agni_user_email") || "").trim().toLowerCase();
+    if (!cleanUserEmail && !clientInfo) return rawList;
     const clientComp = (clientInfo?.companyName || clientInfo?.company || "").trim().toLowerCase();
     const clientName = (clientInfo?.name || clientInfo?.representativeName || "").trim().toLowerCase();
     const clientId = String(clientInfo?.clientId || clientInfo?.id || "").trim().toLowerCase();
     
-    return apiPayments.filter((p) => {
+    return rawList.filter((p) => {
       const pEmail = (p.clientEmail || p.email || "").trim().toLowerCase();
       const pComp = (p.clientCompany || p.companyName || p.company || "").trim().toLowerCase();
       const pName = (p.clientName || p.name || "").trim().toLowerCase();
@@ -435,8 +441,8 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
               });
 
               if (verifyRes.ok) {
-                // Update local storage so that all caches are marked Paid
-                const updateStatusPaid = (key) => {
+                // Update local storage caches to Awaiting Approval
+                const updateStatusAwaiting = (key) => {
                   try {
                     const saved = localStorage.getItem(key);
                     if (!saved) return;
@@ -445,7 +451,13 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
                     const updated = list.map((p) => {
                       const curId = String(p.id || p.paymentId || "");
                       if (curId === String(pay.id) || curId === String(pay.paymentId)) {
-                        return { ...p, status: "Paid", transactionRef: response.razorpay_payment_id, paidAt: new Date().toISOString() };
+                        return {
+                          ...p,
+                          status: "Awaiting Approval",
+                          transactionRef: response.razorpay_payment_id,
+                          settledAt: new Date().toISOString(),
+                          submissionDate: new Date().toISOString().split("T")[0],
+                        };
                       }
                       return p;
                     });
@@ -453,16 +465,16 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
                   } catch (e) {}
                 };
 
-                updateStatusPaid("agni_sales_payments");
-                updateStatusPaid("agni_payment_demands");
-                updateStatusPaid("agni_client_requests");
-                if (cleanEmail) updateStatusPaid(`agni_payment_demands_${cleanEmail}`);
+                updateStatusAwaiting("agni_sales_payments");
+                updateStatusAwaiting("agni_payment_demands");
+                updateStatusAwaiting("agni_client_requests");
+                if (cleanEmail) updateStatusAwaiting(`agni_payment_demands_${cleanEmail}`);
                 for (let i = 0; i < localStorage.length; i++) {
                   const k = localStorage.key(i) || "";
-                  if (k.startsWith("agni_payment_demands_")) updateStatusPaid(k);
+                  if (k.startsWith("agni_payment_demands_")) updateStatusAwaiting(k);
                 }
 
-                setNotice(`✓ Payment of ${pay.formattedAmt} successfully settled & verified via Razorpay! Receipt is now downloadable.`);
+                setNotice(`✓ Payment of ${pay.formattedAmt} successfully submitted via Razorpay (Txn ID: ${response.razorpay_payment_id}). Status is now Awaiting Salesperson Approval.`);
                 setSelectedPayment(null);
                 window.dispatchEvent(new Event("agni_payments_updated"));
                 window.dispatchEvent(new Event("agni_pending_updated"));

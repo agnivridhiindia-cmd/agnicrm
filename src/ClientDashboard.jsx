@@ -1059,28 +1059,28 @@ export default function Dashboard({ onSignOut, userEmail }) {
         const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
         const mergedMap = new Map();
 
-        // Database records take precedence
+        // Database records take precedence as authoritative truth
         apiMapped.forEach((r) => {
           const key = norm(r.schemeName);
           if (key && !isClientIdentityName(r.schemeName)) mergedMap.set(key, r);
         });
 
-        // Retain local optimistic items not yet indexed in DB, or actively pending local items
+        // Retain ONLY unindexed local optimistic items (in-flight network requests not yet written to DB)
         localSaved.forEach((r) => {
           const key = norm(r.schemeName || r.name);
           if (!key || isClientIdentityName(r.schemeName || r.name)) return;
           const statusStr = String(r.status || "").toLowerCase();
           const isLocalPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
-          if (!mergedMap.has(key)) {
-            mergedMap.set(key, r);
-          } else if (isLocalPending && mergedMap.get(key)?.status !== "Approved & Active") {
+          if (!mergedMap.has(key) && isLocalPending) {
             mergedMap.set(key, r);
           }
         });
 
         const mergedList = Array.from(mergedMap.values()).filter((r) => !isClientIdentityName(r.schemeName || r.name));
         try {
-          localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(mergedList));
+          if (typeof window !== "undefined" && window.localStorage) {
+            localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(mergedList));
+          }
         } catch (e) {}
 
         const pendingOnly = mergedList.filter((r) => {
@@ -1556,6 +1556,33 @@ export default function Dashboard({ onSignOut, userEmail }) {
     };
 
     const list = [primaryPlan];
+
+    // Merge services from database profile (PostgreSQL source of truth)
+    if (dbProfile && Array.isArray(dbProfile.allServices)) {
+      dbProfile.allServices.forEach((service, idx) => {
+        if (!isPaymentDemandOrSettlement(service)) {
+          const canonicalName = getCanonicalSchemeName(service.name || service.schemeName || service.serviceName);
+          if (canonicalName && !isClientIdentityName(canonicalName) && !list.some((p) => getCanonicalSchemeName(p.name).toLowerCase() === canonicalName.toLowerCase())) {
+            const reqAmt = Number(service.fundingRequirement || service.amountRequired || 0);
+            const reqStr = reqAmt > 0 ? `₹${reqAmt.toLocaleString("en-IN")}` : "₹10,00,000";
+            list.push({
+              ...service,
+              id: service.id || `db-service-${idx}`,
+              name: canonicalName,
+              tag: service.tag || service.serviceType || "Consultancy Services",
+              cover: reqStr,
+              fundingRequirement: reqAmt > 0 ? reqAmt : 1000000,
+              amountRequired: reqAmt > 0 ? reqAmt : 1000000,
+              status: "Active",
+              isPrimary: idx === 0,
+              processType: idx === 0 ? "primary" : "secondary",
+              enrollmentDate: service.enrollmentDate || createdDateStr,
+            });
+          }
+        }
+      });
+    }
+
     enrolledPlans.forEach((plan) => {
       const canonicalPlanName = getCanonicalSchemeName(plan.name || plan.schemeName || plan.scheme);
       if (!isPaymentDemandOrSettlement(plan) && !isClientIdentityName(canonicalPlanName) && !list.some((p) => getCanonicalSchemeName(p.name).toLowerCase() === canonicalPlanName.toLowerCase())) {
@@ -1688,7 +1715,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
   const allSchemeTrackers = React.useMemo(() => {
     const targetEmail = userEmail || localStorage.getItem("agni_user_email") || "";
     const cleanPlans = (activePlansList || []).filter((p) => p && !isClientIdentityName(p.name));
-    const firstPlanName = cleanPlans[0]?.name || "PMEGP";
+    const firstPlanName = cleanPlans[0]?.name || dbProfile?.serviceName || "PMEGP";
 
     // Primary client object (first plan = primary CRM scheme)
     const primaryClient = {
@@ -1696,6 +1723,8 @@ export default function Dashboard({ onSignOut, userEmail }) {
       company: clientInfo.companyName,
       scheme: firstPlanName,
       serviceName: firstPlanName,
+      isPrimary: true,
+      processType: "primary",
       completedSteps: dbProfile?.completedSteps || ["CRM Creation"],
     };
 
@@ -1711,7 +1740,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       );
       // Use DB steps only if admin has advanced beyond the 3-step default
       const dbSteps = dbService?.completedSteps;
-      const resolvedSteps = (Array.isArray(dbSteps) && dbSteps.length > SECONDARY_DEFAULT_STEPS.length)
+      const resolvedSteps = (Array.isArray(dbSteps) && dbSteps.length >= SECONDARY_DEFAULT_STEPS.length)
         ? dbSteps
         : SECONDARY_DEFAULT_STEPS;
       return {
@@ -1719,9 +1748,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
         company: clientInfo.companyName,
         scheme: plan.name,
         serviceName: plan.name,
+        isPrimary: false,
+        processType: "secondary",
         completedSteps: resolvedSteps,
-        progressPercent: dbService?.progressPercent,
-        applicationStatus: dbService?.applicationStatus,
+        progressPercent: dbService?.progressPercent || 60,
+        applicationStatus: dbService?.applicationStatus || "Reports",
       };
     });
 
@@ -1746,13 +1777,16 @@ export default function Dashboard({ onSignOut, userEmail }) {
       (s) => s.schemeName && activePipelineScheme &&
         s.schemeName.toLowerCase().trim() === activePipelineScheme.toLowerCase().trim()
     );
-    const isPrimary = dbService?.isPrimary !== false &&
-      isClientPrimaryScheme({ email: targetEmail, scheme: activePipelineScheme }, activePipelineScheme);
+    const cleanPlans = (activePlansList || []).filter((p) => p && !isClientIdentityName(p.name));
+    const firstPlanName = cleanPlans[0]?.name || dbProfile?.serviceName || "";
+    const isPrimary = firstPlanName
+      ? activePipelineScheme.toLowerCase().trim() === firstPlanName.toLowerCase().trim()
+      : (dbService?.isPrimary !== false);
 
     // Secondary schemes start at 60% by default; use DB only when admin advances further
     const SECONDARY_DEFAULT_STEPS = ["CRM Creation", "Agreement", "Reports"];
     const dbSteps = dbService?.completedSteps;
-    const dbStepsResolved = (!isPrimary && Array.isArray(dbSteps) && dbSteps.length > SECONDARY_DEFAULT_STEPS.length)
+    const dbStepsResolved = (!isPrimary && Array.isArray(dbSteps) && dbSteps.length >= SECONDARY_DEFAULT_STEPS.length)
       ? dbSteps
       : (!isPrimary ? SECONDARY_DEFAULT_STEPS : null);
     const resolvedSteps = isPrimary

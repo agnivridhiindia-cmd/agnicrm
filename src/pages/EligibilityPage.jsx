@@ -58,42 +58,52 @@ export default function EligibilityPage({ onEnrollScheme, enrolledPlanNames = []
     const sNorm = norm(sName);
     if (!sNorm) return false;
 
-    // Check localStorage first so a decline or approval explicitly supersedes optimisticRequested
+    // 1. Authoritative check: pendingRequests prop from PostgreSQL database
+    const matchingPendingProp = (pendingRequests || []).find((r) => {
+      const rNorm = norm(r.schemeName || r.name);
+      return rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+    });
+
+    if (matchingPendingProp) {
+      const statusStr = String(matchingPendingProp.status || "").toLowerCase();
+      if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+        return false;
+      }
+      if (!matchingPendingProp.status || statusStr.includes("pending")) {
+        return true;
+      }
+    }
+
+    // 2. Active in-memory optimistic request
+    if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) return true;
+
+    // 3. Optional fallback to localStorage cache
     try {
-      const saved = localStorage.getItem("agni_pending_scheme_requests");
-      if (saved) {
-        const list = JSON.parse(saved);
-        if (Array.isArray(list)) {
-          const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
-          const match = list.find((r) => {
-            const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
-            const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
-            const rNorm = norm(r.schemeName || r.name);
-            return emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
-          });
-          if (match) {
-            const statusStr = String(match.status || "").toLowerCase();
-            if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
-              return false;
-            }
-            if (!match.status || statusStr.includes("pending")) {
-              return true;
+      if (typeof window !== "undefined" && window.localStorage) {
+        const saved = localStorage.getItem("agni_pending_scheme_requests");
+        if (saved) {
+          const list = JSON.parse(saved);
+          if (Array.isArray(list)) {
+            const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
+            const match = list.find((r) => {
+              const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
+              const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
+              const rNorm = norm(r.schemeName || r.name);
+              return emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
+            });
+            if (match) {
+              const statusStr = String(match.status || "").toLowerCase();
+              if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+                return false;
+              }
+              if (!match.status || statusStr.includes("pending")) {
+                return true;
+              }
             }
           }
         }
       }
     } catch (e) { }
-
-    const inPendingProp = (pendingRequests || []).some((r) => {
-      const rNorm = norm(r.schemeName || r.name);
-      const isMatch = rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
-      const statusStr = String(r.status || "").toLowerCase();
-      const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
-      return isMatch && isPending;
-    });
-    if (inPendingProp) return true;
-
-    if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) return true;
 
     return false;
   }, [optimisticRequested, pendingRequests, userEmail]);

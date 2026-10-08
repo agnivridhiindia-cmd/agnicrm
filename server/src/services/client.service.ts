@@ -180,8 +180,38 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
   } catch (e) { }
   const branchManagerMap = new Map(allManagers.map((m) => [m.branchId, m]));
 
+  // Group clients by email to identify each client's primary scheme
+  // Rule: First scheme client enrolls into is primary no matter what scheme/service it is.
+  // Any scheme client enrolls into after that is secondary.
+  const emailClientsMap = new Map<string, typeof clients>();
+  for (const c of clients) {
+    const em = (c.email || "").toLowerCase().trim();
+    if (!emailClientsMap.has(em)) {
+      emailClientsMap.set(em, []);
+    }
+    emailClientsMap.get(em)!.push(c);
+  }
+
+  const primaryClientMap = new Map<string, string>(); // email -> primaryClientId
+  for (const [em, group] of emailClientsMap.entries()) {
+    if (group.length === 1) {
+      primaryClientMap.set(em, group[0].id);
+    } else {
+      const explicitPrimary = group.find((c) => c.schemes?.some((s) => s.isPrimary === true));
+      if (explicitPrimary) {
+        primaryClientMap.set(em, explicitPrimary.id);
+      } else {
+        const sorted = [...group].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        primaryClientMap.set(em, sorted[0].id);
+      }
+    }
+  }
+
   const cleanedClients = clients.map((c) => {
-    const isSec = (c as any).isPrimary === false || (c as any).processType === "secondary" || (c.serviceName && !c.serviceName.toLowerCase().includes("pmegp"));
+    const em = (c.email || "").toLowerCase().trim();
+    const primaryId = primaryClientMap.get(em);
+    const isPrimaryRecord = primaryId ? c.id === primaryId : (c.schemes?.some((s) => s.isPrimary === true) ?? true);
+    const isSec = !isPrimaryRecord;
 
     let compName = c.companyName;
     if (!compName || compName.toLowerCase() === "representative") {
@@ -204,11 +234,15 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
       steps = ["CRM Creation", "Agreement", "Reports"];
     }
 
-    // Accurate calculation of totalPayment, paymentReceived, and paymentPending across invoices and payments
+    // Accurate calculation of totalPayment, paymentReceived, and paymentPending across invoices, schemes, and payments
     const totalPayNum = Number(c.totalPayment || 0);
     const invoicePaymentsSum = (c.invoices || []).reduce((sum: number, inv: any) => sum + Number(inv.paymentReceived || 0), 0);
     const directPaymentsSum = (c.payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
-    const payReceivedNum = Math.max(Number(c.paymentReceived || 0), invoicePaymentsSum, directPaymentsSum);
+    const schemeReceivedSum = (c.schemes || []).reduce((sum: number, s: any) => sum + Number(s.receivedAmount || 0), 0);
+    let payReceivedNum = Math.max(Number(c.paymentReceived || 0), invoicePaymentsSum, directPaymentsSum, schemeReceivedSum);
+    if (!isSec && payReceivedNum === 0 && c.approvalStatus === "ACTIVE") {
+      payReceivedNum = totalPayNum;
+    }
     const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
     const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
 
@@ -231,6 +265,8 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
       applicationStatus: appStatus,
       progressPercent: progress,
       completedSteps: steps,
+      isPrimary: isPrimaryRecord,
+      processType: isSec ? "secondary" : "primary",
       totalPayment: totalPayNum,
       paymentReceived: payReceivedNum,
       paymentPending: payPendingNum,
@@ -404,16 +440,22 @@ export async function createActiveClientCore(
   }
 
   const primaryClientForEmail = await tx.client.findFirst({
-    where: { email: data.email, isDeleted: false },
+    where: { email: { equals: data.email, mode: "insensitive" }, isDeleted: false },
     select: { documentStatus: true, companyName: true, contactPerson: true, phone: true, address: true, fundingRequirement: true },
   });
 
   const effectiveDocStatus = primaryClientForEmail?.documentStatus || DocumentStatus.NOT_SUBMITTED;
 
-  const isSecondary = !!primaryClientForEmail || data.isPrimary === false || data.processType === "secondary";
-  const initialCompletedSteps = isSecondary ? ["CRM Creation", "Agreement", "Reports"] : ["CRM Creation"];
-  const initialProgress = isSecondary ? 60 : 20;
-  const initialAppStatus = isSecondary ? "Reports" : "CRM Creation";
+  // First scheme client enrolls into is primary no matter what scheme it is.
+  // Subsequent schemes are secondary.
+  const isSecondary = data.isPrimary !== undefined
+    ? !data.isPrimary
+    : (data.processType === "secondary" || !!primaryClientForEmail);
+  const initialCompletedSteps = isSecondary
+    ? ["CRM Creation", "Agreement", "Reports"]
+    : (data.completedSteps || ["CRM Creation"]);
+  const initialProgress = isSecondary ? 60 : (data.progressPercent ?? 20);
+  const initialAppStatus = isSecondary ? "Reports" : (data.applicationStatus || "CRM Creation");
 
   const client = await tx.client.create({
     data: {
@@ -627,7 +669,19 @@ export async function getMyProfileService(user: AuthenticatedUser) {
       salesRepresentativePhone: client.salesPerson?.phone || null,
       branch: client.branch || client.salesPerson?.branch || null,
       branchName: client.branch?.name || client.salesPerson?.branch?.name || null,
-      allServices: clients.map((c) => {
+      allServices: clients.map((c, index) => {
+        const isClientFirstScheme = index === 0;
+        const isSec = !isClientFirstScheme;
+        const isPrimary = !isSec;
+        let appStatus = c.applicationStatus || (isSec ? "Reports" : "CRM Creation");
+        let progress = c.progressPercent ?? (isSec ? 60 : 20);
+        let steps = c.completedSteps || (isSec ? ["CRM Creation", "Agreement", "Reports"] : ["CRM Creation"]);
+        if (isSec && (appStatus === "CRM Creation" || progress < 60)) {
+          appStatus = "Reports";
+          progress = 60;
+          steps = ["CRM Creation", "Agreement", "Reports"];
+        }
+
         const reqAmt = c.fundingRequirement ? Number(c.fundingRequirement) : 0;
         const reqStr = `₹${reqAmt.toLocaleString("en-IN")}`;
         return {
@@ -642,10 +696,11 @@ export async function getMyProfileService(user: AuthenticatedUser) {
           enrollmentDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Recently Approved",
           detail: `Approved scheme (${c.serviceName}) active in client profile.`,
           // Milestone progress — used by client portal milestone tracker
-          completedSteps: c.completedSteps || ["CRM Creation"],
-          progressPercent: c.progressPercent ?? 20,
-          applicationStatus: c.applicationStatus || "CRM Creation",
-          isPrimary: (c as any).isPrimary !== false,
+          completedSteps: steps,
+          progressPercent: progress,
+          applicationStatus: appStatus,
+          isPrimary: isPrimary,
+          processType: isSec ? "secondary" : "primary",
         };
       }),
     },

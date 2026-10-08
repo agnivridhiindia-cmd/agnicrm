@@ -194,12 +194,7 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
               const existingMap = new Map();
               prev.forEach((p) => existingMap.set(p.id, p));
               mappedClientReqs.forEach((r) => {
-                if (existingMap.has(r.id)) {
-                  const curr = existingMap.get(r.id);
-                  if (r.status === "Declined" && curr.status === "Pending") {
-                    existingMap.set(r.id, { ...curr, status: "Declined" });
-                  }
-                } else {
+                if (!existingMap.has(r.id)) {
                   // Only add if not already represented in existingMap by scheme name and client
                   const rNorm = String(r.schemeName || "").toLowerCase().replace(/[^a-z0-9]/g, "");
                   const rClient = String(r.clientName || "").toLowerCase().trim();
@@ -226,7 +221,21 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
         try {
           const settlementReqs = JSON.parse(savedSettlements);
           if (Array.isArray(settlementReqs)) {
-            mappedSettlements = settlementReqs.map((s) => {
+            const currentSalesName = (salesPersonName || localStorage.getItem("agni_user_name") || "").toLowerCase().trim();
+            const currentUserEmail = (userEmail || localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
+
+            mappedSettlements = settlementReqs.filter((s) => {
+              if (userRole === "Admin" || userRole === "Owner") return true;
+              const sEmail = (s.clientEmail || "").toLowerCase().trim();
+              const sCompany = (s.clientName || s.companyName || "").toLowerCase().trim();
+              const sMgr = (s.managerName || "").toLowerCase().trim();
+              if (currentSalesName && (sMgr === currentSalesName || sMgr.includes(currentSalesName))) return true;
+              return effectiveClients.some((c) => {
+                const cEmail = (c.email || "").toLowerCase().trim();
+                const cCompany = (c.companyName || c.company || c.name || "").toLowerCase().trim();
+                return (sEmail && cEmail && sEmail === cEmail) || (sCompany && cCompany && (sCompany === cCompany || sCompany.includes(cCompany) || cCompany.includes(sCompany)));
+              });
+            }).map((s) => {
               const statusStr = String(s.status || "").toLowerCase();
               const isDeclined = statusStr.includes("decline") || statusStr.includes("reject");
               const isApproved = statusStr.includes("approved") || statusStr.includes("paid");
@@ -304,23 +313,65 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
     };
   }, []);
 
+  const currentSalesName = (salesPersonName || localStorage.getItem("agni_user_name") || "").toLowerCase().trim();
+  const currentUserEmail = (userEmail || localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
+
+  // Strictly isolate requests so each salesperson only sees requests for their own designated clients or requests they submitted
+  const userRequests = useMemo(() => {
+    if (userRole === "Admin" || userRole === "Owner" || userRole === "Branch Manager" || userRole === "Manager") {
+      return requests;
+    }
+
+    return requests.filter((r) => {
+      // 1. If requester is this salesperson
+      const reqEmail = (r.raw?.requester?.email || r.requesterEmail || "").toLowerCase().trim();
+      const reqName = (r.raw?.requester?.fullName || r.requesterName || "").toLowerCase().trim();
+      if (currentUserEmail && reqEmail === currentUserEmail) return true;
+      if (currentSalesName && reqName === currentSalesName) return true;
+
+      // 2. If client's assigned salesperson is this salesperson
+      const clientSpEmail = (r.raw?.client?.salesPerson?.email || r.salesPersonEmail || r.raw?.client?.salesRepresentativeEmail || "").toLowerCase().trim();
+      const clientSpName = (r.raw?.client?.salesPerson?.fullName || r.salesPerson || r.managerName || r.raw?.client?.assignedSalesPerson || "").toLowerCase().trim();
+      if (currentUserEmail && clientSpEmail === currentUserEmail) return true;
+      if (currentSalesName && (clientSpName === currentSalesName || clientSpName.includes(currentSalesName))) return true;
+
+      // 3. Match against effectiveClients (salesperson's designated clients)
+      const rClientId = String(r.raw?.clientId || r.clientId || "").toLowerCase().trim();
+      const rClientEmail = (r.raw?.client?.email || r.clientEmail || "").toLowerCase().trim();
+      const rClientCompany = (r.raw?.client?.companyName || r.raw?.client?.name || r.companyName || r.clientName || "").toLowerCase().trim();
+
+      const clientMatch = effectiveClients.some((c) => {
+        const cId = String(c.id || c.dbId || c.clientId || "").toLowerCase().trim();
+        const cEmail = (c.email || "").toLowerCase().trim();
+        const cCompany = (c.companyName || c.company || c.name || "").toLowerCase().trim();
+        return (
+          (cId && rClientId && cId === rClientId) ||
+          (cEmail && rClientEmail && cEmail === rClientEmail) ||
+          (cCompany && rClientCompany && (cCompany === rClientCompany || cCompany.includes(rClientCompany) || rClientCompany.includes(cCompany)))
+        );
+      });
+
+      return clientMatch;
+    });
+  }, [requests, userRole, currentUserEmail, currentSalesName, effectiveClients]);
+
   const pendingRequests = useMemo(
-    () => requests.filter((request) => request.status === "Pending"),
-    [requests]
+    () => userRequests.filter((request) => request.status === "Pending"),
+    [userRequests]
   );
 
   const historyRequests = useMemo(
-    () => requests.filter((request) => request.status !== "Pending"),
-    [requests]
+    () => userRequests.filter((request) => request.status !== "Pending"),
+    [userRequests]
   );
 
   const stats = useMemo(() => {
-    const total = requests.length;
+    const total = userRequests.length;
     const pending = pendingRequests.length;
-    const approved = requests.filter((r) => r.status === "Approved").length;
-    const cancelled = requests.filter((r) => r.status === "Cancelled" || r.status === "Rejected").length;
+    const approved = userRequests.filter((r) => r.status === "Approved").length;
+    const cancelled = userRequests.filter((r) => r.status === "Cancelled" || r.status === "Rejected").length;
     return { total, pending, approved, cancelled };
-  }, [requests, pendingRequests]);
+  }, [userRequests, pendingRequests]);
 
   useEffect(() => {
     const handleRequestsUpdate = () => {

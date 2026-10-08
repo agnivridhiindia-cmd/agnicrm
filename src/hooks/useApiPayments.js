@@ -15,7 +15,13 @@ export function useApiPayments() {
       if (response.ok) {
         const result = await response.json();
         if (Array.isArray(result)) {
-          apiMapped = result.map((pay) => {
+          apiMapped = result
+            .filter((pay) => {
+              const r = String(pay.remarks || "").toLowerCase();
+              const pId = String(pay.paymentId || pay.id || "");
+              return !r.includes("payment collected upon client registration") && pId !== "PAY-2026-C4EF3" && pId !== "PAY-2026-F981C";
+            })
+            .map((pay) => {
             const clientCompany = typeof pay.client === "object" ? pay.client?.companyName || pay.client?.name : "Unknown Client";
             const clientName = typeof pay.client === "object" ? pay.client?.name || pay.client?.companyName : "Unknown Client";
             const clientEmail = typeof pay.client === "object" ? (pay.client?.email || "").toLowerCase().trim() : "";
@@ -141,7 +147,8 @@ export function useApiPayments() {
 
     const dedupeMap = new Map();
     localDemands.forEach((p) => {
-      if (p && p.id) {
+      const pId = String(p?.id || p?.paymentId || "");
+      if (p && p.id && pId !== "PAY-2026-C4EF3" && pId !== "PAY-2026-F981C") {
         const cComp = p.clientCompany || p.companyName || p.company || p.clientName || "Client";
         const cName = p.clientName || p.representativeName || cComp;
         const cEmail = (p.clientEmail || p.email || "").toLowerCase().trim();

@@ -131,6 +131,15 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
 
         const pendingData = r.requestType === "NEW_SERVICE" && r.requestedChanges ? r.requestedChanges : null;
 
+        // Payment demands and settlement verification are exclusively between the client and their designated salesperson
+        const isPaymentSettlement =
+          pendingData?.isPaymentSettlement ||
+          pendingData?.category === "Payment Settlement" ||
+          String(r.reason || "").toLowerCase().includes("payment settlement") ||
+          String(r.reason || "").toLowerCase().includes("payment demand") ||
+          String(r.reason || "").toLowerCase().includes("payment request");
+        if (isPaymentSettlement) return;
+
         const clientName = r.client?.companyName || r.client?.name || pendingData?.companyName || pendingData?.name || "Client Account";
         const contactPerson = r.client?.contactPerson || r.client?.name || pendingData?.contactPerson || pendingData?.name || "N/A";
         const email = r.client?.email || pendingData?.email || "";

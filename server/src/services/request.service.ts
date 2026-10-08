@@ -36,20 +36,11 @@ export async function getRequestsService(user: AuthenticatedUser) {
   let whereClause: any = { isDeleted: false };
 
   if (user.role === "SALES_PERSON") {
-    let repBranchId = user.branchId;
-    if (!repBranchId) {
-      const dbUser = await prisma.user.findFirst({
-        where: { id: user.userId, isDeleted: false },
-        select: { branchId: true },
-      });
-      repBranchId = dbUser?.branchId || undefined;
-    }
-
     whereClause.OR = [
       { requesterId: user.userId },
       { client: { salesPersonId: user.userId } },
+      { client: { salesPerson: { email: { equals: user.email, mode: "insensitive" } } } },
       { targetEntityId: user.userId },
-      ...(repBranchId ? [{ client: { branchId: repBranchId } }] : []),
     ];
   } else if (user.role === "CLIENT") {
     whereClause.OR = [
@@ -82,7 +73,11 @@ export async function getRequestsService(user: AuthenticatedUser) {
   const requests = await prisma.request.findMany({
     where: whereClause,
     include: {
-      client: true,
+      client: {
+        include: {
+          salesPerson: { select: { id: true, fullName: true, email: true, phone: true } },
+        },
+      },
       requester: { select: { id: true, fullName: true, role: true, email: true } },
       reviewer: { select: { id: true, fullName: true, role: true, email: true } },
       auditHistory: { orderBy: { createdAt: "asc" } },
@@ -90,7 +85,39 @@ export async function getRequestsService(user: AuthenticatedUser) {
     orderBy: { createdAt: "desc" },
   });
 
-  const result = { success: true, statusCode: 200, count: requests.length, data: requests };
+  // Filter requests by role-specific governance:
+  let finalRequests = requests;
+
+  if (user.role === "MANAGER" || user.role === "BRANCH_MANAGER" || user.role === "ADMIN" || user.role === "OWNER") {
+    // Payment demands and settlement verification are exclusively between the client and their designated salesperson.
+    // Managers, Branch Managers, Admins, and Owners should NOT receive payment requests/settlements.
+    finalRequests = requests.filter((r) => {
+      const changes = r.requestedChanges as any;
+      const isPaymentSettlement =
+        changes?.isPaymentSettlement === true ||
+        changes?.category === "Payment Settlement" ||
+        String(r.reason || "").toLowerCase().includes("payment settlement") ||
+        String(r.reason || "").toLowerCase().includes("payment demand") ||
+        String(r.reason || "").toLowerCase().includes("payment request");
+      return !isPaymentSettlement;
+    });
+  } else if (user.role === "SALES_PERSON") {
+    // For salespeople: verify that any request strictly belongs to this salesperson or their assigned client
+    finalRequests = requests.filter((r) => {
+      const isRequester = r.requesterId === user.userId || r.requester?.email?.toLowerCase() === user.email.toLowerCase();
+      const isTarget = r.targetEntityId === user.userId;
+      const isAssignedSalesPerson =
+        r.client?.salesPersonId === user.userId ||
+        r.client?.salesPerson?.email?.toLowerCase() === user.email.toLowerCase();
+      const changes = r.requestedChanges as any;
+      const changesSalesPersonEmail = (changes?.salesPersonEmail || "").toLowerCase();
+      const changesMatch = Boolean(changesSalesPersonEmail && changesSalesPersonEmail === user.email.toLowerCase());
+
+      return isRequester || isTarget || isAssignedSalesPerson || changesMatch;
+    });
+  }
+
+  const result = { success: true, statusCode: 200, count: finalRequests.length, data: finalRequests };
   requestsCache.set(cacheKey, { timestamp: Date.now(), data: result });
   return result;
 }

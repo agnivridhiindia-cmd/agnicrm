@@ -49,6 +49,10 @@ export function useApiClients() {
             totalPayment = 118000;
           }
 
+          if (!isSec && paymentReceived === 0 && (c.approvalStatus === "ACTIVE" || c.paymentStatus === "Paid")) {
+            paymentReceived = totalPayment;
+          }
+
           let paymentPending = Math.max(0, totalPayment - paymentReceived);
 
           return {
@@ -69,6 +73,8 @@ export function useApiClients() {
             region: region,
             progress: c.progressPercent || 0,
             status: c.approvalStatus === "ACTIVE" ? "Active" : c.approvalStatus === "PENDING_APPROVAL" ? "Pending" : c.stage,
+            isPrimary: c.isPrimary !== undefined ? c.isPrimary : !isSec,
+            processType: isSec ? "secondary" : "primary",
           };
         });
         const fullClientsList = mergeSecondaryClients(mappedClients);

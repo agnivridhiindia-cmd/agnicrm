@@ -536,26 +536,32 @@ export async function executeWorkflowDecision(
           const targetScheme = payload.schemeName || payload.serviceName;
 
           if (targetEmail && targetScheme) {
+            // Check if client already exists (if so, this new enrollment is secondary; if not, this first enrollment is primary)
+            const priorClient = await tx.client.findFirst({
+              where: { email: { equals: targetEmail, mode: "insensitive" }, isDeleted: false },
+            });
+            const isSecondary = !!priorClient || payload.isPrimary === false || payload.processType === "secondary";
+
             const clientPayload = {
-              companyName: existingClient?.companyName || payload.companyName || payload.clientName || payload.name || "Client Company",
-              contactPerson: existingClient?.contactPerson || payload.clientName || payload.contactPerson || payload.name || "Representative",
-              name: existingClient?.name || payload.companyName || payload.clientName || payload.name || "Client Company",
+              companyName: existingClient?.companyName || priorClient?.companyName || payload.companyName || payload.clientName || payload.name || "Client Company",
+              contactPerson: existingClient?.contactPerson || priorClient?.contactPerson || payload.clientName || payload.contactPerson || payload.name || "Representative",
+              name: existingClient?.name || priorClient?.name || payload.companyName || payload.clientName || payload.name || "Client Company",
               email: targetEmail,
-              phone: existingClient?.phone || payload.phone || "+91 98765 43210",
-              address: existingClient?.address || payload.address,
+              phone: existingClient?.phone || priorClient?.phone || payload.phone || "+91 98765 43210",
+              address: existingClient?.address || priorClient?.address || payload.address,
               serviceType: payload.serviceType || "CONSULTANCY",
               serviceName: targetScheme,
               amount: Number(payload.totalPayment || payload.amount || payload.pitchedAmount || payload.price || 0),
               paymentMode: payload.paymentMode ? String(payload.paymentMode).toUpperCase() : "ONLINE",
               paymentReceived: Number(payload.paymentReceived || payload.receivedAmount || payload.amount || 0),
-              fundingRequirement: Number(payload.amountRequired || payload.fundingRequirement || existingClient?.fundingRequirement || 1000000),
+              fundingRequirement: Number(payload.amountRequired || payload.fundingRequirement || existingClient?.fundingRequirement || priorClient?.fundingRequirement || 1000000),
               adminNotes: payload.notes || payload.detail || payload.adminNotes,
-              isPrimary: false,
-              processType: "secondary",
+              isPrimary: !isSecondary,
+              processType: isSecondary ? "secondary" : "primary",
             };
 
-            const salesPersonId = payload.resolvedSalesPersonId || existingClient?.salesPersonId || existingRequest.requesterId || user.userId;
-            const branchId = payload.resolvedBranchId || existingClient?.branchId || user.branchId || "";
+            const salesPersonId = payload.resolvedSalesPersonId || existingClient?.salesPersonId || priorClient?.salesPersonId || existingRequest.requesterId || user.userId;
+            const branchId = payload.resolvedBranchId || existingClient?.branchId || priorClient?.branchId || user.branchId || "";
 
             const newClient = await createActiveClientCore(
               tx,

@@ -379,12 +379,10 @@ export function getTrackerState(crmOrScheme, explicitCompleted) {
 
   let rawCompleted = explicitCompleted;
   if (!rawCompleted && typeof crmOrScheme === "object" && crmOrScheme !== null) {
-    const schemeLower = (scheme || "").toLowerCase();
     const isSec = crmOrScheme.isPrimary === false ||
       crmOrScheme.processType === "secondary" ||
       crmOrScheme.serviceType === "More Services" ||
-      (typeof crmOrScheme.appId === "string" && (crmOrScheme.appId.endsWith("-S") || crmOrScheme.appId.endsWith("-E"))) ||
-      (schemeLower.length > 0 && !schemeLower.includes("pmegp"));
+      (typeof crmOrScheme.appId === "string" && (crmOrScheme.appId.endsWith("-S") || crmOrScheme.appId.endsWith("-E")));
     const isPrimary = isSec ? false : isClientPrimaryScheme(crmOrScheme, scheme);
     const defaultSteps = isPrimary
       ? (crmOrScheme?.completedSteps || crmOrScheme?.completedStages || ["CRM Creation"])
@@ -439,8 +437,7 @@ export function getSchemeCompletedStages(clientOrEmail, schemeName, defaultStage
     clientOrEmail.isPrimary === false ||
     clientOrEmail.processType === "secondary" ||
     clientOrEmail.serviceType === "More Services" ||
-    (typeof clientOrEmail.appId === "string" && (clientOrEmail.appId.endsWith("-S") || clientOrEmail.appId.endsWith("-E"))) ||
-    (sNameClean.length > 0 && !sNameClean.includes("pmegp"))
+    (typeof clientOrEmail.appId === "string" && (clientOrEmail.appId.endsWith("-S") || clientOrEmail.appId.endsWith("-E")))
   );
   const isPrimary = isSec ? false : isClientPrimaryScheme(clientOrEmail, schemeName);
 
@@ -506,20 +503,15 @@ export function isClientPrimaryScheme(clientOrEmail, schemeName) {
     if (clientOrEmail.isPrimary === false || clientOrEmail.processType === "secondary" || clientOrEmail.serviceType === "More Services") {
       return false;
     }
-  }
-
-  // First, explicitly reject any known secondary schemes by keyword
-  const secondaryKeywords = [
-    "cgtmse", "certificate", "certification", "licensing", "license", "dsc", "iso", "gst",
-    "trademark", "itr", "csr-1", "darpan", "it infra", "cloud", "seo", "brand", "software", "marketing", "ad management", "compliance"
-  ];
-  if (secondaryKeywords.some((k) => sNameClean.includes(k))) {
-    return false;
-  }
-
-  const primary = getPrimarySchemeForClient(clientOrEmail).toLowerCase();
-  if (primary && primary !== sNameClean && !primary.includes(sNameClean) && !sNameClean.includes(primary)) {
-    return false;
+    if (clientOrEmail.isPrimary === true || clientOrEmail.processType === "primary") {
+      const primary = getPrimarySchemeForClient(clientOrEmail).toLowerCase();
+      if (!primary) return true;
+      return primary === sNameClean || primary.includes(sNameClean) || sNameClean.includes(primary);
+    }
+    const primary = getPrimarySchemeForClient(clientOrEmail).toLowerCase();
+    if (primary) {
+      return primary === sNameClean || primary.includes(sNameClean) || sNameClean.includes(primary);
+    }
   }
 
   return true;
@@ -642,6 +634,18 @@ export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) 
   if (client.scheme) addSchemeName(client.scheme);
   if (client.particularScheme) addSchemeName(client.particularScheme);
   if (client.serviceName) addSchemeName(client.serviceName);
+  if (Array.isArray(client.schemes)) {
+    client.schemes.forEach((s) => {
+      const sName = typeof s === "string" ? s : (s?.schemeName || s?.serviceName || s?.name);
+      if (sName) addSchemeName(sName);
+    });
+  }
+  if (Array.isArray(client.allServices)) {
+    client.allServices.forEach((s) => {
+      const sName = typeof s === "string" ? s : (s?.schemeName || s?.serviceName || s?.name);
+      if (sName) addSchemeName(sName);
+    });
+  }
 
   // ── Cross-reference sibling records for same email (primary + all secondary) ──
   // Ensures that when viewing a secondary scheme dossier, the primary scheme is also included
@@ -652,12 +656,24 @@ export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) 
         if (sibling.scheme) addSchemeName(sibling.scheme);
         if (sibling.particularScheme) addSchemeName(sibling.particularScheme);
         if (sibling.serviceName) addSchemeName(sibling.serviceName);
+        if (Array.isArray(sibling.schemes)) {
+          sibling.schemes.forEach((s) => {
+            const sName = typeof s === "string" ? s : (s?.schemeName || s?.serviceName || s?.name);
+            if (sName) addSchemeName(sName);
+          });
+        }
+        if (Array.isArray(sibling.allServices)) {
+          sibling.allServices.forEach((s) => {
+            const sName = typeof s === "string" ? s : (s?.schemeName || s?.serviceName || s?.name);
+            if (sName) addSchemeName(sName);
+          });
+        }
       }
     });
   }
 
   try {
-    const compSaved = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
+    const compSaved = typeof window !== "undefined" && window.localStorage ? localStorage.getItem(`agni_approved_client_plans_${compKey}`) : null;
     if (compSaved) {
       const parsed = JSON.parse(compSaved);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -671,7 +687,7 @@ export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) 
       }
     }
 
-    const savedPending = localStorage.getItem("agni_pending_scheme_requests");
+    const savedPending = typeof window !== "undefined" && window.localStorage ? localStorage.getItem("agni_pending_scheme_requests") : null;
     if (savedPending) {
       const parsedPending = JSON.parse(savedPending);
       if (Array.isArray(parsedPending)) {
@@ -693,29 +709,44 @@ export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) 
     schemeList.push(fallbackScheme);
   }
 
-  // Sort: primary (eligible) schemes first, then secondary (more services)
+  // Identify primary scheme from client
+  const primarySchemeName = getCanonicalSchemeName(
+    client.primaryScheme || client.scheme || client.serviceName || client.particularScheme || schemeList[0] || ""
+  ).toLowerCase();
+
+  // Sort: primary scheme first, then secondary schemes
   schemeList.sort((a, b) => {
-    const aIsPrimary = isClientPrimaryScheme(client, a);
-    const bIsPrimary = isClientPrimaryScheme(client, b);
+    const aNorm = getCanonicalSchemeName(a).toLowerCase();
+    const bNorm = getCanonicalSchemeName(b).toLowerCase();
+    const aIsPrimary = aNorm === primarySchemeName;
+    const bIsPrimary = bNorm === primarySchemeName;
     if (aIsPrimary && !bIsPrimary) return -1;
     if (!aIsPrimary && bIsPrimary) return 1;
     return 0;
   });
 
+  const candidatesPool = [
+    client,
+    ...(Array.isArray(client.allServices) ? client.allServices : []),
+    ...(Array.isArray(client.schemes) ? client.schemes : []),
+    ...allClientsForSameEmail,
+  ];
+
   return schemeList.map((sName) => {
     // Find the specific sibling record for this scheme (for correct completedSteps)
-    const schemeClient = [client, ...allClientsForSameEmail].find((c) => {
-      const cScheme = getCanonicalSchemeName(c.scheme || c.serviceName || c.particularScheme || "");
+    const schemeClient = candidatesPool.find((c) => {
+      const cScheme = getCanonicalSchemeName(c.scheme || c.serviceName || c.particularScheme || c.schemeName || c.name || "");
       return cScheme.toLowerCase() === sName.toLowerCase();
     }) || client;
 
-    const isPrimary = isClientPrimaryScheme(schemeClient, sName);
+    const sNorm = getCanonicalSchemeName(sName).toLowerCase();
+    const isPrimary = sNorm === primarySchemeName || (schemeClient.isPrimary === true && schemeClient.processType !== "secondary");
     const defaultSteps = isPrimary
       ? (schemeClient.completedSteps || schemeClient.completedStages || ["CRM Creation"])
       : ["CRM Creation", "Agreement", "Reports"];
 
     const completed = getSchemeCompletedStages(schemeClient, sName, defaultSteps);
-    const tracker = getTrackerState({ scheme: sName }, completed);
+    const tracker = getTrackerState({ ...schemeClient, scheme: sName, isPrimary }, completed);
     return {
       schemeName: sName,
       isPrimary,
