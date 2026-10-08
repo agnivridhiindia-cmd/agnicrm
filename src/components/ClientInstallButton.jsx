@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import usePwaInstall from "../hooks/usePwaInstall";
 
 export default function ClientInstallButton({ className = "" }) {
@@ -64,7 +65,7 @@ export default function ClientInstallButton({ className = "" }) {
       </button>
 
       {/* Guide modal for iOS or manual install */}
-      {showGuideModal && (
+      {showGuideModal && typeof document !== "undefined" && createPortal(
         <div
           className="cd-install-modal-overlay"
           onClick={() => setShowGuideModal(false)}
@@ -209,7 +210,8 @@ export default function ClientInstallButton({ className = "" }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

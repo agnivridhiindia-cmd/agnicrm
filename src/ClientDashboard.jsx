@@ -2108,7 +2108,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                   <section className="cd-popover cd-notif-popover">
                     <header className="cd-notif-popover-header">
                       <h2>Notifications {unreadNotifCount > 0 && <span style={{ fontSize: 11, fontWeight: 600, color: '#f97316', marginLeft: 6 }}>({unreadNotifCount} unread)</span>}</h2>
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                         {unreadNotifCount > 0 && (
                           <button
                             type="button"
@@ -2463,26 +2463,17 @@ export default function Dashboard({ onSignOut, userEmail }) {
                   </div>
 
                   {allSchemeTrackers.length > 1 && (
-                    <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                      {allSchemeTrackers.map(({ schemeName: sName, tracker: sTracker }) => {
+                    <div className="cd-pipeline-pills-container" role="tablist" aria-label="Pipeline Schemes">
+                      {allSchemeTrackers.map(({ schemeName: sName, tracker: sTracker }, idx) => {
                         const isActive = sName.toLowerCase() === activePipelineScheme.toLowerCase();
                         return (
                           <button
-                            key={sName}
+                            key={`${sName}-${idx}`}
                             type="button"
+                            role="tab"
+                            aria-selected={isActive}
                             onClick={() => setSelectedPipelineSchemeName(sName)}
-                            style={{
-                              padding: "6px 14px",
-                              borderRadius: 8,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              border: isActive ? "1px solid #4e7cff" : "1px solid var(--cd-border)",
-                              background: isActive ? "linear-gradient(135deg, #4e7cff 0%, #3b66e8 100%)" : "rgba(30, 41, 59, 0.6)",
-                              color: isActive ? "#ffffff" : "var(--cd-muted)",
-                              boxShadow: isActive ? "0 4px 12px rgba(78, 124, 255, 0.3)" : "none",
-                              transition: "all 0.15s ease",
-                            }}
+                            className={`cd-pipeline-pill-btn ${isActive ? "active" : ""}`}
                           >
                             {sName} ({sTracker.progressPercent}%)
                           </button>
@@ -2668,50 +2659,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
         )}
       </section>
 
-      {/* ── SCHEME DETAILS INSPECTION MODAL ── */}
-      {selectedScheme && (
-        <div className="cd-modal-backdrop" onMouseDown={() => setSelectedScheme(null)}>
-          <section
-            className="cd-modal"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="cd-modal-close"
-              onClick={() => setSelectedScheme(null)}
-            >
-              ×
-            </button>
-            <span className="cd-badge-active" style={{ marginBottom: 12 }}>
-              <DashboardIcon name="check" size={11} /> {selectedScheme.status}
-            </span>
-            <h2>{selectedScheme.name}</h2>
-            <p className="cd-modal-desc">{selectedScheme.detail}</p>
-            <div className="cd-scheme-meta-box" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-              <div>
-                <span>Plan Type</span>
-                <strong>{selectedScheme.tag}</strong>
-              </div>
-              <div>
-                <span>Policy Number</span>
-                <strong>{selectedScheme.policyNumber}</strong>
-              </div>
-              <div>
-                <span>Enrollment Date</span>
-                <strong>{selectedScheme.enrollmentDate || selectedScheme.startDate}</strong>
-              </div>
-              <div>
-                <span>Required Amount</span>
-                <strong>{selectedScheme.cover}</strong>
-              </div>
-              <div>
-                <span>Contract Status</span>
-                <strong>{selectedScheme.premium}</strong>
-              </div>
-            </div>
-          </section>
-        </div>
-      )}
 
       {/* ── TELL YOUR QUERY MODAL ── */}
       {newRequestOpen && (
@@ -3057,20 +3004,20 @@ export default function Dashboard({ onSignOut, userEmail }) {
               <h2>{selectedScheme.name}</h2>
               <p className="cd-modal-desc">{cleanSchemeDetail(selectedScheme.detail) || "Enrolled Scheme details and active progress pipeline."}</p>
 
-              <div style={{ display: "grid", gridTemplateColumns: isMoreServiceScheme(selectedScheme) ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12, margin: "16px 0" }}>
+              <div className={`cd-scheme-modal-grid ${isMoreServiceScheme(selectedScheme) ? "cols-2" : "cols-3"}`}>
                 {!isMoreServiceScheme(selectedScheme) && (
-                  <div style={{ background: "rgba(30, 41, 59, 0.5)", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--cd-border)" }}>
-                    <span style={{ fontSize: 11, color: "var(--cd-muted)", display: "block" }}>Required Amount</span>
-                    <strong style={{ fontSize: 15, color: "#4e7cff" }}>{selectedScheme.cover}</strong>
+                  <div className="cd-scheme-modal-grid-item">
+                    <span>Required Amount</span>
+                    <strong style={{ color: "#4e7cff" }}>{selectedScheme.cover}</strong>
                   </div>
                 )}
-                <div style={{ background: "rgba(30, 41, 59, 0.5)", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--cd-border)" }}>
-                  <span style={{ fontSize: 11, color: "var(--cd-muted)", display: "block" }}>Enrollment Date</span>
-                  <strong style={{ fontSize: 14, color: "#38bdf8" }}>{selectedScheme.enrollmentDate || selectedScheme.startDate || selectedScheme.renewalDate || "1 Year Activation"}</strong>
+                <div className="cd-scheme-modal-grid-item">
+                  <span>Enrollment Date</span>
+                  <strong style={{ color: "#38bdf8" }}>{selectedScheme.enrollmentDate || selectedScheme.startDate || selectedScheme.renewalDate || "1 Year Activation"}</strong>
                 </div>
-                <div style={{ background: "rgba(30, 41, 59, 0.5)", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--cd-border)" }}>
-                  <span style={{ fontSize: 11, color: "var(--cd-muted)", display: "block" }}>App / Policy Ref</span>
-                  <strong style={{ fontSize: 14, color: "#10b981" }}>{selectedScheme.policyNumber || "AGNI-2026-001"}</strong>
+                <div className="cd-scheme-modal-grid-item">
+                  <span>App / Policy Ref</span>
+                  <strong style={{ color: "#10b981" }}>{selectedScheme.policyNumber || "AGNI-2026-001"}</strong>
                 </div>
               </div>
 
@@ -3098,7 +3045,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                   type="button"
                   className="cd-modal-btn-secondary"
                   onClick={() => setSelectedScheme(null)}
-                  style={{ padding: "8px 20px" }}
+                  style={{ minHeight: 38, padding: "9px 22px" }}
                 >
                   Close
                 </button>

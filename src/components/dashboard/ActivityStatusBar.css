@@ -414,23 +414,121 @@
   border-color: #10b981;
 }
 
-/* Mobile Responsiveness for Stepper */
+/* Mobile Responsiveness for Stepper (Touch Scroll, Snap, and Text Wrapping) */
 @media (max-width: 768px) {
   .activity-status-points-container {
-    gap: 8px;
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-bottom: 8px !important;
+    box-sizing: border-box !important;
+  }
+  .activity-point-item {
+    scroll-snap-align: start !important;
+    flex-shrink: 0 !important;
+    flex: 0 0 auto !important;
+    min-width: 90px !important;
+    max-width: 120px !important;
+    width: auto !important;
   }
   .activity-point-node {
-    width: 40px;
-    height: 40px;
-    font-size: 13px;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    font-size: 13px !important;
   }
   .activity-point-name {
-    font-size: 11px;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
+    max-width: 100% !important;
   }
   .activity-point-status {
-    font-size: 10px;
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
   }
   .activity-status-meter-bar {
-    width: 90px;
+    width: 90px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .activity-status-points-container {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .activity-point-item {
+    scroll-snap-align: start !important;
+    flex-shrink: 0 !important;
+    flex: 0 0 auto !important;
+    min-width: 90px !important;
+    max-width: 115px !important;
+  }
+  .activity-point-node {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    font-size: 13px !important;
+  }
+  .activity-point-name {
+    font-size: 10.5px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
+  }
+  .activity-point-status {
+    font-size: 9.5px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .activity-status-points-container {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .activity-point-item {
+    scroll-snap-align: start !important;
+    flex-shrink: 0 !important;
+    flex: 0 0 auto !important;
+    min-width: 90px !important;
+    max-width: 110px !important;
+  }
+  .activity-point-node {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    font-size: 12px !important;
+  }
+  .activity-point-name {
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
   }
 }
