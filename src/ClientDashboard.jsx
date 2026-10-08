@@ -7,6 +7,7 @@ import MoreServicesPage from "./pages/MoreServicesPage";
 import EligibilityPage from "./pages/EligibilityPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import PaymentsPage from "./pages/PaymentsPage";
+import { useApiPayments } from "./hooks/useApiPayments";
 import { getTrackerState, getSchemeCompletedStages, getClientAllSchemeTrackers, getClientCompositeKey, isClientPrimaryScheme, isPaymentDemandOrSettlement, getCanonicalSchemeName } from "./utils/schemeTracker";
 import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, repairClientStorageData, syncTeamHierarchyFromDB, getCachedHierarchy } from "./utils/branchHelper";
 import ClientInstallButton from "./components/ClientInstallButton";
@@ -283,6 +284,7 @@ const chartPoints = [
 
 /* ── MAIN DASHBOARD COMPONENT ── */
 export default function Dashboard({ onSignOut, userEmail }) {
+  const { payments: apiPayments } = useApiPayments();
   const [activeNav, setActiveNav] = React.useState("Dashboard");
   const [dark, setDark] = React.useState(false);
   const [schemeQuery, setSchemeQuery] = React.useState("");
@@ -298,6 +300,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
   const [passwordError, setPasswordError] = React.useState("");
   const [passwordSuccess, setPasswordSuccess] = React.useState("");
   const [selectedScheme, setSelectedScheme] = React.useState(null);
+  const [activePaymentToSettle, setActivePaymentToSettle] = React.useState(null);
 
   // Quick Action Modals
   const [newRequestOpen, setNewRequestOpen] = React.useState(false);
@@ -1112,8 +1115,61 @@ export default function Dashboard({ onSignOut, userEmail }) {
   // Pending payment demands sent by Sales for this client
   const pendingPaymentDemands = React.useMemo(() => {
     const emailKey = (userEmail || "").trim().toLowerCase();
-    const companyKey = (clientInfo?.companyName || "").trim().toLowerCase();
-    let allDemands = [];
+    const companyKey = (clientInfo?.companyName || clientInfo?.company || "").trim().toLowerCase();
+    const nameKey = (clientInfo?.name || clientInfo?.representativeName || "").trim().toLowerCase();
+    const clientIdKey = String(clientInfo?.clientId || clientInfo?.id || "").trim().toLowerCase();
+
+    // Deduplicate demands by normalized payment identifier
+    const demandMap = new Map();
+
+    const processItem = (p) => {
+      if (!p) return;
+      const idKey = String(p.paymentId || p.id || "").trim();
+      if (!idKey) return;
+
+      const pEmail = (p.clientEmail || p.email || "").trim().toLowerCase();
+      const pComp = (p.clientCompany || p.companyName || p.company || "").trim().toLowerCase();
+      const pName = (p.clientName || p.name || "").trim().toLowerCase();
+      const pClientId = String(p.clientId || p.raw?.clientId || "").trim().toLowerCase();
+
+      const matchEmail = emailKey && pEmail && pEmail === emailKey;
+      const matchComp = companyKey && pComp && (companyKey.includes(pComp) || pComp.includes(companyKey));
+      const matchName = nameKey && pName && (nameKey.includes(pName) || pName.includes(nameKey));
+      const matchClientId = clientIdKey && pClientId && (clientIdKey === pClientId || clientIdKey.includes(pClientId));
+      const matchCross = (companyKey && pName && (companyKey.includes(pName) || pName.includes(companyKey))) ||
+                         (nameKey && pComp && (nameKey.includes(pComp) || pComp.includes(nameKey)));
+
+      if (!matchEmail && !matchComp && !matchName && !matchClientId && !matchCross) {
+        return;
+      }
+
+      const statusLower = String(p.status || "").toLowerCase().trim();
+      const isPaid = statusLower === "paid" || statusLower === "success" || statusLower === "settled" || statusLower === "verified";
+      const isCancelled = statusLower === "cancelled" || statusLower === "rejected";
+
+      // If Paid or Cancelled, remove from pending demands
+      if (isPaid || isCancelled) {
+        demandMap.delete(idKey);
+        if (p.id) demandMap.delete(String(p.id));
+        if (p.paymentId) demandMap.delete(String(p.paymentId));
+        return;
+      }
+
+      // If Awaiting Approval, upgrade status
+      const isAwaiting = statusLower.includes("awaiting");
+      if (demandMap.has(idKey)) {
+        const existing = demandMap.get(idKey);
+        if (isAwaiting) {
+          demandMap.set(idKey, { ...existing, ...p, status: "Awaiting Approval" });
+        } else {
+          demandMap.set(idKey, { ...existing, ...p });
+        }
+      } else {
+        demandMap.set(idKey, p);
+      }
+    };
+
+    // 1. Process local storage demands first (optimistic cache)
     try {
       const s1 = localStorage.getItem("agni_sales_payments");
       const s2 = localStorage.getItem("agni_payment_demands");
@@ -1121,38 +1177,24 @@ export default function Dashboard({ onSignOut, userEmail }) {
       const l1 = s1 ? JSON.parse(s1) : [];
       const l2 = s2 ? JSON.parse(s2) : [];
       const l3 = s3 ? JSON.parse(s3) : [];
-      allDemands = [...l1, ...l2, ...l3];
+      [...l1, ...l2, ...l3].forEach(processItem);
 
       if (emailKey) {
         const perEmail = localStorage.getItem(`agni_payment_demands_${emailKey}`);
         if (perEmail) {
-          try {
-            const parsed = JSON.parse(perEmail);
-            if (Array.isArray(parsed)) allDemands.push(...parsed);
-          } catch (e) { }
+          const parsed = JSON.parse(perEmail);
+          if (Array.isArray(parsed)) parsed.forEach(processItem);
         }
       }
     } catch (e) { }
 
-    const matchMap = new Map();
-    allDemands.forEach((p) => {
-      if (!p || !p.id) return;
-      const statusLower = (p.status || "").toLowerCase();
-      if (statusLower === "paid" || statusLower === "success" || statusLower === "cancelled") return;
+    // 2. Authoritative: Process apiPayments (synced from DB across PCs)
+    if (Array.isArray(apiPayments)) {
+      apiPayments.forEach(processItem);
+    }
 
-      const pEmail = (p.clientEmail || p.email || "").trim().toLowerCase();
-      const pComp = (p.clientCompany || p.clientName || p.company || "").trim().toLowerCase();
-
-      const matchEmail = emailKey && pEmail && pEmail === emailKey;
-      const matchComp = companyKey && pComp && (companyKey.includes(pComp) || pComp.includes(companyKey));
-
-      if (matchEmail || matchComp) {
-        matchMap.set(String(p.id), p);
-      }
-    });
-
-    return Array.from(matchMap.values());
-  }, [userEmail, clientInfo, trackerSyncTick]);
+    return Array.from(demandMap.values());
+  }, [userEmail, clientInfo, trackerSyncTick, apiPayments]);
 
   // Re-sync enrolled plans when storage event fires or user logs in
   React.useEffect(() => {
@@ -2245,7 +2287,12 @@ export default function Dashboard({ onSignOut, userEmail }) {
         ) : activeNav === "Invoices" ? (
           <InvoicesPage userEmail={userEmail} />
         ) : activeNav === "Payments" ? (
-          <PaymentsPage userEmail={userEmail} clientInfo={clientInfo} />
+          <PaymentsPage
+            userEmail={userEmail}
+            clientInfo={clientInfo}
+            initialPayment={activePaymentToSettle}
+            onClearInitialPayment={() => setActivePaymentToSettle(null)}
+          />
         ) : (
           <>
             {/* ── PENDING PAYMENT DEMAND ALERT BANNER ── */}
@@ -2313,7 +2360,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
                       </strong>
                       <button
                         type="button"
-                        onClick={() => setActiveNav("Payments")}
+                        onClick={() => {
+                          setActivePaymentToSettle(target);
+                          setActiveNav("Payments");
+                        }}
                         style={{
                           padding: "10px 22px",
                           borderRadius: 10,
@@ -2389,7 +2439,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
                       </strong>
                       <button
                         type="button"
-                        onClick={() => setActiveNav("Payments")}
+                        onClick={() => {
+                          setActivePaymentToSettle(target);
+                          setActiveNav("Payments");
+                        }}
                         style={{
                           padding: "10px 22px",
                           borderRadius: 10,

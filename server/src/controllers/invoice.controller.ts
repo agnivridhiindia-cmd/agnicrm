@@ -85,3 +85,110 @@ export async function addPayment(req: AuthenticatedRequest, res: Response, next:
     next(error);
   }
 }
+
+const createPaymentRequestSchema = z.object({
+  clientId: z.string().optional(),
+  clientEmail: z.string().optional(),
+  clientName: z.string().optional(),
+  companyName: z.string().optional(),
+  amount: z.number().positive("Requested amount must be positive"),
+  paymentId: z.string().optional(),
+  paymentMode: z.nativeEnum(PaymentMode).optional(),
+  dueDate: z.string().optional(),
+  description: z.string().optional(),
+});
+
+const settlePaymentDemandSchema = z.object({
+  referenceNumber: z.string().optional(),
+  remarks: z.string().optional(),
+});
+
+export async function createPaymentRequest(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const data = createPaymentRequestSchema.parse(req.body);
+    const user = req.user!;
+    const { createPaymentRequestService } = await import("../services/invoice.service");
+    const result = await createPaymentRequestService(user, data);
+    if (!result.success) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function settlePaymentDemand(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const data = settlePaymentDemandSchema.parse(req.body || {});
+    const user = req.user!;
+    const { settlePaymentDemandService } = await import("../services/invoice.service");
+    const result = await settlePaymentDemandService(user, paymentId, data);
+    if (!result.success) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function markPaymentPaid(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const user = req.user!;
+    const { markPaymentPaidService } = await import("../services/invoice.service");
+    const result = await markPaymentPaidService(user, paymentId);
+    if (!result.success) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+const verifyRazorpaySchema = z.object({
+  razorpay_payment_id: z.string().min(1, "Razorpay Payment ID is required"),
+  razorpay_order_id: z.string().min(1, "Razorpay Order ID is required"),
+  razorpay_signature: z.string().min(1, "Razorpay Signature is required"),
+});
+
+export async function createRazorpayOrder(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const user = req.user!;
+    const { createRazorpayOrderService } = await import("../services/invoice.service");
+    const result = await createRazorpayOrderService(user, paymentId);
+    if (!result.success || !("data" in result)) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function verifyRazorpayPayment(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const paymentId = req.params.id as string;
+    const data = verifyRazorpaySchema.parse(req.body);
+    const user = req.user!;
+    const { verifyRazorpayPaymentService } = await import("../services/invoice.service");
+    const result = await verifyRazorpayPaymentService(user, paymentId, data);
+    if (!result.success || !("data" in result)) {
+      res.status(result.statusCode).json({ message: result.message });
+      return;
+    }
+    res.status(result.statusCode).json(result.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+
