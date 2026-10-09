@@ -99,15 +99,6 @@ export async function apiFetch(endpoint, options = {}) {
   }
 
   if (fetchError) {
-    const isTimeout = fetchError.name === "TimeoutError" || fetchError.name === "AbortError";
-    const errorMsg = isTimeout
-      ? "Request timeout: Agni CRM API server took too long to respond."
-      : (fetchError.message || "Network error: Unable to reach Agni CRM API server.");
-    window.dispatchEvent(
-      new CustomEvent("agni_api_error", {
-        detail: { message: errorMsg, status: 0, endpoint },
-      })
-    );
     throw fetchError;
   }
 
@@ -122,23 +113,6 @@ export async function apiFetch(endpoint, options = {}) {
       localStorage.removeItem("agni_email");
       window.dispatchEvent(new CustomEvent("agni_auth_changed"));
       return response;
-    }
-
-    try {
-      const clone = response.clone();
-      const errData = await clone.json();
-      const msg = errData?.message || `API request failed with status ${response.status}`;
-      window.dispatchEvent(
-        new CustomEvent("agni_api_error", {
-          detail: { message: msg, status: response.status, endpoint },
-        })
-      );
-    } catch (e) {
-      window.dispatchEvent(
-        new CustomEvent("agni_api_error", {
-          detail: { message: `API request failed (${response.status})`, status: response.status, endpoint },
-        })
-      );
     }
   }
 

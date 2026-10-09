@@ -4,7 +4,6 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./pages/App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { AuthProvider } from "./context/AuthContext";
-import ApiErrorToast from "./components/ApiErrorToast";
 import "./styles.css";
 import "./utils/pwaInstall";
 
@@ -29,7 +28,6 @@ createRoot(document.getElementById("root")).render(
       <AuthProvider>
         <BrowserRouter>
           <App />
-          <ApiErrorToast />
         </BrowserRouter>
       </AuthProvider>
     </ErrorBoundary>
