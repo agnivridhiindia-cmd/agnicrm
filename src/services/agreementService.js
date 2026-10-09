@@ -59,6 +59,37 @@ export function getTemplateTypeForService(serviceName) {
 }
 
 /**
+ * Helper to generate and format unified Agreement Reference IDs
+ * Format: AGR-YYYYMMDD-(continuing number from 500+, e.g. 501, 502...)
+ */
+export function formatAgreementRef(dateVal, seqNum = 501) {
+  let yyyymmdd = "20260315";
+  if (!dateVal) {
+    const now = new Date();
+    yyyymmdd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+  } else {
+    const str = String(dateVal);
+    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const slashMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (isoMatch) {
+      yyyymmdd = `${isoMatch[1]}${isoMatch[2]}${isoMatch[3]}`;
+    } else if (slashMatch) {
+      yyyymmdd = `${slashMatch[3]}${slashMatch[2]}${slashMatch[1]}`;
+    } else {
+      const parsed = new Date(dateVal);
+      if (!isNaN(parsed.getTime())) {
+        yyyymmdd = `${parsed.getFullYear()}${String(parsed.getMonth() + 1).padStart(2, "0")}${String(parsed.getDate()).padStart(2, "0")}`;
+      }
+    }
+  }
+
+  const num = typeof seqNum === "number" ? seqNum : parseInt(seqNum, 10) || 501;
+  const finalNum = num < 500 ? 500 + num : num;
+
+  return `AGR-${yyyymmdd}-${finalNum}`;
+}
+
+/**
  * Helper to normalize and ensure full backward/forward compatibility
  * between nested backend-ready schema and flat convenience getters.
  */
@@ -100,8 +131,19 @@ export function normalizeAgreementData(agr) {
     (isPrivate ? TEMPLATE_FILES.PRIVATE_FUNDING : TEMPLATE_FILES.SCHEME);
   const pdfUrl = agr.documents?.pdfUrl || agr.pdfUrl || null;
 
+  // Enforce global agreement ref format: AGR-YYYYMMDD-###
+  let agreementId = agr.id;
+  if (!agreementId || !/^AGR-\d{8}-\d+$/.test(agreementId)) {
+    let extractedNum = 501;
+    const matchSuffix = String(agreementId || "").match(/(\d+)$/);
+    if (matchSuffix) {
+      extractedNum = parseInt(matchSuffix[1], 10) || 501;
+    }
+    agreementId = formatAgreementRef(agreementDate || agr.createdAt || agr.date, extractedNum);
+  }
+
   return {
-    id: agr.id,
+    id: agreementId,
     applicationId: appId,
     appId: appId,
     clientId: clientId,
@@ -173,7 +215,7 @@ export function normalizeAgreementData(agr) {
 // Initial backend-ready mock data
 const initialMockAgreements = [
   {
-    id: "AGR-WZ-2026-001",
+    id: "AGR-20260805-501",
     applicationId: "CRM-2026-001",
     client: {
       id: "1",
@@ -353,9 +395,10 @@ export const agreementService = {
     const templateName = isPrivate ? TEMPLATE_NAMES.PRIVATE_FUNDING : TEMPLATE_NAMES.SCHEME;
     const templateFile = isPrivate ? TEMPLATE_FILES.PRIVATE_FUNDING : TEMPLATE_FILES.SCHEME;
 
-    const nextNum = existingCount + 1;
-    const branchCode = client?.branch && client.branch.includes("Mumbai") ? "WZ" : "NZ";
-    const agreementId = `AGR-${branchCode}-2026-${String(nextNum).padStart(3, "0")}`;
+    const nextNum = 500 + existingCount + 1;
+    const now = new Date();
+    const yyyymmdd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    const agreementId = `AGR-${yyyymmdd}-${nextNum}`;
     const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
 
     const newAgreement = normalizeAgreementData({

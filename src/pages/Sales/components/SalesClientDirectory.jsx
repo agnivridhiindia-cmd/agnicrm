@@ -93,16 +93,6 @@ export default function SalesClientDirectory({
             <option value="partial">Partially Paid</option>
             <option value="pending">Pending</option>
           </select>
-
-          <select
-            className="sales-filter-select"
-            value={pipelineFilter || "all"}
-            onChange={(e) => setPipelineFilter && setPipelineFilter(e.target.value)}
-          >
-            <option value="all">All Pipeline Statuses</option>
-            <option value="active_incomplete">Active (Pipeline Incomplete)</option>
-            <option value="completed">Pipeline Completed (100%)</option>
-          </select>
         </div>
 
         <div className="sales-count-badge">
@@ -125,12 +115,10 @@ export default function SalesClientDirectory({
                 <tr>
                   <th style={{ minWidth: 125, width: 125 }}>ID</th>
                   <th>Client & Company</th>
-                  <th>Contact Info</th>
                   <th>Scheme</th>
                   <th style={{ minWidth: 150 }}>Pipeline Progress</th>
                   <th>Total Value</th>
                   <th style={{ minWidth: 150 }}>Payment Status</th>
-                  <th>Stage</th>
                   <th style={{ textAlign: "right" }}>Action</th>
                 </tr>
               </thead>
@@ -155,20 +143,9 @@ export default function SalesClientDirectory({
                         </span>
                       </td>
                       <td>
-                        <div className="client-avatar-cell">
-                          <div className="client-avatar">
-                            {client.name ? client.name.slice(0, 2).toUpperCase() : "CL"}
-                          </div>
-                          <div>
-                            <strong className="client-name-title" style={{ display: "block" }}>{client.name}</strong>
-                            <span className="client-company-sub" style={{ display: "block" }}>{client.company || "Individual"}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="contact-cell">
-                          <span>{client.email}</span>
-                          <span className="contact-phone">{client.phone}</span>
+                        <div>
+                          <strong className="client-name-title" style={{ display: "block" }}>{client.name}</strong>
+                          <span className="client-company-sub" style={{ display: "block" }}>{client.company || "Individual"}</span>
                         </div>
                       </td>
                       <td>
@@ -215,21 +192,6 @@ export default function SalesClientDirectory({
                             />
                           </div>
                         </div>
-                      </td>
-                      <td>
-                        <span
-                          className={`stage-tag ${client.stage === "Active"
-                            ? "active"
-                            : client.stage === "Onboarding"
-                              ? "onboarding"
-                              : client.stage === "Renewal"
-                                ? "renewal"
-                                : "prospect"
-                            }`}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: 999, background: "currentColor" }} />
-                          {client.stage || "Active"}
-                        </span>
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>

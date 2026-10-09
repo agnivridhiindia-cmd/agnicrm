@@ -128,7 +128,7 @@ function CreatePaymentRequestModal({ clients = [], onClose, onSubmit, salesPerso
       email: resolvedEmail,
       clientPhone: resolvedPhone,
       phone: resolvedPhone,
-      type: "Payment Request",
+      type: "Request",
       amount: Number(formData.amount),
       paymentMode: "Online Gateway",
       transactionRef: "",
@@ -356,7 +356,17 @@ function PaymentDetailsModal({ payment, onClose, onDownload, onApprove, onReject
             <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, display: "block" }}>
               Record Type
             </span>
-            <strong style={{ fontSize: 14, marginTop: 2, display: "block", color: "#8c5ff8" }}>{payment.type}</strong>
+            {(() => {
+              const isSettled = payment.status === "Paid" ||
+                String(payment.status || "").toLowerCase() === "settled" ||
+                payment.type === "Settled" ||
+                payment.type === "Payment Settlement";
+              return (
+                <strong style={{ fontSize: 14, marginTop: 2, display: "block", color: isSettled ? "#10b981" : "#8c5ff8" }}>
+                  {isSettled ? "Settled" : "Request"}
+                </strong>
+              );
+            })()}
           </div>
           <div>
             <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600, display: "block" }}>
@@ -616,7 +626,7 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
       const isSettlement = String(p.status || "").toLowerCase().includes("awaiting");
       if (activeTab === "Payment Requests") {
         if (isSettlement) return false;
-        if (!(p.type === "Payment Request" || p.status === "Requested" || p.status === "Pending")) {
+        if (!(p.type === "Request" || p.type === "Payment Request" || p.status === "Requested" || p.status === "Pending")) {
           return false;
         }
       }
@@ -1155,9 +1165,6 @@ Thank you for choosing AgniCRM.
           <strong className="sales-kpi-tile-value" style={{ color: "#10b981" }}>
             {formatCurrency(stats.totalCollected)}
           </strong>
-          <span className="sales-kpi-tile-sub" style={{ color: "#10b981" }}>
-            ✓ Verified settlements
-          </span>
         </div>
 
         <div className="analytics-card sales-kpi-tile">
@@ -1165,9 +1172,6 @@ Thank you for choosing AgniCRM.
           <strong className="sales-kpi-tile-value" style={{ color: "#f59e0b" }}>
             {formatCurrency(stats.totalPending)}
           </strong>
-          <span className="sales-kpi-tile-sub" style={{ color: "#f59e0b" }}>
-            ⏳ Awaiting payment
-          </span>
         </div>
 
         <div className="analytics-card sales-kpi-tile">
@@ -1188,9 +1192,6 @@ Thank you for choosing AgniCRM.
           <strong className="sales-kpi-tile-value">
             {stats.count}
           </strong>
-          <span className="sales-kpi-tile-sub" style={{ color: "#7a748e" }}>
-            Logged in pipeline
-          </span>
         </div>
       </div>
 
@@ -1205,7 +1206,7 @@ Thank you for choosing AgniCRM.
               tab === "All Records"
                 ? userPayments.length
                 : tab === "Payment Requests"
-                ? userPayments.filter((p) => (p.type === "Payment Request" || p.status === "Requested" || p.status === "Pending") && !isSettlement(p)).length
+                ? userPayments.filter((p) => (p.type === "Request" || p.type === "Payment Request" || p.status === "Requested" || p.status === "Pending") && !isSettlement(p)).length
                 : tab === "Settlement Approvals"
                 ? userPayments.filter(isSettlement).length
                 : userPayments.filter((p) => p.status === "Paid").length;
@@ -1263,7 +1264,6 @@ Thank you for choosing AgniCRM.
                 <th>Reference ID</th>
                 <th>Client & Company</th>
                 <th>Type</th>
-                <th>Payment Mode</th>
                 <th>Amount</th>
                 <th>Date / Due Date</th>
                 <th>Status</th>
@@ -1285,22 +1285,28 @@ Thank you for choosing AgniCRM.
                     </div>
                   </td>
                   <td>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "3px 8px",
-                        borderRadius: 6,
-                        background: payment.type === "Payment" ? "rgba(16, 185, 129, 0.12)" : "rgba(140, 95, 248, 0.12)",
-                        color: payment.type === "Payment" ? "#10b981" : "#8c5ff8",
-                        fontWeight: 700,
-                        fontSize: 11.5,
-                      }}
-                    >
-                      {payment.type}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: 13, color: "inherit" }}>{payment.paymentMode}</span>
+                    {(() => {
+                      const isSettled = payment.status === "Paid" ||
+                        String(payment.status || "").toLowerCase() === "settled" ||
+                        payment.type === "Settled" ||
+                        payment.type === "Payment Settlement";
+                      return (
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            background: isSettled ? "rgba(16, 185, 129, 0.12)" : "rgba(140, 95, 248, 0.12)",
+                            color: isSettled ? "#10b981" : "#8c5ff8",
+                            fontWeight: 700,
+                            fontSize: 11.5,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {isSettled ? "Settled" : "Request"}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td>
                     <strong style={{ fontSize: 14, fontWeight: 700, color: payment.status === "Paid" ? "#10b981" : "#f59e0b" }}>
@@ -1360,7 +1366,7 @@ Thank you for choosing AgniCRM.
               ))}
               {filteredPayments.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="sales-empty-cell">
+                  <td colSpan={7} className="sales-empty-cell">
                     No payment records found matching the current filters.
                   </td>
                 </tr>

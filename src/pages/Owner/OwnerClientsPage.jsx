@@ -252,7 +252,6 @@ export default function OwnerClientsPage({
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">{totalClients}</strong>
-                <span className="owner-kpi-tile-sub">Active Corporate Portfolios</span>
               </div>
             </div>
 
@@ -265,7 +264,6 @@ export default function OwnerClientsPage({
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">{fullyPaidCount}</strong>
-                <span className="owner-kpi-tile-sub">Accounts Completed</span>
               </div>
             </div>
 
@@ -278,7 +276,6 @@ export default function OwnerClientsPage({
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">{activePipelineCount}</strong>
-                <span className="owner-kpi-tile-sub">In Execution Pipeline</span>
               </div>
             </div>
 
@@ -291,7 +288,6 @@ export default function OwnerClientsPage({
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">₹{totalPortfolioValue.toLocaleString()}</strong>
-                <span className="owner-kpi-tile-sub">Total Contracted Mandates</span>
               </div>
             </div>
           </div>
@@ -374,7 +370,6 @@ export default function OwnerClientsPage({
                 <thead>
                   <tr>
                     <th>Client &amp; Company</th>
-                    <th>Contact Information</th>
                     <th>Service Scheme</th>
                     <th>Activity Status</th>
                     <th>Milestone Progress</th>
@@ -385,7 +380,7 @@ export default function OwnerClientsPage({
                 <tbody>
                   {clientsPageItems.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="owner-empty-state">
+                      <td colSpan={6} className="owner-empty-state">
                         No clients found matching the selected filter criteria.
                       </td>
                     </tr>
@@ -441,12 +436,6 @@ export default function OwnerClientsPage({
                                   </span>
                                 )}
                               </div>
-                            </div>
-                          </td>
-                          <td>
-                            <div>
-                              <div>{client.email}</div>
-                              <div className="owner-phone-text">{client.phone}</div>
                             </div>
                           </td>
                           <td>

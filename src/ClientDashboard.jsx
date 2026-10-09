@@ -2389,11 +2389,9 @@ export default function Dashboard({ onSignOut, userEmail }) {
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <strong style={{ fontSize: 20, fontWeight: 900, color: "#f59e0b" }}>
-                        ₹{Number(target.amount || 0).toLocaleString("en-IN")}
-                      </strong>
                       <button
                         type="button"
+                        className="cd-pending-demand-cta-btn"
                         onClick={() => {
                           setActivePaymentToSettle(target);
                           setActiveNav("Payments");
@@ -2409,6 +2407,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                           cursor: "pointer",
                           boxShadow: "0 4px 14px rgba(245, 158, 11, 0.35)",
                           transition: "all 0.15s ease",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         Settle & Pay Now →
@@ -2468,11 +2467,9 @@ export default function Dashboard({ onSignOut, userEmail }) {
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <strong style={{ fontSize: 20, fontWeight: 900, color: "#a78bfa" }}>
-                        ₹{Number(target.amount || 0).toLocaleString("en-IN")}
-                      </strong>
                       <button
                         type="button"
+                        className="cd-pending-demand-cta-btn"
                         onClick={() => {
                           setActivePaymentToSettle(target);
                           setActiveNav("Payments");
@@ -2488,6 +2485,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
                           cursor: "pointer",
                           boxShadow: "0 4px 14px rgba(140, 95, 248, 0.35)",
                           transition: "all 0.15s ease",
+                          whiteSpace: "nowrap",
                         }}
                       >
                         View Status →

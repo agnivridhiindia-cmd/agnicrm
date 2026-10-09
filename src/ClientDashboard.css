@@ -3438,7 +3438,7 @@
     width: 100% !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
+    justify-content: flex-end !important;
     gap: 10px !important;
     padding-top: 10px !important;
     border-top: 1px solid rgba(255, 255, 255, 0.14) !important;
@@ -3448,13 +3448,19 @@
     font-size: 18px !important;
   }
 
-  .cd-pending-demand-alert-banner > div:last-child button {
-    flex: 1 !important;
-    max-width: 170px !important;
-    padding: 9px 12px !important;
-    font-size: 12.5px !important;
+  .cd-pending-demand-alert-banner > div:last-child button,
+  .cd-pending-demand-cta-btn {
+    flex: initial !important;
+    width: auto !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+    padding: 9px 16px !important;
+    font-size: 13px !important;
     border-radius: 10px !important;
     text-align: center !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   /* ── Hero Banner & Metrics Ribbon ── */
@@ -5031,8 +5037,7 @@ body.cd-profile-modal-open .cd-header,
 
 /* ── Alert Dismiss Buttons — ensure >= 38px touch targets ── */
 .cd-alert-close-btn,
-.cd-alert-success-banner button,
-.cd-pending-demand-alert-banner button[type="button"] {
+.cd-alert-success-banner button {
   min-width: 38px !important;
   min-height: 38px !important;
   width: 38px !important;

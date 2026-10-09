@@ -140,11 +140,8 @@ export default function RequestHistory({ receivedRequests = [], sentRequests = [
                       <span className="manager-id-pill">{request.id}</span>
                     </td>
                     <td>
-                      <div className="manager-member-avatar-cell">
-                        <div className="manager-member-avatar">{initials}</div>
-                        <div>
-                          <strong className="manager-member-name" style={{ display: "block" }}>{clientTitle}</strong>
-                        </div>
+                      <div>
+                        <strong className="manager-member-name" style={{ display: "block" }}>{clientTitle}</strong>
                       </div>
                     </td>
                     <td>

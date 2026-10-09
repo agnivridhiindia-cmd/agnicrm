@@ -26,16 +26,6 @@ export default function RequestTable({ requests = [], onView }) {
               const salesPersonName = normalizeSalesPersonName(request.salesPerson || request.owner || "Sales Executive");
               const reqType = request.requestType || "Client Approval";
 
-              const initials = clientTitle
-                ? clientTitle
-                    .split(" ")
-                    .filter(Boolean)
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()
-                : "CL";
-
               const reqTypeLower = reqType.toLowerCase();
               const isDelete = reqTypeLower.includes("delete");
 
@@ -46,7 +36,6 @@ export default function RequestTable({ requests = [], onView }) {
                   </td>
                   <td>
                     <div className="mgr-client-cell">
-                      <div className="mgr-client-avatar">{initials}</div>
                       <div className="mgr-client-meta">
                         <strong className="mgr-client-title">{clientTitle}</strong>
                         <span className="mgr-client-subtitle">{clientSub}</span>

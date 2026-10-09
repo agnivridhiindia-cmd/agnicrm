@@ -9,6 +9,31 @@ import AgreementDocumentViewer from "../Agreement/components/AgreementDocumentVi
 
 const PAGE_SIZE = 12;
 
+function formatYYYYMMDD(dateVal) {
+  if (!dateVal) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}${m}${d}`;
+  }
+  const str = String(dateVal);
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}${isoMatch[2]}${isoMatch[3]}`;
+
+  const slashMatch = str.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (slashMatch) return `${slashMatch[3]}${slashMatch[2]}${slashMatch[1]}`;
+
+  const parsed = new Date(dateVal);
+  if (!isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, "0");
+    const d = String(parsed.getDate()).padStart(2, "0");
+    return `${y}${m}${d}`;
+  }
+  return "20260315";
+}
+
 export default function OwnerAgreementPage({ clients = [], showToast }) {
   const [agreements, setAgreements] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,7 +57,7 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
 
   // Map each client to their agreement record
   const clientAgreementRows = useMemo(() => {
-    return clients.map((client) => {
+    return clients.map((client, index) => {
       const match = agreements.find(
         (a) =>
           a.clientId === client.id ||
@@ -43,38 +68,44 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
 
       const scheme = client.serviceName || client.scheme || client.serviceType || "PMEGP";
       const status = match?.status || match?.agreement?.status || AGREEMENT_STATUSES.READY;
-      const refId = match?.id || `AGR-${new Date().getFullYear()}-${String(client.id || 1).padStart(3, "0")}`;
       const agreementDate = match?.agreement?.date || match?.date || client.serviceStart || "2026-03-15";
+      const dateFormatted = formatYYYYMMDD(agreementDate);
+
+      // Company already has 500 agreements; continuing numbers start at 501
+      const seqNum = 500 + index + 1;
+      const refId = `AGR-${dateFormatted}-${seqNum}`;
+
+      const rawAgr = match
+        ? { ...normalizeAgreementData(match), id: refId }
+        : normalizeAgreementData({
+            id: refId,
+            clientId: client.id,
+            applicationId: client.appId || `CRM-${client.id}`,
+            client: {
+              clientName: client.name,
+              companyName: client.company,
+              email: client.email,
+              phone: client.phone,
+              address: client.address || "Corporate Suite, Sector 62",
+            },
+            scheme: {
+              name: scheme,
+              serviceType: client.serviceType || scheme,
+            },
+            agreement: {
+              templateName: `${scheme} Engagement Agreement`,
+              date: agreementDate,
+              status: status,
+            },
+            commercial: {
+              totalServiceFee: client.totalPayment || 50000,
+              advancePayment: client.paymentReceived || 25000,
+            },
+          });
 
       return {
         client,
-        agreement: match
-          ? normalizeAgreementData(match)
-          : normalizeAgreementData({
-              id: refId,
-              clientId: client.id,
-              applicationId: client.appId || `CRM-${client.id}`,
-              client: {
-                clientName: client.name,
-                companyName: client.company,
-                email: client.email,
-                phone: client.phone,
-                address: client.address || "Corporate Suite, Sector 62",
-              },
-              scheme: {
-                name: scheme,
-                serviceType: client.serviceType || scheme,
-              },
-              agreement: {
-                templateName: `${scheme} Engagement Agreement`,
-                date: agreementDate,
-                status: status,
-              },
-              commercial: {
-                totalServiceFee: client.totalPayment || 50000,
-                advancePayment: client.paymentReceived || 25000,
-              },
-            }),
+        agreement: rawAgr,
         status,
         refId,
         scheme,
@@ -146,7 +177,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
           </div>
           <div>
             <strong className="owner-kpi-tile-value">{totalAgreements}</strong>
-            <span className="owner-kpi-tile-sub">All Active Contracts</span>
           </div>
         </div>
 
@@ -161,7 +191,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
             <strong className="owner-kpi-tile-value" style={{ color: "#3b82f6" }}>
               {readyCount}
             </strong>
-            <span className="owner-kpi-tile-sub">Fully Generated Agreements</span>
           </div>
         </div>
 
@@ -176,7 +205,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
             <strong className="owner-kpi-tile-value" style={{ color: "#10b981" }}>
               {sentCount}
             </strong>
-            <span className="owner-kpi-tile-sub">Delivered via Secure Email</span>
           </div>
         </div>
 
@@ -191,7 +219,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
             <strong className="owner-kpi-tile-value" style={{ color: "#f59e0b" }}>
               {pendingCount}
             </strong>
-            <span className="owner-kpi-tile-sub">Awaiting Legal Drafting</span>
           </div>
         </div>
       </div>
@@ -276,7 +303,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
               <tr>
                 <th>Agreement Ref</th>
                 <th>Client &amp; Company</th>
-                <th>Contact Details</th>
                 <th>Service Scheme</th>
                 <th>Agreement Status</th>
                 <th>Date</th>
@@ -286,7 +312,7 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
             <tbody>
               {pagedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="owner-empty-state">
+                  <td colSpan={6} className="owner-empty-state">
                     No client agreements found matching the selected filter criteria.
                   </td>
                 </tr>
@@ -320,12 +346,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
                               {client.company || "Enterprise Account"}
                             </span>
                           </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div>
-                          <div>{client.email}</div>
-                          <div className="owner-phone-text">{client.phone}</div>
                         </div>
                       </td>
                       <td>

@@ -127,7 +127,6 @@ export default function AdminTeamPage({
                 <th>Scheme / Value</th>
                 <th>Activity Status</th>
                 <th>Progress (%)</th>
-                <th>Last Verified</th>
                 <th style={{ textAlign: "right" }}>Admin Actions</th>
               </tr>
             </thead>
@@ -198,7 +197,6 @@ export default function AdminTeamPage({
                         </strong>
                       </div>
                     </td>
-                    <td style={{ fontSize: 12, color: "#64748b" }}>{client.lastUpdated}</td>
                     <td style={{ textAlign: "right" }}>
                       <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
                         {onOpenStatusUpdate && (
@@ -234,7 +232,7 @@ export default function AdminTeamPage({
               })}
               {filteredSpClients.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "36px 16px", color: "#64748b" }}>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "36px 16px", color: "#64748b" }}>
                     No clients found for {selectedSalesPerson.name} under {statusTab}.
                   </td>
                 </tr>

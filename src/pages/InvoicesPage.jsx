@@ -4,6 +4,21 @@ import { generateInvoiceHTML, getPlaceOfSupplyWithCode } from "../utils/invoiceG
 import { printHtmlContent } from "../utils/exportHelpers";
 import { useApiInvoices } from "../hooks/useApiInvoices";
 
+function formatYMD(dateVal) {
+  if (!dateVal) return "—";
+  const str = String(dateVal).trim();
+  if (str.includes("T")) return str.split("T")[0];
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return str;
+}
+
 export default function InvoicesPage({ userEmail }) {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [downloadNotice, setDownloadNotice] = useState(null);
@@ -113,9 +128,8 @@ export default function InvoicesPage({ userEmail }) {
                 <tr>
                   <th>Invoice ID</th>
                   <th>Document Type</th>
-                  <th>Client Name</th>
                   <th>Service Description</th>
-                  <th>Issue Date</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Issue Date</th>
                   <th>Status</th>
                   <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
@@ -145,19 +159,19 @@ export default function InvoicesPage({ userEmail }) {
                           {inv.type || inv.documentType || "Tax Invoice"}
                         </span>
                       </td>
-                      <td>{inv.clientName || "Client"}</td>
                       <td>{inv.description || "Business Consultancy Services"}</td>
-                      <td>{inv.issueDate || "Today"}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{formatYMD(inv.issueDate || inv.date || inv.createdAt)}</td>
                       <td>
                         <span
                           className={`cd-doc-status-badge ${isPaid ? "verified" : "pending"}`}
                           style={{
                             background: isPaid ? "rgba(68, 191, 176, 0.12)" : "rgba(245, 158, 11, 0.12)",
                             color: isPaid ? "#2b9e90" : "#d97706",
-                            borderColor: isPaid ? "rgba(68, 191, 176, 0.3)" : "rgba(245, 158, 11, 0.3)"
+                            borderColor: isPaid ? "rgba(68, 191, 176, 0.3)" : "rgba(245, 158, 11, 0.3)",
+                            whiteSpace: "nowrap"
                           }}
                         >
-                          {isPaid ? "Paid" : "Not Paid"}
+                          {isPaid ? "Paid" : "Unpaid"}
                         </span>
                       </td>
                       <td>
@@ -203,7 +217,7 @@ export default function InvoicesPage({ userEmail }) {
                 color: selectedInvoice.isPaid ? "#2b9e90" : "#d97706"
               }}
             >
-              {selectedInvoice.isPaid ? "Paid & Cleared" : "Not Paid (Pending)"}
+              {selectedInvoice.isPaid ? "Paid" : "Unpaid"}
             </span>
             <h2>{selectedInvoice.id} ({selectedInvoice.type || "Invoice"})</h2>
             <p className="cd-modal-desc">{selectedInvoice.description || "Business Consultancy Services"}</p>

@@ -218,7 +218,6 @@ export default function ManagerClientsPage({
           </div>
           <div>
             <strong className="manager-kpi-tile-value">{clients.length}</strong>
-            <span className="manager-kpi-tile-sub">Managed Portfolio</span>
           </div>
         </div>
 
@@ -231,7 +230,6 @@ export default function ManagerClientsPage({
           </div>
           <div>
             <strong className="manager-kpi-tile-value" style={{ color: "#3b82f6" }}>{salesPeople.length}</strong>
-            <span className="manager-kpi-tile-sub">Active Sales Handlers</span>
           </div>
         </div>
 
@@ -244,7 +242,6 @@ export default function ManagerClientsPage({
           </div>
           <div>
             <strong className="manager-kpi-tile-value" style={{ color: "#10b981" }}>{formatCurrency(stats.totalRevenue)}</strong>
-            <span className="manager-kpi-tile-sub">Acquired Contract Revenue</span>
           </div>
         </div>
       </div>
@@ -347,11 +344,10 @@ export default function ManagerClientsPage({
                   <tr>
                     <th>Client &amp; Company</th>
                     <th>Assigned Rep</th>
-                    <th>Contact Info</th>
                     <th>Service Plan</th>
                     <th>Revenue</th>
                     <th>Onboarding</th>
-                    <th style={{ textAlign: "right" }}>Actions</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -378,9 +374,7 @@ export default function ManagerClientsPage({
                     return (
                       <tr key={client.id}>
                         <td>
-                          <div className="manager-member-avatar-cell">
-                            <div className="manager-member-avatar">{initials}</div>
-                            <div className="manager-member-details">
+                          <div className="manager-member-details">
                               <strong className="manager-member-name">{clientNameStr}</strong>
                               <span className="manager-member-branch">
                                 Contact: {client.contactPerson || client.name || "N/A"}
@@ -405,7 +399,6 @@ export default function ManagerClientsPage({
                                   🔄 Transferred Client
                                 </span>
                               )}
-                            </div>
                           </div>
                         </td>
                         <td>
@@ -413,14 +406,6 @@ export default function ManagerClientsPage({
                             <Icon name="user" size={12} />
                             {repName}
                           </span>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <span>{client.email || "—"}</span>
-                            <span style={{ fontSize: 12, color: "#7a748e", fontFamily: "monospace" }}>
-                              {client.phone || "—"}
-                            </span>
-                          </div>
                         </td>
                         <td>
                           <span className="manager-service-pill">
@@ -435,8 +420,8 @@ export default function ManagerClientsPage({
                         <td>
                           <span style={{ fontSize: 12.5, color: "#7a748e" }}>{onbDate}</span>
                         </td>
-                        <td style={{ textAlign: "right" }}>
-                          <div style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", gap: 6, flexWrap: "nowrap", alignItems: "center", justifyContent: "flex-end", whiteSpace: "nowrap" }}>
                             <button
                               className="manager-view-btn"
                               type="button"
@@ -473,23 +458,6 @@ export default function ManagerClientsPage({
                               <span>Edit</span>
                             </button>
                             <button
-                              className="manager-view-btn"
-                              type="button"
-                              title="Request Client Transfer"
-                              style={{ color: "#8c5ff8", borderColor: "rgba(140, 95, 248, 0.25)" }}
-                              onClick={() =>
-                                setRequestModalConfig({
-                                  isOpen: true,
-                                  initialCategory: "client",
-                                  initialType: "Transfer Client",
-                                  clientId: client.id,
-                                })
-                              }
-                            >
-                              <Icon name="team" size={13} />
-                              <span>Transfer</span>
-                            </button>
-                            <button
                               className="manager-btn-danger"
                               type="button"
                               title="Delete Client Account"
@@ -504,7 +472,7 @@ export default function ManagerClientsPage({
                   })}
                   {filteredClients.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="manager-empty-state">
+                      <td colSpan={6} className="manager-empty-state">
                         No client records found matching your filters.
                       </td>
                     </tr>
@@ -606,25 +574,13 @@ export default function ManagerClientsPage({
                       return (
                         <tr key={client.id}>
                           <td>
-                            <div className="manager-member-avatar-cell">
-                              <div
-                                className="manager-member-avatar"
-                                style={{
-                                  background: "linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.3))",
-                                  color: "#ef4444",
-                                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                                }}
-                              >
-                                {initials}
-                              </div>
-                              <div className="manager-member-details">
-                                <strong className="manager-member-name" style={{ textDecoration: "line-through", opacity: 0.85 }}>
+                            <div className="manager-member-details">
+                              <strong className="manager-member-name" style={{ textDecoration: "line-through", opacity: 0.85 }}>
                                   {clientNameStr}
-                                </strong>
-                                <span className="manager-member-branch">
+                              </strong>
+                              <span className="manager-member-branch">
                                   {client.contactPerson || client.email || "Corporate Contact"}
-                                </span>
-                              </div>
+                              </span>
                             </div>
                           </td>
                           <td>

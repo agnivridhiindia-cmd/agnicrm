@@ -64,7 +64,7 @@ export function useApiPayments() {
               dueDate: pay.dueDate || invDueDate || formattedDate,
               mode: pay.paymentMode || pay.mode,
               paymentMode: pay.paymentMode || pay.mode || "ONLINE",
-              type: pay.type || (isSettled ? "Payment Settlement" : "Payment Request"),
+              type: isSettled ? "Settled" : "Request",
               salesPerson: spName,
               salesPersonEmail: typeof pay.recordedBy === "object" ? pay.recordedBy?.email : "",
               receivedBy: spName,
@@ -170,7 +170,7 @@ export function useApiPayments() {
           amount: Number(p.amount || 0),
           paymentMode: p.paymentMode || p.mode || "Online Gateway",
           status: p.status || "Requested",
-          type: p.type || "Payment Request",
+          type: (p.status === "Paid" || p.status === "SUCCESS") ? "Settled" : "Request",
         });
       }
     });

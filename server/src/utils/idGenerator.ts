@@ -43,9 +43,17 @@ export function generateSchemeCode(): string {
   return `SCH-${year}-${getUniqueSuffix()}`;
 }
 
-export function generateAgreementCode(branchCode: string = "WZ"): string {
-  const year = new Date().getFullYear();
-  return `AGR-${branchCode.toUpperCase()}-${year}-${getUniqueSuffix()}`;
+export function generateAgreementCode(seqOrBranch: number | string = 501, date: Date = new Date()): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  let seq = 501;
+  if (typeof seqOrBranch === "number") {
+    seq = seqOrBranch;
+  } else if (typeof seqOrBranch === "string" && /^\d+$/.test(seqOrBranch)) {
+    seq = parseInt(seqOrBranch, 10);
+  }
+  return `AGR-${yyyy}${mm}${dd}-${seq}`;
 }
 
 export function generateRequestCode(): string {

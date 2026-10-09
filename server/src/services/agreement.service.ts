@@ -161,7 +161,8 @@ export async function generateAgreementService(body: GenerateAgreementInput) {
   } else if (client.appId?.startsWith("APP-")) {
     branchCode = client.appId.split("-")[1] || "WZ";
   }
-  const agreementCode = generateAgreementCode(branchCode);
+  const existingCount = await prisma.agreement.count();
+  const agreementCode = generateAgreementCode(500 + existingCount + 1);
 
   const numPitched = body.pitchedMoney ? parseFloat(String(body.pitchedMoney).replace(/[^0-9.]/g, "")) : 50000;
   const numReceived = body.paymentReceived ? parseFloat(String(body.paymentReceived).replace(/[^0-9.]/g, "")) : 20000;

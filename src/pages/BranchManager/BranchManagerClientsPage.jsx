@@ -299,7 +299,6 @@ export default function BranchManagerClientsPage({
               </div>
               <div>
                 <strong className="bm-kpi-tile-value">{stats.total}</strong>
-                <span className="bm-kpi-tile-sub">Active Client Portfolios</span>
               </div>
             </div>
 
@@ -312,7 +311,6 @@ export default function BranchManagerClientsPage({
               </div>
               <div>
                 <strong className="bm-kpi-tile-value" style={{ color: "#3b82f6" }}>{stats.uniqueReps}</strong>
-                <span className="bm-kpi-tile-sub">Active Sales Handlers</span>
               </div>
             </div>
 
@@ -327,7 +325,6 @@ export default function BranchManagerClientsPage({
                 <strong className="bm-kpi-tile-value" style={{ color: "#10b981" }}>
                   ₹{stats.totalRev.toLocaleString("en-IN")}
                 </strong>
-                <span className="bm-kpi-tile-sub">Total Contract Valuation</span>
               </div>
             </div>
           </div>
@@ -374,23 +371,13 @@ export default function BranchManagerClientsPage({
                   <tr>
                     <th>CLIENT / COMPANY</th>
                     <th>ASSIGNED SALES REP</th>
-                    <th>REGIONAL MANAGER</th>
-                    <th>REGION</th>
                     <th>SERVICE PLAN</th>
                     <th>CONTRACT REVENUE</th>
-                    <th style={{ textAlign: "right" }}>ACTIONS</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClients.map((client) => {
-                    const initials = (client.company || client.name || "CL")
-                      .split(" ")
-                      .filter(Boolean)
-                      .map((n) => n[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase() || "CL";
-
                     const clientTitle = client.company || client.name || "Client Account";
                     const clientSubtitle = client.contactPerson && client.contactPerson !== clientTitle
                       ? `Contact: ${client.contactPerson}`
@@ -403,7 +390,6 @@ export default function BranchManagerClientsPage({
                       <tr key={client.id}>
                         <td>
                           <div className="bm-client-cell">
-                            <div className="bm-client-avatar">{initials}</div>
                             <div className="bm-member-details">
                               <strong className="bm-client-name">{clientTitle}</strong>
                               <span className="bm-client-company">{clientSubtitle}</span>
@@ -437,16 +423,6 @@ export default function BranchManagerClientsPage({
                           </span>
                         </td>
                         <td>
-                          <span className="bm-client-manager">
-                            {client.managerName || "Branch Direct"}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="stage-tag active">
-                            {client.region || client.branch || "West Zone"}
-                          </span>
-                        </td>
-                        <td>
                           <span className="stage-tag completed">
                             {client.service || client.scheme || "Standard"}
                           </span>
@@ -457,7 +433,7 @@ export default function BranchManagerClientsPage({
                           </strong>
                         </td>
                         <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                          <div className="bm-actions-cell" style={{ display: "inline-flex", gap: 6, flexWrap: "nowrap", justifyContent: "flex-end" }}>
+                          <div className="bm-actions-cell" style={{ display: "inline-flex", gap: 6, flexWrap: "nowrap", alignItems: "center", justifyContent: "flex-end", whiteSpace: "nowrap" }}>
                             <button
                               className="bm-view-btn"
                               type="button"
@@ -484,22 +460,6 @@ export default function BranchManagerClientsPage({
                               <span>Edit</span>
                             </button>
                             <button
-                              className="bm-action-btn transfer"
-                              type="button"
-                              title="Transfer Portfolio Ownership"
-                              onClick={() => {
-                                setRequestModalConfig({
-                                  isOpen: true,
-                                  initialCategory: "client",
-                                  initialType: "Transfer Client",
-                                  clientId: String(client.id),
-                                });
-                              }}
-                            >
-                              <Icon name="transfer" size={13} />
-                              <span>Transfer</span>
-                            </button>
-                            <button
                               className="bm-action-btn delete"
                               type="button"
                               title="Submit Offboarding Petition"
@@ -522,7 +482,7 @@ export default function BranchManagerClientsPage({
                   })}
                   {filteredClients.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="bm-empty-state">
+                      <td colSpan={5} className="bm-empty-state">
                         No client records match your search criteria.
                       </td>
                     </tr>
@@ -598,14 +558,6 @@ export default function BranchManagerClientsPage({
                     </tr>
                   ) : (
                     filteredDeletedClients.map((client) => {
-                      const initials = (client.companyName || client.name || "CL")
-                        .split(" ")
-                        .filter(Boolean)
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "CL";
-
                       const creatorName = client.originalSalesPerson?.fullName || client.salesPerson?.fullName || "Original Rep";
                       const lastRepName = client.lastSalesPerson?.fullName || client.salesPerson?.fullName || creatorName;
                       const deleterName = client.deletedByUser?.fullName || "Branch Manager / Owner";
@@ -623,16 +575,6 @@ export default function BranchManagerClientsPage({
                         <tr key={client.id}>
                           <td>
                             <div className="bm-client-cell">
-                              <div
-                                className="bm-client-avatar"
-                                style={{
-                                  background: "linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.3))",
-                                  color: "#ef4444",
-                                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                                }}
-                              >
-                                {initials}
-                              </div>
                               <div className="bm-member-details">
                                 <strong
                                   className="bm-client-name"

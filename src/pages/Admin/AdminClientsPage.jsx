@@ -73,7 +73,6 @@ export default function AdminClientsPage({
               <th>Sales Officer</th>
               <th>Activity Status</th>
               <th>Progress (%)</th>
-              <th>Last Verified</th>
               <th style={{ textAlign: "right" }}>Admin Actions</th>
             </tr>
           </thead>
@@ -146,7 +145,6 @@ export default function AdminClientsPage({
                       </strong>
                     </div>
                   </td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{client.lastUpdated}</td>
                   <td style={{ textAlign: "right" }}>
                     <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
                       <button
@@ -187,7 +185,7 @@ export default function AdminClientsPage({
             })}
             {filteredClients.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ textAlign: "center", padding: "36px 16px", color: "#64748b" }}>
+                <td colSpan={7} style={{ textAlign: "center", padding: "36px 16px", color: "#64748b" }}>
                   No clients found for {selectedBranch} under {statusTab}.
                 </td>
               </tr>

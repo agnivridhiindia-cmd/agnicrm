@@ -81,7 +81,6 @@ export default function ManagerTeamPage({
           </div>
           <div>
             <strong className="manager-kpi-tile-value">{branchTeam.length}</strong>
-            <span className="manager-kpi-tile-sub">Active Sales Representatives</span>
           </div>
         </div>
 
@@ -94,7 +93,6 @@ export default function ManagerTeamPage({
           </div>
           <div>
             <strong className="manager-kpi-tile-value" style={{ color: "#3b82f6" }}>{managedRegion}</strong>
-            <span className="manager-kpi-tile-sub">Designated Territory</span>
           </div>
         </div>
 
@@ -107,7 +105,6 @@ export default function ManagerTeamPage({
           </div>
           <div>
             <strong className="manager-kpi-tile-value" style={{ color: "#10b981" }}>{effectiveBranchManager}</strong>
-            <span className="manager-kpi-tile-sub">Direct Lead & Supervisor</span>
           </div>
         </div>
       </div>
@@ -153,28 +150,18 @@ export default function ManagerTeamPage({
       {/* Team Table Card */}
       <div className="analytics-card manager-table-card">
         <div className="manager-table-scroll">
-          <table className="manager-team-table">
+          <table className="manager-team-table" style={{ tableLayout: "fixed", width: "100%" }}>
             <thead>
               <tr>
-                <th>Member</th>
-                <th>Role</th>
-                <th>Contact Info</th>
-                <th>Monthly Quota</th>
-                <th>Joined</th>
-                <th style={{ textAlign: "right" }}>Action</th>
+                <th style={{ width: "31%" }}>Member</th>
+                <th style={{ width: "15%" }}>Role</th>
+                <th style={{ width: "27%" }}>Monthly Quota</th>
+                <th style={{ width: "12%" }}>Joined</th>
+                <th style={{ width: "15%", textAlign: "right" }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {displayedTeam.map((member) => {
-                const initials = member.name
-                  ? member.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()
-                  : "SP";
-
                 const quotaTargetNum = 80000; // ₹80k monthly target for every salesperson
                 const achievedNum = getMemberMonthlyAchieved(member);
                 const progressPct = Math.min(100, Math.max(0, Math.round((achievedNum / quotaTargetNum) * 100)));
@@ -184,26 +171,15 @@ export default function ManagerTeamPage({
                 return (
                   <tr key={member.id}>
                     <td>
-                      <div className="manager-member-avatar-cell">
-                        <div className="manager-member-avatar">{initials}</div>
-                        <div className="manager-member-details">
-                          <strong className="manager-member-name">{member.name}</strong>
-                          <span className="manager-member-branch">
-                            {member.branch} Branch • {member.region || managedRegion}
-                          </span>
-                        </div>
+                      <div className="manager-member-details">
+                        <strong className="manager-member-name" style={{ whiteSpace: "nowrap" }}>{member.name}</strong>
+                        <span className="manager-member-branch" style={{ whiteSpace: "nowrap" }}>
+                          {member.branch} Branch • {member.region || managedRegion}
+                        </span>
                       </div>
                     </td>
                     <td>
                       <span className="manager-role-tag">{member.role}</span>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span>{member.email}</span>
-                        <span style={{ fontSize: 12, color: "#7a748e", fontFamily: "monospace" }}>
-                          {member.phone}
-                        </span>
-                      </div>
                     </td>
                     <td>
                       <div className="manager-quota-cell">
@@ -223,7 +199,7 @@ export default function ManagerTeamPage({
                       </div>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12.5, color: "#7a748e" }}>{member.joiningDate || "Jan 2025"}</span>
+                      <span style={{ fontSize: 12.5, color: "#7a748e", whiteSpace: "nowrap" }}>{member.joiningDate || "Jan 2025"}</span>
                     </td>
                     <td style={{ textAlign: "right" }}>
                       <button
@@ -240,7 +216,7 @@ export default function ManagerTeamPage({
               })}
               {displayedTeam.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="manager-empty-state">
+                  <td colSpan={5} className="manager-empty-state">
                     No team members found matching your search.
                   </td>
                 </tr>

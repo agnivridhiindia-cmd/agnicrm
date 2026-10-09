@@ -437,7 +437,7 @@ model RequestAudit {
 
 model Agreement {
   id             String          @id @default(uuid())
-  agreementCode  String          @unique // e.g. AGR-WZ-2026-001
+  agreementCode  String          @unique // e.g. AGR-20260315-501
   templateType   String          // SCHEME, IT_SERVICE, MARKETING_SERVICE
   templateName   String
   status         AgreementStatus @default(DRAFT)

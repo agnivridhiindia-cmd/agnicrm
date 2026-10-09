@@ -651,8 +651,7 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
                   <th>Transaction ID</th>
                   <th>Record Type</th>
                   <th>Description / Scheme</th>
-                  <th>Payment Mode</th>
-                  <th>Date</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Date</th>
                   <th>Amount</th>
                   <th>Status</th>
                   <th style={{ textAlign: "right" }}>Actions</th>
@@ -673,16 +672,11 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
                       </td>
                       <td>
                         <span style={{ fontSize: 12, fontWeight: 600, color: isPaid ? "#10b981" : isAwaitingApproval ? "#8c5ff8" : "#f59e0b" }}>
-                          {pay.type || "Payment Settlement"}
+                          {isPaid ? "Settlement" : "Request"}
                         </span>
                       </td>
                       <td>{pay.description || pay.relatedInvoice ? `Payment for ${pay.relatedInvoice}` : "Consultancy Services Fee"}</td>
-                      <td>
-                        <span style={{ fontSize: 12.5, color: "#475569", fontWeight: 500 }}>
-                          {pay.paymentMode || "Online Gateway"}
-                        </span>
-                      </td>
-                      <td>{pay.date || pay.dueDate || "Today"}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{pay.date || pay.dueDate || "Today"}</td>
                       <td>
                         <strong style={{ fontSize: 14, color: isPaid ? "#10b981" : isAwaitingApproval ? "#8c5ff8" : "#f59e0b" }}>
                           {formattedAmt}
@@ -695,9 +689,10 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
                             background: isPaid ? "rgba(16, 185, 129, 0.12)" : isAwaitingApproval ? "rgba(140, 95, 248, 0.12)" : "rgba(245, 158, 11, 0.12)",
                             color: isPaid ? "#10b981" : isAwaitingApproval ? "#6d28d9" : "#d97706",
                             borderColor: isPaid ? "rgba(16, 185, 129, 0.3)" : isAwaitingApproval ? "rgba(140, 95, 248, 0.3)" : "rgba(245, 158, 11, 0.3)",
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {isPaid ? "Settled & Paid" : isAwaitingApproval ? "Awaiting Sales Approval" : "Pending Demand"}
+                          {isPaid ? "Paid" : "Pending"}
                         </span>
                       </td>
                       <td>
@@ -756,9 +751,9 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
                 color: selectedPayment.isPaid ? "#10b981" : selectedPayment.isAwaitingApproval ? "#6d28d9" : "#d97706",
               }}
             >
-              {selectedPayment.isPaid ? "Settled & Verified" : selectedPayment.isAwaitingApproval ? "Awaiting Salesperson Approval" : "Pending Payment Demand"}
+              {selectedPayment.isPaid ? "Paid" : "Pending"}
             </span>
-            <h2>{selectedPayment.id} ({selectedPayment.type || "Payment Record"})</h2>
+            <h2>{selectedPayment.id} ({selectedPayment.isPaid ? "Settlement" : "Request"})</h2>
             <p className="cd-modal-desc">{selectedPayment.description || "Business consultancy fee payment record."}</p>
 
             <div className="cd-scheme-meta-box" style={{ gridTemplateColumns: "1fr 1fr", marginBottom: 20 }}>

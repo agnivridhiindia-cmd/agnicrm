@@ -89,9 +89,10 @@ export default function AgreementFormModal({
       return;
     }
 
-    const nextNumber = existingAgreements.length + 1;
-    const branchCode = activeClient.branch ? (activeClient.branch.includes("Mumbai") ? "WZ" : "NZ") : "GEN";
-    const agreementId = `AGR-${branchCode}-2026-${String(nextNumber).padStart(3, "0")}`;
+    const nextNumber = 500 + existingAgreements.length + 1;
+    const now = new Date();
+    const yyyymmdd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    const agreementId = `AGR-${yyyymmdd}-${nextNumber}`;
     const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
 
     const agreementRecord = {
