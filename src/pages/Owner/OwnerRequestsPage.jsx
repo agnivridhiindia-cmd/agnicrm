@@ -37,9 +37,6 @@ export default function OwnerRequestsPage({
         <div className="owner-header-info">
           <p className="owner-header-eyebrow">Governance & Approvals</p>
           <h1 className="owner-header-title">Branch Manager Requests</h1>
-          <p className="owner-header-subtitle">
-            Review and decide on client modifications, operational requests, and budget allocations submitted by Branch Managers.
-          </p>
         </div>
       </div>
 

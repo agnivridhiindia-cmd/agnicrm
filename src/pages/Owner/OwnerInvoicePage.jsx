@@ -68,9 +68,6 @@ export default function OwnerInvoicePage({
         <div className="owner-header-info">
           <p className="owner-header-eyebrow">Financial Billing & Records</p>
           <h1 className="owner-header-title">Client Invoices</h1>
-          <p className="owner-header-subtitle">
-            Manage, search, and track billing collections across all company branches &amp; territorial regions.
-          </p>
         </div>
         <button
           type="button"

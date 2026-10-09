@@ -3,7 +3,6 @@ import KpiCard from "../../components/KpiCard";
 import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
 import { RevenueSparkline } from "../../components/charts";
-import { workforceKpiCards } from "./mockOwnerData";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 import "./owner.css";
 const defaultOwnerActivities = [];
@@ -44,7 +43,6 @@ export default function OwnerOverviewPage({
         value: clientsCount.toLocaleString("en-IN"),
         description: "Active client accounts",
         accent: "#3b82f6",
-        icon: "clients",
         linkTo: "Clients",
         slug: "clients",
       },
@@ -53,7 +51,6 @@ export default function OwnerOverviewPage({
         value: branchManagersCount.toLocaleString("en-IN"),
         description: "Branch performance leads",
         accent: "#0284c7",
-        icon: "branches",
         linkTo: "Employees",
         employeeRole: "branch manager",
         slug: "branch-managers",
@@ -63,7 +60,6 @@ export default function OwnerOverviewPage({
         value: salesManagersCount.toLocaleString("en-IN"),
         description: "Regional sales leads",
         accent: "#4f46e5",
-        icon: "team",
         linkTo: "Employees",
         employeeRole: "manager",
         slug: "managers",
@@ -73,7 +69,6 @@ export default function OwnerOverviewPage({
         value: salesPersonsCount.toLocaleString("en-IN"),
         description: "Active sales reps",
         accent: "#14b8a6",
-        icon: "team",
         linkTo: "Employees",
         employeeRole: "sales",
         slug: "sales",
@@ -95,7 +90,6 @@ export default function OwnerOverviewPage({
         value: `₹${(revenueMetrics.dailyNet || 0).toLocaleString("en-IN")}`,
         description: "All salespeople & branches (Today)",
         accent: "#10b981",
-        icon: "revenue",
         linkTo: "Revenue",
         slug: "daily-revenue",
         rangeType: "daily",
@@ -105,7 +99,6 @@ export default function OwnerOverviewPage({
         value: `₹${(revenueMetrics.weeklyNet || 0).toLocaleString("en-IN")}`,
         description: "All salespeople & branches (This week)",
         accent: "#6366f1",
-        icon: "revenue",
         linkTo: "Revenue",
         slug: "weekly-revenue",
         rangeType: "weekly",
@@ -115,7 +108,6 @@ export default function OwnerOverviewPage({
         value: `₹${(revenueMetrics.monthlyNet || 0).toLocaleString("en-IN")}`,
         description: "All salespeople & branches (This month)",
         accent: "#f59e0b",
-        icon: "revenue",
         linkTo: "Revenue",
         slug: "monthly-revenue",
         rangeType: "monthly",
@@ -125,7 +117,6 @@ export default function OwnerOverviewPage({
         value: `₹${(revenueMetrics.yearlyNet || 0).toLocaleString("en-IN")}`,
         description: "FY 2026-27 annual total",
         accent: "#8b5cf6",
-        icon: "revenue",
         linkTo: "Revenue",
         slug: "yearly-revenue",
         rangeType: "yearly",
@@ -135,7 +126,6 @@ export default function OwnerOverviewPage({
         value: `₹${(revenueMetrics.totalReceivedNet || 0).toLocaleString("en-IN")}`,
         description: "All revenue generated till date",
         accent: "#059669",
-        icon: "overview",
         linkTo: "Invoice",
         slug: "payment-received",
         rangeType: "received",
@@ -145,7 +135,6 @@ export default function OwnerOverviewPage({
         value: `₹${(revenueMetrics.totalPendingNet || 0).toLocaleString("en-IN")}`,
         description: "Pending dues from token & partial clients",
         accent: "#dc2626",
-        icon: "bell",
         linkTo: "Invoice",
         slug: "payment-pending",
         rangeType: "pending",

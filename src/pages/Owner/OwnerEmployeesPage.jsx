@@ -706,9 +706,6 @@ export default function OwnerEmployeesPage({
         <div className="owner-header-info">
           <p className="owner-header-eyebrow">Workforce Governance</p>
           <h1 className="owner-header-title">Enterprise Employee Directory</h1>
-          <p className="owner-header-subtitle">
-            Manage corporate organization hierarchy, branch deployments, reporting chains, and cross-functional team allocations.
-          </p>
         </div>
         <button
           type="button"

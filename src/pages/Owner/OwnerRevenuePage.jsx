@@ -81,6 +81,10 @@ export default function OwnerRevenuePage({
     ? Math.max(...selectedRevenueData.map((pt) => pt.value))
     : 0;
 
+  const receivedPct = revenueTotal > 0 ? Math.round((revenueReceived / revenueTotal) * 100) : 0;
+  const pendingPct = revenueTotal > 0 ? Math.round((revenuePending / revenueTotal) * 100) : 0;
+  const totalPct = revenueTotal > 0 ? 100 : 0;
+
   const revenueSummaryCards = [
     {
       label: "Payment received",
@@ -88,6 +92,7 @@ export default function OwnerRevenuePage({
       hint: "Collected from clients (Net)",
       accentClass: "received",
       icon: "arrowUp",
+      percentage: receivedPct,
     },
     {
       label: "Payment pending",
@@ -95,6 +100,7 @@ export default function OwnerRevenuePage({
       hint: "Awaiting confirmation",
       accentClass: "pending",
       icon: "overview",
+      percentage: pendingPct,
     },
     {
       label: "Total payment",
@@ -102,6 +108,7 @@ export default function OwnerRevenuePage({
       hint: "Overall revenue range",
       accentClass: "total",
       icon: "revenue",
+      percentage: totalPct,
     },
   ];
 
@@ -112,9 +119,6 @@ export default function OwnerRevenuePage({
         <div className="owner-header-info">
           <p className="owner-header-eyebrow">Financial Analytics</p>
           <h1 className="owner-header-title">Executive Revenue Analytics</h1>
-          <p className="owner-header-subtitle">
-            Track revenue performance, collection volumes, and commercial billing trajectories across all regional branches.
-          </p>
         </div>
       </div>
 
