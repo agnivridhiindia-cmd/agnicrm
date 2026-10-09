@@ -1,3 +1,23 @@
+import {
+  getTrackerStages,
+  getTrackerState,
+  normalizeCompletedStages,
+  getProcessTypeForScheme,
+  getCanonicalSchemeName,
+  TRACKER_STAGES_DEFINITIONS,
+  SCHEME_PROCESS_TYPE_MAP,
+} from "../../utils/schemeTracker";
+
+export {
+  getTrackerStages,
+  getTrackerState,
+  normalizeCompletedStages,
+  getProcessTypeForScheme,
+  getCanonicalSchemeName,
+  TRACKER_STAGES_DEFINITIONS,
+  SCHEME_PROCESS_TYPE_MAP,
+};
+
 export const initialBranches = [
   {
     id: "BR-01",
@@ -65,26 +85,6 @@ export const initialBranches = [
   },
 ];
 
-import {
-  getTrackerStages,
-  getTrackerState,
-  normalizeCompletedStages,
-  getProcessTypeForScheme,
-  getCanonicalSchemeName,
-  TRACKER_STAGES_DEFINITIONS,
-  SCHEME_PROCESS_TYPE_MAP,
-} from "../utils/schemeTracker";
-
-export {
-  getTrackerStages,
-  getTrackerState,
-  normalizeCompletedStages,
-  getProcessTypeForScheme,
-  getCanonicalSchemeName,
-  TRACKER_STAGES_DEFINITIONS,
-  SCHEME_PROCESS_TYPE_MAP,
-};
-
 // Default generic 5-stage list (CRM Creation -> Agreement -> Reports -> Application -> Final)
 export const ACTIVITY_STAGES = getTrackerStages("PMEGP");
 
@@ -116,4 +116,3 @@ export const stageBadgeColors = {
 
 export const formatCurrency = (val) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(val || 0);
-

@@ -32,7 +32,12 @@ export default function TopPerformerLeaderboard({ performers = [] }) {
         </div>
         <button type="button">See all</button>
       </div>
-      {groups.map((group) => (
+      {groups.length === 0 ? (
+        <div style={{ padding: "32px 16px", textAlign: "center", color: "#6f6a86", fontSize: 14 }}>
+          No performance records recorded yet.
+        </div>
+      ) : (
+        groups.map((group) => (
         <div key={group.role} className="performance-panel-group">
           <h3 style={{ margin: '0 0 16px', color: '#6f6a86', fontSize: 14 }}>{group.role}</h3>
           <div className="performance-lists">
@@ -53,7 +58,8 @@ export default function TopPerformerLeaderboard({ performers = [] }) {
             })}
           </div>
         </div>
-      ))}
+      ))
+    )}
     </section>
   );
 }

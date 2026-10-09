@@ -319,16 +319,22 @@ export default function ManagerOverviewPage({ onNavigate, dark, branchTeam = [],
             </div>
           </div>
           <div className="activity-list">
-            {activities.map((activity) => (
-              <div className="activity-row" key={activity.title}>
-                <span className="activity-mark" style={{ background: activity.tone }} />
-                <div>
-                  <strong>{activity.title}</strong>
-                  <small>{activity.detail}</small>
+            {activities.length === 0 ? (
+              <p style={{ color: "#64748b", fontSize: 13, textAlign: "center", padding: "16px 0", margin: 0 }}>
+                No recent activity.
+              </p>
+            ) : (
+              activities.map((activity) => (
+                <div className="activity-row" key={activity.title}>
+                  <span className="activity-mark" style={{ background: activity.tone }} />
+                  <div>
+                    <strong>{activity.title}</strong>
+                    <small>{activity.detail}</small>
+                  </div>
+                  <time>{activity.time}</time>
                 </div>
-                <time>{activity.time}</time>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </section>
       </aside>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { mockEligibleSchemes } from "../mockData/mockEligibleSchemes";
 import { apiFetch } from "../services/apiClient";
 
 function cleanDescription(desc) {

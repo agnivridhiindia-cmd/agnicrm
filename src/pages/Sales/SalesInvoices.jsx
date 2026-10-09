@@ -3,7 +3,6 @@ import { apiFetch } from "../../services/apiClient";
 import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
-import { mockClients } from "./mockClients";
 import { isClientCreatedByUser } from "./hooks/useSalesClients";
 import { useApiInvoices } from "../../hooks/useApiInvoices";
 import { useApiClients } from "../../hooks/useApiClients";
@@ -759,7 +758,6 @@ export default function SalesInvoices({ clients: propClients, salesPersonName, u
     };
 
     if (Array.isArray(propClients)) propClients.forEach(addSalesClient);
-    if (Array.isArray(mockClients)) mockClients.forEach(addSalesClient);
     if (Array.isArray(apiClients)) apiClients.forEach(addSalesClient);
 
     return list;
