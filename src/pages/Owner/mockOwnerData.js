@@ -15,7 +15,6 @@ export const revenueKpiCards = [
   {
     label: "Daily Revenue",
     value: "₹14,250",
-    trend: "+12%",
     description: "Generated today",
     accent: "#10b981",
     icon: "revenue",
@@ -25,7 +24,6 @@ export const revenueKpiCards = [
   {
     label: "Weekly Revenue",
     value: "₹98,400",
-    trend: "+15%",
     description: "This week's collection",
     accent: "#6366f1",
     icon: "revenue",
@@ -35,7 +33,6 @@ export const revenueKpiCards = [
   {
     label: "Monthly Revenue",
     value: "₹2,78,800",
-    trend: "+22%",
     description: "Compared to last month",
     accent: "#f59e0b",
     icon: "revenue",
@@ -45,7 +42,6 @@ export const revenueKpiCards = [
   {
     label: "Yearly Revenue",
     value: "₹32,45,000",
-    trend: "+28%",
     description: "FY 2026-27 annual total",
     accent: "#8b5cf6",
     icon: "revenue",
@@ -55,7 +51,6 @@ export const revenueKpiCards = [
   {
     label: "Total Payment Received",
     value: "₹24,80,000",
-    trend: "+94%",
     description: "Collected from invoices",
     accent: "#059669",
     icon: "overview",
@@ -65,7 +60,6 @@ export const revenueKpiCards = [
   {
     label: "Total Payment Pending",
     value: "₹7,65,000",
-    trend: "Outstanding",
     description: "Pending client dues",
     accent: "#dc2626",
     icon: "bell",
@@ -78,7 +72,6 @@ export const workforceKpiCards = [
   {
     label: "Total Clients",
     value: "248",
-    trend: "+18%",
     description: "Active client accounts",
     accent: "#3b82f6",
     icon: "clients",
@@ -88,7 +81,6 @@ export const workforceKpiCards = [
   {
     label: "Total Branch Managers",
     value: "7",
-    trend: "+5%",
     description: "Branch performance leads",
     accent: "#0284c7",
     icon: "branches",
@@ -99,7 +91,6 @@ export const workforceKpiCards = [
   {
     label: "Total Sales Managers",
     value: "42",
-    trend: "+8%",
     description: "Regional sales leads",
     accent: "#4f46e5",
     icon: "team",
@@ -110,7 +101,6 @@ export const workforceKpiCards = [
   {
     label: "Sales Persons",
     value: "124",
-    trend: "+12%",
     description: "Active sales reps",
     accent: "#14b8a6",
     icon: "team",

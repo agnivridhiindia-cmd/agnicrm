@@ -10,7 +10,7 @@ export const kpiCards = [
   { label: "Total Employees", value: "9", trend: "Live DB", description: "Staff in branch (excl. manager)", accent: "#4e7cff", linkTo: "Employees" },
   { label: "Active Clients", value: "0", trend: "Live DB", description: "Currently active", accent: "#44bfb0", linkTo: "Clients" },
   { label: "Pending Requests", value: "0", trend: "All Clear", description: "Awaiting action", accent: "#f2aa38", linkTo: "Requests" },
-  { label: "Branch Revenue", value: "₹0", trend: "Excl. 18% GST", description: "Payments minus 18% GST (payment/1.18)", accent: "#f97316", linkTo: "Revenue" },
+  { label: "Branch Revenue", value: "₹0", description: "Payments minus 18% GST", accent: "#f97316", linkTo: "Revenue" },
 ];
 
 export const initialBranchManagerClients = [];

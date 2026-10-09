@@ -54,13 +54,6 @@ export default function KpiCard({ card, onAction, onClick, dark, ...props }) {
           )}
           <span>{label}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {trend && (
-            <span className="metric-chip">
-              {trend}
-            </span>
-          )}
-        </div>
       </div>
       <h2>{value}</h2>
       {description && <p>{description}</p>}

@@ -162,7 +162,7 @@ export default function BranchManagerOverviewPage({
       { label: "Total Employees", value: String(totalEmployeesCount), trend: "Live DB", description: "Staff in branch (excl. manager)", accent: "#4e7cff", linkTo: "Employees" },
       { label: "Active Clients", value: String(clients.length || 0), trend: "Live DB", description: "Currently active", accent: "#44bfb0", linkTo: "Clients" },
       { label: "Pending Requests", value: String(pendingCount), trend: pendingCount > 0 ? `${pendingCount} Needs Action` : "All Clear", description: "Awaiting review", accent: "#f2aa38", linkTo: "Requests" },
-      { label: "Branch Revenue", value: `₹${netRev.toLocaleString("en-IN")}`, trend: "Excl. 18% GST", description: "Payments minus 18% GST (payment/1.18)", accent: "#f97316", linkTo: "Revenue" },
+      { label: "Branch Revenue", value: `₹${netRev.toLocaleString("en-IN")}`, description: "Payments minus 18% GST", accent: "#f97316", linkTo: "Revenue" },
     ];
   }, [clients, revenueMetrics, pendingCount, salesManagersCount, totalEmployeesCount]);
 
