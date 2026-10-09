@@ -40,7 +40,6 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
             localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
           }
           localStorage.setItem("agni_user", JSON.stringify(data.user));
-          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
         }
       })
       .catch(() => {});

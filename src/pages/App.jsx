@@ -178,12 +178,16 @@ const ROLE_MAP = {
 export default function App() {
   const navigate = useNavigate();
 
-  const [userRole, setUserRole] = React.useState(
-    () => localStorage.getItem("agni_user_role") || ""
-  );
-  const [userEmail, setUserEmail] = React.useState(
-    () => localStorage.getItem("agni_user_email") || ""
-  );
+  const initialToken = typeof window !== "undefined" ? localStorage.getItem("agni_token") : null;
+  const initialRole = typeof window !== "undefined" ? localStorage.getItem("agni_user_role") : null;
+  const initialEmail = typeof window !== "undefined" ? localStorage.getItem("agni_user_email") : null;
+
+  // If no token exists, auth is immediately ready (unauthenticated) to avoid any loading flash
+  const [isAuthReady, setIsAuthReady] = React.useState(() => !initialToken);
+  const [userRole, setUserRole] = React.useState(() => (initialToken ? initialRole || "" : ""));
+  const [userEmail, setUserEmail] = React.useState(() => (initialToken ? initialEmail || "" : ""));
+
+  const isCheckingRef = React.useRef(false);
 
   const rolePathMap = {
     "Admin": "/admin",
@@ -196,46 +200,46 @@ export default function App() {
     "IT": "/it",
   };
 
-  React.useEffect(() => {
-    // Purge mock clients and stale sessions on mount
-    clearAllSavedClients();
+  const checkAuth = React.useCallback(async () => {
+    if (isCheckingRef.current) return;
+    isCheckingRef.current = true;
 
-    if (typeof window !== "undefined") {
-      window.clearAllCreatedClients = clearAllSavedClients;
+    const storedToken = localStorage.getItem("agni_token");
+    const storedRole = localStorage.getItem("agni_user_role");
+    const storedEmail = (localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
+
+    // Without token or with mock email, wipe and mark ready
+    if (
+      !storedToken ||
+      !storedRole ||
+      !storedEmail ||
+      storedEmail.includes("feedus") ||
+      storedEmail.includes("rajput") ||
+      storedEmail.includes("yash@") ||
+      storedEmail.includes("bar@")
+    ) {
+      localStorage.removeItem("agni_user_email");
+      localStorage.removeItem("agni_user_role");
+      localStorage.removeItem("agni_role");
+      localStorage.removeItem("agni_user");
+      localStorage.removeItem("agni_email");
+      localStorage.removeItem("agni_token");
+      setUserRole("");
+      setUserEmail("");
+      setIsAuthReady(true);
+      isCheckingRef.current = false;
+      if (window.location.pathname !== "/login" && window.location.pathname !== "/auth") {
+        navigate("/login", { replace: true });
+      }
+      return;
     }
 
-    const checkAuth = async () => {
-      // If user directly visits /auth or /login, allow seeing the auth screen cleanly
-      if (window.location.pathname === "/auth" || window.location.pathname === "/login") {
-        const token = localStorage.getItem("agni_token");
-        const storedRole = localStorage.getItem("agni_user_role");
-        if (!token || !storedRole) {
-          localStorage.removeItem("agni_user_email");
-          localStorage.removeItem("agni_user_role");
-          localStorage.removeItem("agni_role");
-          localStorage.removeItem("agni_user");
-          localStorage.removeItem("agni_email");
-          localStorage.removeItem("agni_token");
-          setUserRole("");
-          setUserEmail("");
-          return;
-        }
-      }
-
-      const storedToken = localStorage.getItem("agni_token");
-      const storedRole = localStorage.getItem("agni_user_role");
-      const storedEmail = (localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
-
-      // Without token or with mock email, wipe and reject
-      if (
-        !storedToken ||
-        !storedRole ||
-        !storedEmail ||
-        storedEmail.includes("feedus") ||
-        storedEmail.includes("rajput") ||
-        storedEmail.includes("yash@") ||
-        storedEmail.includes("bar@")
-      ) {
+    // Authoritative verification against PostgreSQL backend
+    try {
+      const res = await apiFetch("/auth/me");
+      if (!res.ok) {
+        // Token is invalid or user no longer exists in DB
+        localStorage.removeItem("agni_user_name");
         localStorage.removeItem("agni_user_email");
         localStorage.removeItem("agni_user_role");
         localStorage.removeItem("agni_role");
@@ -244,72 +248,75 @@ export default function App() {
         localStorage.removeItem("agni_token");
         setUserRole("");
         setUserEmail("");
+        setIsAuthReady(true);
+        isCheckingRef.current = false;
         if (window.location.pathname !== "/login" && window.location.pathname !== "/auth") {
           navigate("/login", { replace: true });
         }
         return;
       }
 
-      // Authoritative verification against PostgreSQL backend
-      try {
-        const res = await apiFetch("/auth/me");
-        if (!res.ok) {
-          // Token is invalid or user no longer exists in DB!
-          localStorage.removeItem("agni_user_name");
-          localStorage.removeItem("agni_user_email");
-          localStorage.removeItem("agni_user_role");
-          localStorage.removeItem("agni_role");
-          localStorage.removeItem("agni_user");
-          localStorage.removeItem("agni_email");
-          localStorage.removeItem("agni_token");
-          setUserRole("");
-          setUserEmail("");
-          navigate("/login", { replace: true });
-          return;
+      const data = await res.json();
+      if (data.success && data.user) {
+        const rawRole = data.user.role;
+        const mappedRole = ROLE_MAP[rawRole] || rawRole || storedRole;
+        setUserRole(mappedRole);
+        setUserEmail(data.user.email);
+        localStorage.setItem("agni_user", JSON.stringify(data.user));
+        if (data.user.fullName || data.user.name) {
+          localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
         }
-
-        const data = await res.json();
-        if (data.success && data.user) {
-          const rawRole = data.user.role;
-          const mappedRole = ROLE_MAP[rawRole] || rawRole || storedRole;
-          setUserRole(mappedRole);
-          setUserEmail(data.user.email);
-          localStorage.setItem("agni_user", JSON.stringify(data.user));
-          if (data.user.fullName || data.user.name) {
-            localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
-          }
-          if (data.user.branch?.name) {
-            localStorage.setItem("agni_user_branch", data.user.branch.name);
-          }
-          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
-          if (window.location.pathname === "/" || window.location.pathname === "/login") {
-            const targetPath = rolePathMap[mappedRole] || "/login";
-            navigate(targetPath, { replace: true });
-          }
+        if (data.user.branch?.name) {
+          localStorage.setItem("agni_user_branch", data.user.branch.name);
         }
-      } catch (err) {
-        // Network failure fallback
-        setUserRole(storedRole);
-        setUserEmail(storedEmail);
-        if (window.location.pathname === "/" || window.location.pathname === "/login") {
-          const targetPath = rolePathMap[storedRole] || "/login";
+        // NOTE: Do not dispatch agni_auth_changed here to prevent recursive loop with the listener
+        if (window.location.pathname === "/" || window.location.pathname === "/login" || window.location.pathname === "/auth") {
+          const targetPath = rolePathMap[mappedRole] || "/login";
           navigate(targetPath, { replace: true });
         }
       }
-    };
+    } catch (err) {
+      // Network failure fallback
+      setUserRole(storedRole);
+      setUserEmail(storedEmail);
+      if (window.location.pathname === "/" || window.location.pathname === "/login" || window.location.pathname === "/auth") {
+        const targetPath = rolePathMap[storedRole] || "/login";
+        navigate(targetPath, { replace: true });
+      }
+    } finally {
+      setIsAuthReady(true);
+      isCheckingRef.current = false;
+    }
+  }, [navigate]);
 
-    // Check on initial mount
+  React.useEffect(() => {
+    // Purge mock clients and stale sessions on mount
+    clearAllSavedClients();
+
+    if (typeof window !== "undefined") {
+      window.clearAllCreatedClients = clearAllSavedClients;
+    }
+
     checkAuth();
 
     // Listen for global auth changes (like 401 Unauthorized from apiClient)
-    window.addEventListener("agni_auth_changed", checkAuth);
-    window.addEventListener("storage", checkAuth);
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+    const handleStorageChange = (e) => {
+      if (!e || !e.key || e.key === "agni_token" || e.key === "agni_user_role") {
+        checkAuth();
+      }
+    };
+
+    window.addEventListener("agni_auth_changed", handleAuthChange);
+    window.addEventListener("storage", handleStorageChange);
 
     return () => {
-      window.removeEventListener("agni_auth_changed", checkAuth);
-      window.removeEventListener("storage", checkAuth);
+      window.removeEventListener("agni_auth_changed", handleAuthChange);
+      window.removeEventListener("storage", handleStorageChange);
     };
-  }, [navigate]);
+  }, [checkAuth]);
 
   // Manage real-time SSE stream lifecycle based on login status
   React.useEffect(() => {
@@ -319,12 +326,9 @@ export default function App() {
     } else {
       closeRealtimeService();
     }
-    return () => {
-      // Keep connection alive across route transitions
-    };
   }, [userRole]);
 
-  function handleLogin(email, role, token, user = null) {
+  const handleLogin = React.useCallback((email, role, token, user = null) => {
     // Clear any stale session before writing the new one so an old
     // cached role or user name can never leak into this login.
     localStorage.removeItem("agni_user_name");
@@ -351,15 +355,17 @@ export default function App() {
         localStorage.setItem("agni_user_branch", user.branch.name);
       }
     }
-    window.dispatchEvent(new CustomEvent("agni_auth_changed"));
     
     setUserEmail(email);
     setUserRole(role);
+    setIsAuthReady(true);
+    window.dispatchEvent(new CustomEvent("agni_auth_changed"));
+
     const targetPath = rolePathMap[role] || "/login";
     navigate(targetPath, { replace: true });
-  }
+  }, [navigate]);
 
-  function handleSignOut() {
+  const handleSignOut = React.useCallback(() => {
     closeRealtimeService();
     localStorage.removeItem("agni_user_name");
     localStorage.removeItem("agni_user_email");
@@ -369,10 +375,19 @@ export default function App() {
     localStorage.removeItem("agni_user_branch");
     localStorage.removeItem("agni_email");
     localStorage.removeItem("agni_token");
-    window.dispatchEvent(new CustomEvent("agni_auth_changed"));
     setUserRole("");
     setUserEmail("");
-    navigate("/auth");
+    setIsAuthReady(true);
+    window.dispatchEvent(new CustomEvent("agni_auth_changed"));
+    navigate("/login", { replace: true });
+  }, [navigate]);
+
+  if (!isAuthReady) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "transparent" }}>
+        <div style={{ width: 38, height: 38, border: "3px solid rgba(99, 102, 241, 0.2)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+      </div>
+    );
   }
 
   return (

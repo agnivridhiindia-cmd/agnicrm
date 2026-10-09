@@ -93,7 +93,6 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
           if (data.user.email) {
             localStorage.setItem("agni_user_email", data.user.email);
           }
-          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
         }
       })
       .catch(() => {});
