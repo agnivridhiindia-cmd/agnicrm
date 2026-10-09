@@ -3,312 +3,16 @@ import Icon from "../Icon";
 import { apiFetch } from "../../services/apiClient";
 import "./NotificationBell.css";
 
-// ── Role-Specific Default Notifications ──
+// ── Role-Specific Default Notifications (Empty by default: PostgreSQL is source of truth) ──
 const ROLE_DEFAULT_NOTIFICATIONS = {
-  Owner: [
-    {
-      id: "owner-notif-1",
-      title: "High-Value Payment Received",
-      detail: "₹1,50,000 received for Zenith Logistics (Tax Invoice #INV-2026-042). Verified by Finance.",
-      tone: "green",
-      time: "12m ago",
-      issuer: "Finance",
-      isRead: false,
-    },
-    {
-      id: "owner-notif-2",
-      title: "Scheme Request Awaiting Decision",
-      detail: "GreenTech Solutions submitted PMEGP scheme application. Awaiting executive sign-off.",
-      tone: "coral",
-      time: "45m ago",
-      issuer: "Sales Ops",
-      isRead: false,
-    },
-    {
-      id: "owner-notif-3",
-      title: "Branch Target Achieved",
-      detail: "West Zone (Mumbai) reached 85% of monthly revenue target (₹1.02 Cr / ₹1.20 Cr).",
-      tone: "violet",
-      time: "2h ago",
-      issuer: "Operations",
-      isRead: true,
-    },
-    {
-      id: "owner-notif-4",
-      title: "New Client Enrolled",
-      detail: "Apex Healthcare AI registered with 3 active service tracks by East Zone team.",
-      tone: "green",
-      time: "4h ago",
-      issuer: "Sales",
-      isRead: true,
-    },
-    {
-      id: "owner-notif-5",
-      title: "System Compliance & Backup",
-      detail: "Quarterly GST & CRM audit reports compiled and ready for review.",
-      tone: "blue",
-      time: "1d ago",
-      issuer: "IT Ops",
-      isRead: true,
-    },
-  ],
-  Sales: [
-    {
-      id: "sales-notif-1",
-      title: "Scheme Request Approved",
-      detail: "Manager approved PMEGP Scheme for Apex Traders. Client status moved to Active.",
-      tone: "green",
-      time: "15m ago",
-      issuer: "Manager",
-      isRead: false,
-    },
-    {
-      id: "sales-notif-2",
-      title: "Client Milestone Completed",
-      detail: "Client Rajesh Verma (Workshala) reached 'Sanction' stage. 80% milestone reached.",
-      tone: "blue",
-      time: "1h ago",
-      issuer: "Admin",
-      isRead: false,
-    },
-    {
-      id: "sales-notif-3",
-      title: "New Lead Assigned",
-      detail: "4 qualified SME leads in your territory assigned to your sales queue.",
-      tone: "violet",
-      time: "2h ago",
-      issuer: "CRM Dispatch",
-      isRead: false,
-    },
-    {
-      id: "sales-notif-4",
-      title: "Quota Pace Alert",
-      detail: "You are 18% ahead of your monthly quota pace! Keep it up.",
-      tone: "amber",
-      time: "5h ago",
-      issuer: "System",
-      isRead: true,
-    },
-    {
-      id: "sales-notif-5",
-      title: "Payment Confirmed",
-      detail: "Online payment ₹35,000 confirmed for Horizon BioPharma.",
-      tone: "green",
-      time: "1d ago",
-      issuer: "Accounts",
-      isRead: true,
-    },
-  ],
-  Manager: [
-    {
-      id: "manager-notif-1",
-      title: "New Scheme Approval Request",
-      detail: "Sales Officer submitted PMEGP scheme application for GreenTech Solutions for your approval.",
-      tone: "coral",
-      time: "10m ago",
-      issuer: "Sales Ops",
-      isRead: false,
-    },
-    {
-      id: "manager-notif-2",
-      title: "Client Registration Review",
-      detail: "2 new client onboarding submissions require manager review and assignment.",
-      tone: "amber",
-      time: "30m ago",
-      issuer: "System",
-      isRead: false,
-    },
-    {
-      id: "manager-notif-3",
-      title: "Rep Quota Milestone",
-      detail: "Sales Officer Amit Kumar achieved 100% of monthly sales target (₹80,000).",
-      tone: "green",
-      time: "3h ago",
-      issuer: "Performance",
-      isRead: false,
-    },
-    {
-      id: "manager-notif-4",
-      title: "Daily Standup Ready",
-      detail: "Review today's pipeline agenda and pending approvals before the morning call.",
-      tone: "violet",
-      time: "5h ago",
-      issuer: "Manager Desk",
-      isRead: true,
-    },
-  ],
-  "Branch Manager": [
-    {
-      id: "bm-notif-1",
-      title: "Branch Revenue Milestone",
-      detail: "Branch achieved ₹94,80,000 (79%) against monthly target of ₹1,20,00,000.",
-      tone: "green",
-      time: "25m ago",
-      issuer: "Branch Finance",
-      isRead: false,
-    },
-    {
-      id: "bm-notif-2",
-      title: "New Branch Client Onboarded",
-      detail: "Metro BioPharma onboarded with 2 active services in West Zone.",
-      tone: "blue",
-      time: "1h ago",
-      issuer: "Sales Team",
-      isRead: false,
-    },
-    {
-      id: "bm-notif-3",
-      title: "Compliance Audit Passed",
-      detail: "Branch Admin verified 14 client documentation files with zero exceptions.",
-      tone: "green",
-      time: "4h ago",
-      issuer: "Admin Dept",
-      isRead: true,
-    },
-    {
-      id: "bm-notif-4",
-      title: "Inter-Branch Transfer Notice",
-      detail: "Client transfer from North Zone completed and assigned to local branch executive.",
-      tone: "violet",
-      time: "1d ago",
-      issuer: "Operations",
-      isRead: true,
-    },
-  ],
-  Admin: [
-    {
-      id: "admin-notif-1",
-      title: "Document Verification Queue",
-      detail: "3 client profiles (Crest Pharma, Apex Labs) waiting for document verification & KYC audit.",
-      tone: "coral",
-      time: "18m ago",
-      issuer: "Client Portal",
-      isRead: false,
-    },
-    {
-      id: "admin-notif-2",
-      title: "Digital Agreement Dispatched",
-      detail: "Client agreement generated and sent for e-signature for Sun Pharma Ltd.",
-      tone: "blue",
-      time: "1h ago",
-      issuer: "Legal Engine",
-      isRead: false,
-    },
-    {
-      id: "admin-notif-3",
-      title: "Workflow Stage Updated",
-      detail: "Client TechCorp advanced from Reports to Sanction stage (80% complete).",
-      tone: "green",
-      time: "3h ago",
-      issuer: "Pipeline",
-      isRead: true,
-    },
-    {
-      id: "admin-notif-4",
-      title: "Branch Compliance Alert",
-      detail: "GSTIN and PAN verifications cleared for all active clients this week.",
-      tone: "violet",
-      time: "1d ago",
-      issuer: "Compliance",
-      isRead: true,
-    },
-  ],
-  Marketing: [
-    {
-      id: "mkt-notif-1",
-      title: "New Marketing Client Onboarded",
-      detail: "Apex Healthcare AI enrolled for multi-channel performance ads.",
-      tone: "green",
-      time: "20m ago",
-      issuer: "Acquisitions",
-      isRead: false,
-    },
-    {
-      id: "mkt-notif-2",
-      title: "Sales Marketing Pitch Received",
-      detail: "East branch rep pitched B2B Funnels to Eastern Steel Infra.",
-      tone: "coral",
-      time: "1h ago",
-      issuer: "Sales Ops",
-      isRead: false,
-    },
-    {
-      id: "mkt-notif-3",
-      title: "Ad Campaign Milestone",
-      detail: "Q3 Google & Meta Ads performance campaign crossed 4.2x ROAS target.",
-      tone: "violet",
-      time: "3h ago",
-      issuer: "Analytics",
-      isRead: true,
-    },
-    {
-      id: "mkt-notif-4",
-      title: "Service Catalog Live",
-      detail: "6 enterprise marketing service lines available with 18% GST auto-calc.",
-      tone: "blue",
-      time: "1d ago",
-      issuer: "Catalog Ops",
-      isRead: true,
-    },
-  ],
-  IT: [
-    {
-      id: "it-notif-1",
-      title: "Core Services Operational",
-      detail: "All CRM Core Services & API Gateways operating at 99.98% SLA uptime.",
-      tone: "green",
-      time: "10m ago",
-      issuer: "System Monitor",
-      isRead: false,
-    },
-    {
-      id: "it-notif-2",
-      title: "New IT Client Onboarded",
-      detail: "Horizon FinTech Labs configured on 24/7 SLA infrastructure retainer.",
-      tone: "blue",
-      time: "1h ago",
-      issuer: "Solutions Arch",
-      isRead: false,
-    },
-    {
-      id: "it-notif-3",
-      title: "Sales IT Pitch Received",
-      detail: "East branch rep pitched Cybersecurity Audit to Bengal BioPharma.",
-      tone: "coral",
-      time: "2h ago",
-      issuer: "Sales Desk",
-      isRead: false,
-    },
-    {
-      id: "it-notif-4",
-      title: "Security & Database Backup",
-      detail: "Automated incremental database snapshot verified and synced to offsite storage.",
-      tone: "violet",
-      time: "1d ago",
-      issuer: "Security Bot",
-      isRead: true,
-    },
-  ],
-  Client: [
-    {
-      id: "client-notif-1",
-      title: "CRM Account Active",
-      detail: "Your account is verified and operational.",
-      tone: "green",
-      time: "1h ago",
-      issuer: "System",
-      isRead: false,
-    },
-    {
-      id: "client-notif-2",
-      title: "Service Pipeline Active",
-      detail: "Primary consultancy scheme is active and progressing through stages.",
-      tone: "blue",
-      time: "3h ago",
-      issuer: "Operations",
-      isRead: true,
-    },
-  ],
+  Owner: [],
+  Sales: [],
+  Manager: [],
+  "Branch Manager": [],
+  Admin: [],
+  Marketing: [],
+  IT: [],
+  Client: [],
 };
 
 function normalizeTone(tone) {
@@ -345,14 +49,28 @@ export default function NotificationBell({
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          // Filter out any legacy mock notifications with hardcoded mock ids
+          const clean = parsed.filter(
+            (item) =>
+              item &&
+              item.id &&
+              !String(item.id).startsWith("owner-notif-") &&
+              !String(item.id).startsWith("sales-notif-") &&
+              !String(item.id).startsWith("manager-notif-") &&
+              !String(item.id).startsWith("bm-notif-") &&
+              !String(item.id).startsWith("admin-notif-") &&
+              !String(item.id).startsWith("mkt-notif-") &&
+              !String(item.id).startsWith("it-notif-") &&
+              !String(item.id).startsWith("client-notif-")
+          );
+          return clean;
         }
       }
     } catch (e) {}
 
-    // Fallback to role defaults
-    const defaults = customNotifications || ROLE_DEFAULT_NOTIFICATIONS[role] || ROLE_DEFAULT_NOTIFICATIONS.Owner;
+    // Fallback: only customNotifications if explicitly provided, else empty array []
+    const defaults = customNotifications || [];
     return defaults.map((item) => ({
       ...item,
       isRead: item.isRead ?? false,
@@ -405,37 +123,37 @@ export default function NotificationBell({
 
   // ── Sync with Backend API if Token Exists ──
   useEffect(() => {
+    let isMounted = true;
     const fetchApiNotifs = async () => {
       const token = localStorage.getItem("agni_token");
-      if (!token) return;
+      if (!token) {
+        if (isMounted) {
+          setNotifications([]);
+          persistNotifications([]);
+        }
+        return;
+      }
 
       try {
         const res = await apiFetch("/notifications");
         if (res.ok) {
           const result = await res.json();
-          if (result.success && Array.isArray(result.data) && result.data.length > 0) {
-            setNotifications((prev) => {
-              const apiItems = result.data.map((item) => ({
-                id: item.id,
-                title: item.title,
-                detail: item.detail,
-                issuer: item.issuer || "System",
-                tone: normalizeTone(item.tone),
-                time: "Recently",
-                isRead: !!item.isRead,
-                createdAt: item.createdAt,
-              }));
+          if (result.success && Array.isArray(result.data) && isMounted) {
+            const apiItems = result.data.map((item) => ({
+              id: item.id,
+              title: item.title,
+              detail: item.detail || item.message,
+              issuer: item.issuer || "System",
+              tone: normalizeTone(item.tone),
+              time: item.createdAt
+                ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "Recently",
+              isRead: !!item.isRead,
+              createdAt: item.createdAt,
+            }));
 
-              // Merge API items without duplicating existing IDs
-              const existingIds = new Set(prev.map((p) => p.id));
-              const newItems = apiItems.filter((a) => !existingIds.has(a.id));
-              if (newItems.length > 0) {
-                const merged = [...newItems, ...prev];
-                persistNotifications(merged);
-                return merged;
-              }
-              return prev;
-            });
+            setNotifications(apiItems);
+            persistNotifications(apiItems);
           }
         }
       } catch (e) {
@@ -444,6 +162,11 @@ export default function NotificationBell({
     };
 
     fetchApiNotifs();
+    const interval = setInterval(fetchApiNotifs, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [persistNotifications]);
 
   // ── Real-time Event Listeners ──
