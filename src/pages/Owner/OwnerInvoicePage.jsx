@@ -18,15 +18,17 @@ export default function OwnerInvoicePage({
 
   const filteredInvoices = invoices.filter((inv) => {
     const branchOk = isBranchMatch(inv.branch, invoiceBranchFilter);
-    const regionOk = !invoiceRegionFilter || inv.region === invoiceRegionFilter;
-    const statusOk = !invoiceStatusFilter || inv.status === invoiceStatusFilter;
+    const regionOk = !invoiceRegionFilter || (inv.region && inv.region.toLowerCase().includes(invoiceRegionFilter.toLowerCase()));
+    const statusOk = !invoiceStatusFilter || (inv.status && inv.status.toLowerCase() === invoiceStatusFilter.toLowerCase());
     const searchLower = invoiceSearch.toLowerCase().trim();
     const searchOk =
       !searchLower ||
       (inv.id || "").toLowerCase().includes(searchLower) ||
+      (inv.invoiceNo || "").toLowerCase().includes(searchLower) ||
       (inv.clientName || "").toLowerCase().includes(searchLower) ||
       (inv.company || "").toLowerCase().includes(searchLower) ||
-      (inv.serviceName || "").toLowerCase().includes(searchLower);
+      (inv.serviceName || "").toLowerCase().includes(searchLower) ||
+      (inv.description || "").toLowerCase().includes(searchLower);
     return branchOk && regionOk && statusOk && searchOk;
   });
 

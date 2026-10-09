@@ -253,7 +253,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     fetchDBOwnerEmployees();
   }, []);
 
-  const [invoices, setInvoices] = useState(initialInvoices);
+  const [invoices, setInvoices] = useState(() => initialInvoices || []);
 
   // Fetch live invoices from backend PostgreSQL DB on mount
   useEffect(() => {
@@ -262,18 +262,48 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         const response = await apiFetch("/invoices");
         if (response.ok) {
           const resData = await response.json();
-          if (resData.success && Array.isArray(resData.data) && resData.data.length > 0) {
-            setInvoices(resData.data.map((inv) => ({
-              ...inv,
-              id: inv.invoiceNo || inv.id,
-              company: inv.client?.companyName || inv.client?.name || inv.company || "Client",
-              clientName: inv.client?.name || inv.clientName || "Client",
-              status: inv.status === "PAID" ? "Paid" : (inv.status === "PARTIAL" ? "Partial" : "Pending"),
-              rawTotal: Number(inv.rawTotal || 0),
-              paymentReceived: Number(inv.paymentReceived || 0),
-              branch: inv.branch?.name || inv.branch || "Pan-India",
-              accountManager: inv.accountManager?.fullName || inv.accountManager || "Account Manager",
-            })));
+          const rawInvoices = Array.isArray(resData) ? resData : (Array.isArray(resData?.data) ? resData.data : []);
+          if (rawInvoices.length > 0) {
+            setInvoices(rawInvoices.map((inv) => {
+              const clientObj = typeof inv.client === "object" ? inv.client : {};
+              const clientCompany = clientObj?.companyName || clientObj?.name || inv.company || "Client Company";
+              const clientContact = clientObj?.contactPerson || clientObj?.representativeName || clientObj?.name || inv.clientName || clientCompany;
+              const branchName = inv.branch?.name || (typeof inv.branch === "string" ? inv.branch : "") || "West Zone (Mumbai)";
+              const branchRegion = inv.branch?.region || inv.region || (
+                branchName.toLowerCase().includes("north") ? "North Zone" :
+                branchName.toLowerCase().includes("south") ? "South Zone" :
+                branchName.toLowerCase().includes("east") ? "East Zone" :
+                "West Zone"
+              );
+              const service = inv.description || inv.serviceName || inv.client?.serviceName || "Consultancy Service";
+              const rawTotalNum = Number(inv.rawTotal || inv.amount || 0);
+              const recNum = Number(inv.paymentReceived || 0);
+              const statusStr = inv.status === "PAID" ? "Paid" : (inv.status === "PARTIAL" ? "Partial" : "Pending");
+              const rawAmtNum = Number(inv.rawAmount || inv.amount || 0);
+              const gstAmtNum = Number(inv.gstAmount || 0);
+
+              return {
+                ...inv,
+                id: inv.invoiceNo || inv.id,
+                invoiceNo: inv.invoiceNo || inv.id,
+                company: clientCompany,
+                clientName: clientContact,
+                serviceName: service,
+                scheme: service,
+                status: statusStr,
+                rawTotal: rawTotalNum,
+                totalAmount: `₹${rawTotalNum.toLocaleString("en-IN")}`,
+                amount: `₹${rawAmtNum.toLocaleString("en-IN")}`,
+                tax: `₹${gstAmtNum.toLocaleString("en-IN")}`,
+                paymentReceived: recNum,
+                paymentPending: Math.max(0, rawTotalNum - recNum),
+                branch: branchName,
+                region: branchRegion,
+                accountManager: inv.accountManager?.fullName || inv.accountManager || "Account Manager",
+                issueDate: inv.issueDate ? new Date(inv.issueDate).toISOString().split("T")[0] : "—",
+                dueDate: inv.dueDate ? new Date(inv.dueDate).toISOString().split("T")[0] : "—",
+              };
+            }));
           }
         }
       } catch (err) {
@@ -282,8 +312,12 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     }
     fetchDBOwnerInvoices();
     window.addEventListener("agni_invoices_updated", fetchDBOwnerInvoices);
+    window.addEventListener("agni_payments_updated", fetchDBOwnerInvoices);
+    window.addEventListener("agni_clients_updated", fetchDBOwnerInvoices);
     return () => {
       window.removeEventListener("agni_invoices_updated", fetchDBOwnerInvoices);
+      window.removeEventListener("agni_payments_updated", fetchDBOwnerInvoices);
+      window.removeEventListener("agni_clients_updated", fetchDBOwnerInvoices);
     };
   }, []);
 
@@ -800,6 +834,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
               <OwnerOverviewPage
                 clients={clients}
                 employeesList={employeesList}
+                invoices={invoices}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
@@ -813,6 +848,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
               <OwnerOverviewPage
                 clients={clients}
                 employeesList={employeesList}
+                invoices={invoices}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
@@ -826,6 +862,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
               <OwnerOverviewPage
                 clients={clients}
                 employeesList={employeesList}
+                invoices={invoices}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
