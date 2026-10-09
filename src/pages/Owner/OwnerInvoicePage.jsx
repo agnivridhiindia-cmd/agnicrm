@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Icon from "../../components/Icon";
-import { branchOptions, regionOptions, downloadInvoiceFile } from "./mockOwnerData";
+import { branchOptions, downloadInvoiceFile } from "./mockOwnerData";
 import { isBranchMatch } from "../../utils/branchHelper";
 
 const PAGE_SIZE = 15;
@@ -10,7 +10,6 @@ export default function OwnerInvoicePage({
   onOpenInvoiceDetails,
 }) {
   const [invoiceBranchFilter, setInvoiceBranchFilter] = useState("");
-  const [invoiceRegionFilter, setInvoiceRegionFilter] = useState("");
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState("");
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoicePage, setInvoicePage] = useState(1);
@@ -18,7 +17,6 @@ export default function OwnerInvoicePage({
 
   const filteredInvoices = invoices.filter((inv) => {
     const branchOk = isBranchMatch(inv.branch, invoiceBranchFilter);
-    const regionOk = !invoiceRegionFilter || (inv.region && inv.region.toLowerCase().includes(invoiceRegionFilter.toLowerCase()));
     const statusOk = !invoiceStatusFilter || (inv.status && inv.status.toLowerCase() === invoiceStatusFilter.toLowerCase());
     const searchLower = invoiceSearch.toLowerCase().trim();
     const searchOk =
@@ -29,7 +27,7 @@ export default function OwnerInvoicePage({
       (inv.company || "").toLowerCase().includes(searchLower) ||
       (inv.serviceName || "").toLowerCase().includes(searchLower) ||
       (inv.description || "").toLowerCase().includes(searchLower);
-    return branchOk && regionOk && statusOk && searchOk;
+    return branchOk && statusOk && searchOk;
   });
 
   const invoiceTotalPages = Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE));
@@ -58,7 +56,6 @@ export default function OwnerInvoicePage({
 
   const handleResetFilters = () => {
     setInvoiceBranchFilter("");
-    setInvoiceRegionFilter("");
     setInvoiceStatusFilter("");
     setInvoiceSearch("");
     setInvoicePage(1);
@@ -108,7 +105,6 @@ export default function OwnerInvoicePage({
           </div>
           <div>
             <strong className="owner-kpi-tile-value">₹{totalInvoicedAmount.toLocaleString()}</strong>
-            <span className="owner-kpi-tile-sub">Gross Billed Value</span>
           </div>
         </div>
 
@@ -123,7 +119,6 @@ export default function OwnerInvoicePage({
             <strong className="owner-kpi-tile-value" style={{ color: "#10b981" }}>
               ₹{totalPaidAmount.toLocaleString()}
             </strong>
-            <span className="owner-kpi-tile-sub">Settled Invoices</span>
           </div>
         </div>
 
@@ -138,7 +133,6 @@ export default function OwnerInvoicePage({
             <strong className="owner-kpi-tile-value" style={{ color: "#f59e0b" }}>
               ₹{totalPendingAmount.toLocaleString()}
             </strong>
-            <span className="owner-kpi-tile-sub">Awaiting Settlement</span>
           </div>
         </div>
       </div>
@@ -180,24 +174,6 @@ export default function OwnerInvoicePage({
           </label>
 
           <label className="field-label" style={{ margin: 0 }}>
-            <span>Region:</span>
-            <select
-              className="owner-filter-select"
-              value={invoiceRegionFilter}
-              onChange={(e) => {
-                setInvoiceRegionFilter(e.target.value);
-                setInvoicePage(1);
-              }}
-            >
-              {regionOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field-label" style={{ margin: 0 }}>
             <span>Status:</span>
             <select
               className="owner-filter-select"
@@ -210,7 +186,6 @@ export default function OwnerInvoicePage({
               <option value="">All Statuses</option>
               <option value="Paid">Paid</option>
               <option value="Pending">Pending</option>
-              <option value="Overdue">Overdue</option>
             </select>
           </label>
         </div>
@@ -231,7 +206,6 @@ export default function OwnerInvoicePage({
                 <th>Invoice ID</th>
                 <th>Client & Company</th>
                 <th>Branch Location</th>
-                <th>Region</th>
                 <th>Service Scheme</th>
                 <th>Total Amount</th>
                 <th>Status</th>
@@ -241,7 +215,7 @@ export default function OwnerInvoicePage({
             <tbody>
               {invoicePageItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="owner-empty-state">
+                  <td colSpan={7} className="owner-empty-state">
                     No invoices found matching the selected filters.
                   </td>
                 </tr>
@@ -274,9 +248,6 @@ export default function OwnerInvoicePage({
                       </td>
                       <td>
                         <span className="owner-rep-pill">{inv.branch}</span>
-                      </td>
-                      <td>
-                        <span className="owner-date-text">{inv.region}</span>
                       </td>
                       <td>
                         <span className="owner-service-pill">{inv.serviceName}</span>
