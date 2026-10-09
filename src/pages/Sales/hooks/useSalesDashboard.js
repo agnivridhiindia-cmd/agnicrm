@@ -13,7 +13,7 @@ export function useSalesDashboard(userEmail, currentUser = null) {
   const [query, setQuery] = useState("");
   const [toastMessage, setToastMessage] = useState("");
 
-  const [notificationsList, setNotificationsList] = useState(defaultNotifications);
+  const [notificationsList, setNotificationsList] = useState([]);
 
   useEffect(() => {
     async function syncNotifications() {
@@ -21,7 +21,7 @@ export function useSalesDashboard(userEmail, currentUser = null) {
         const res = await apiFetch("/notifications");
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          if (json.success && Array.isArray(json.data)) {
             const apiNotifs = json.data.map((n) => ({
               id: n.id,
               title: n.title,
@@ -33,7 +33,7 @@ export function useSalesDashboard(userEmail, currentUser = null) {
               tone: n.type === "PAYMENT" ? "green" : n.type === "REQUEST" ? "coral" : "blue",
               issuer: "System",
             }));
-            setNotificationsList([...apiNotifs, ...defaultNotifications]);
+            setNotificationsList(apiNotifs);
             return;
           }
         }

@@ -129,7 +129,9 @@ export function clearAllSavedClients() {
     "agni_sales_invoices", "agni_sales_payments", "agni_clients",
     "agni_client_requests", "agni_pending_scheme_requests", "agni_crm_agreements_v4",
     "agni_sales_notifications", "agni_manager_notifications", "agni_department_notifications",
-    "agni_client_notifications", "agni_db_team_hierarchy", "agni_client_doc_data_active"
+    "agni_client_notifications", "agni_db_team_hierarchy", "agni_client_doc_data_active",
+    "agni_owner_notifications", "agni_branch_manager_notifications", "agni_admin_notifications",
+    "agni_marketing_notifications", "agni_it_notifications"
   ];
   legacyKeys.forEach((k) => {
     try {
