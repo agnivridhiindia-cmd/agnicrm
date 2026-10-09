@@ -121,81 +121,11 @@ export const workforceKpiCards = [
   },
 ];
 
-export const topPerformers = [
-  { name: "Ariana Lee", role: "Branch Manager", score: "92%", detail: "Client growth +14%" },
-  { name: "Priya Menon", role: "Branch Manager", score: "90%", detail: "Pipeline expansion" },
-  { name: "Daniel Cruz", role: "Branch Manager", score: "88%", detail: "Customer retention" },
-  { name: "Sara Reddy", role: "Branch Manager", score: "85%", detail: "Process improvements" },
-  { name: "Kavya Patel", role: "Branch Manager", score: "82%", detail: "Team mentoring" },
-  { name: "Mia Rose", role: "Sales Person", score: "89%", detail: "Lead conversion" },
-  { name: "Noah Kim", role: "Sales Person", score: "87%", detail: "Revenue uplift" },
-  { name: "Rohan Varma", role: "Sales Person", score: "84%", detail: "New accounts" },
-  { name: "Meera Singh", role: "Sales Person", score: "80%", detail: "Deal closure" },
-  { name: "Sonal Desai", role: "Sales Person", score: "78%", detail: "Cross-sell growth" },
-  { name: "Eli Brooks", role: "Manager", score: "86%", detail: "Process efficiency" },
-  { name: "Naveen Sharma", role: "Manager", score: "84%", detail: "Team coordination" },
-  { name: "Ananya Gupta", role: "Manager", score: "82%", detail: "Budget control" },
-  { name: "Rhea Kapoor", role: "Manager", score: "80%", detail: "Strategy execution" },
-  { name: "Vikram Joshi", role: "Manager", score: "78%", detail: "Operational review" },
-  { name: "Noah Kim", role: "IT", score: "83%", detail: "Revenue uplift" },
-  { name: "Tara Singh", role: "IT", score: "81%", detail: "System automation" },
-  { name: "Arjun Das", role: "IT", score: "79%", detail: "Support delivery" },
-  { name: "Janet Paul", role: "IT", score: "76%", detail: "Infrastructure uptime" },
-  { name: "Lina Abraham", role: "IT", score: "74%", detail: "App stability" },
-  { name: "Sara Kim", role: "Admin", score: "79%", detail: "Operations stability" },
-  { name: "Nisha Rao", role: "Admin", score: "77%", detail: "Policy compliance" },
-  { name: "Isha Nair", role: "Admin", score: "75%", detail: "Resource planning" },
-  { name: "Deepak Shah", role: "Admin", score: "72%", detail: "Team support" },
-  { name: "Milan Das", role: "Admin", score: "70%", detail: "Documentation" },
-];
+export const topPerformers = [];
 
-export const activities = [
-  {
-    title: "New client added",
-    detail: "A new retail account joined the pipeline.",
-    time: "Just now",
-    tone: "#9a74e9",
-  },
-  {
-    title: "Lead assigned",
-    detail: "4 fresh leads were routed to the sales team.",
-    time: "1 hr ago",
-    tone: "#4e7cff",
-  },
-  {
-    title: "Revenue received",
-    detail: "Invoice payment recorded for Q3 services.",
-    time: "3 hrs ago",
-    tone: "#44bfb0",
-  },
-  {
-    title: "Manager activity",
-    detail: "Ariana updated the client onboarding status.",
-    time: "6 hrs ago",
-    tone: "#f2aa38",
-  },
-];
+export const activities = [];
 
-export const notifications = [
-  {
-    title: "Approval request",
-    detail: "Project budget increase pending review.",
-    issuer: "Samuel Park",
-    tone: "#aa83eb",
-  },
-  {
-    title: "Team message",
-    detail: "Sales team reached 82% of monthly goal.",
-    issuer: "Mia Rose",
-    tone: "#88cda4",
-  },
-  {
-    title: "Policy alert",
-    detail: "Renewal reminders sent to 12 clients.",
-    issuer: "System",
-    tone: "#f59e0b",
-  },
-];
+export const notifications = [];
 
 export const services = [
   { name: "Certificate" },

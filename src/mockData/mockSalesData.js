@@ -86,38 +86,25 @@ export const schemeOptions = mockEligibleSchemes.map((scheme) => scheme.schemeNa
 
 export const navItems = [
   { icon: "dashboard", label: "Dashboard" },
-  { icon: "clients", label: "Clients" },
+  { icon: "reports", label: "Clients" },
+  { icon: "clients", label: "Register" },
   { icon: "overview", label: "Requests" },
   { icon: "invoice", label: "Invoices" },
   { icon: "wallet", label: "Payment" },
-  { icon: "reports", label: "Details" },
 ];
 
-export const salesLeads = [
-  { id: 1, client: "Bright Retail", contact: "Anil Kumar", status: "Proposal", value: "₹58k", owner: "Mia Rose" },
-  { id: 2, client: "Urban Foods", contact: "Riya Sharma", status: "Negotiation", value: "₹46k", owner: "Rohan Varma" },
-  { id: 3, client: "Nova Textiles", contact: "Sanjay Patel", status: "Qualified", value: "₹34k", owner: "Noah Kim" },
-  { id: 4, client: "Peak Logistics", contact: "Rakesh Mehra", status: "Demo", value: "₹72k", owner: "Tara Singh" },
-];
+export const salesLeads = [];
 
 export const initialSalesClients = [];
 
-export const notifications = [
-  { title: "New lead assigned", detail: "4 leads were assigned to your queue.", issuer: "CRM", tone: "#9a74e9" },
-  { title: "Deal updated", detail: "Urban Foods moved to Negotiation.", issuer: "Sales Ops", tone: "#44bfb0" },
-  { title: "Quota alert", detail: "You are 18% ahead of pace.", issuer: "System", tone: "#f2aa38" },
-];
+export const notifications = [];
 
-export const requestActivities = [
-  { title: "Request approved", detail: "Client update request approved by management.", time: "2m ago", tone: "#44bfb0" },
-  { title: "Request rejected", detail: "Delete request rejected for Nova Textiles.", time: "1h ago", tone: "#f2aa38" },
-  { title: "New request", detail: "A new approval request is ready for review.", time: "3h ago", tone: "#9a74e3" },
-];
+export const requestActivities = [];
 
 export const initialNewClientState = {
-  name: "",
-  contactPerson: "",
   company: "",
+  contactPerson: "",
+  name: "",
   email: "",
   phone: "",
   address: "",

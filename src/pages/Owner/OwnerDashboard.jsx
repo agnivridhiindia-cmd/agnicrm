@@ -37,7 +37,6 @@ import {
   initialOwnerEmployees,
   initialInvoices,
   initialRequests,
-  notifications,
   downloadInvoiceFile,
 } from "./mockOwnerData";
 

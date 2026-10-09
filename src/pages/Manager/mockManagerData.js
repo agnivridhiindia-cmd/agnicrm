@@ -42,12 +42,7 @@ export const salesTeam = [];
 
 export const managerClients = [];
 
-export const activities = [
-  { title: "Weekly pipeline review", detail: "Scheduled for Thursday at 10am.", time: "Just now", tone: "#9a74e9" },
-  { title: "Client meeting prep", detail: "Finalize proposal deck for Kiran.", time: "1 hr ago", tone: "#4e7cff" },
-  { title: "Deal follow-up", detail: "Reminder to reconnect with RMD Corp.", time: "3 hrs ago", tone: "#44bfb0" },
-  { title: "Team coaching", detail: "Review conversion metrics with sales team.", time: "6 hrs ago", tone: "#f2aa38" },
-];
+export const activities = [];
 
 export const reportRoleOptions = [
   { label: 'All roles', value: '' },

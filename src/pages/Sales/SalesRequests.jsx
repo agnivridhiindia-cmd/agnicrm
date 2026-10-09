@@ -7,8 +7,6 @@ import CreateRequestModal from "./CreateRequestModal";
 import RequestDetailsModal from "./RequestDetailsModal";
 import ApproveSchemeModal from "./ApproveSchemeModal";
 import Icon from "../../components/Icon";
-import { mockRequests } from "./mockRequests";
-import { mockClients } from "./mockClients";
 
 const TABS = [
   { id: "Pending Requests", label: "Pending Requests", icon: "clock" },
