@@ -4,8 +4,9 @@ import SimpleModal from "../../components/SimpleModal";
 
 export default function BranchManagerITPage({
   branchIT = [],
-  branchManagerName = "Ariana Lee",
-  managedRegion = "West Zone",
+  branchManagerName = "",
+  managedRegion = "",
+  managedBranch = "",
 }) {
   const [selectedEmployeeInfo, setSelectedEmployeeInfo] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,25 +15,45 @@ export default function BranchManagerITPage({
     return branchIT.filter((emp) => {
       if (!emp) return false;
       const empBM = (emp.branchManagerName || emp.branchManager || "").toLowerCase().trim();
-      const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();
+      const empRegion = (emp.region || "").toLowerCase().trim();
+      const empBranch = (emp.branch || "").toLowerCase().trim();
 
       const targetBM = (branchManagerName || "").toLowerCase().trim();
       const targetRegion = (managedRegion || "").toLowerCase().trim();
+      const targetBranch = (managedBranch || "").toLowerCase().trim();
 
-      if (targetBM && empBM && empBM !== targetBM) return false;
-      if (targetRegion && empRegion && !empRegion.includes(targetRegion.split(" ")[0].toLowerCase()) && !targetRegion.includes(empRegion)) return false;
+      let matchesBranch = false;
+      if (targetBM && empBM && empBM === targetBM) {
+        matchesBranch = true;
+      } else if (targetBranch && empBranch && (empBranch === targetBranch || empBranch.includes(targetBranch) || targetBranch.includes(empBranch))) {
+        matchesBranch = true;
+      } else if (targetRegion && empRegion && (empRegion === targetRegion || empRegion.includes(targetRegion) || targetRegion.includes(empRegion))) {
+        matchesBranch = true;
+      } else {
+        const keywords = ["mumbai", "west", "delhi", "north", "bengaluru", "south", "kolkata", "east"];
+        for (const kw of keywords) {
+          const matchesTarget = (targetRegion && targetRegion.includes(kw)) || (targetBranch && targetBranch.includes(kw));
+          const matchesEmp = (empRegion && empRegion.includes(kw)) || (empBranch && empBranch.includes(kw));
+          if (matchesTarget && matchesEmp) {
+            matchesBranch = true;
+            break;
+          }
+        }
+      }
+
+      if (!matchesBranch) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = emp.name?.toLowerCase().includes(q);
         const matchRole = emp.role?.toLowerCase().includes(q);
         const matchEmail = emp.email?.toLowerCase().includes(q);
-        const matchRegion = emp.region?.toLowerCase().includes(q);
+        const matchRegion = (emp.region || emp.branch)?.toLowerCase().includes(q);
         if (!matchName && !matchRole && !matchEmail && !matchRegion) return false;
       }
       return true;
     });
-  }, [branchIT, branchManagerName, managedRegion, searchQuery]);
+  }, [branchIT, branchManagerName, managedRegion, managedBranch, searchQuery]);
 
   function openEmployeeInfo(emp) {
     setSelectedEmployeeInfo(emp);

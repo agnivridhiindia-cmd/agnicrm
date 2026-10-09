@@ -29,6 +29,7 @@ import {
   getManagerBranchDetails
 } from "../../utils/branchHelper";
 import { apiFetch, apiClient } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 
 // Modular Page Components
 import AdminOverviewPage from "./AdminOverviewPage";
@@ -83,105 +84,57 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
     navigate(`/admin/${slug}`);
   };
 
+  const { user: authUser, userName: authName, userEmail: authEmail, userBranch: authBranch } = useAuth();
+  const effectiveEmail = userEmail || authEmail || authUser?.email || "";
+
   const [dark, setDark] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
   // Admin Name & Branch Details
   const adminName = useMemo(() => {
-    try {
-      const storedUser = localStorage.getItem("agni_user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.fullName) return parsed.fullName;
-      }
-    } catch (e) {}
-
-    if (!userEmail) return "Branch Admin";
-    const raw = userEmail.split("@")[0];
+    if (authUser?.fullName) return authUser.fullName;
+    if (authName) return authName;
+    if (!effectiveEmail) return "Branch Admin";
+    const raw = effectiveEmail.split("@")[0];
     const cleaned = raw.replace(/\d+$/, "");
     const parts = cleaned.split(/[^a-zA-Z]+/).filter(Boolean);
     if (!parts.length) return "Branch Admin";
     return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
-  }, [userEmail]);
+  }, [authName, authUser, effectiveEmail]);
 
   const adminBranchDetails = useMemo(() => {
-    try {
-      const storedBranch = localStorage.getItem("agni_user_branch");
-      if (storedBranch) return { branchName: storedBranch };
-      const storedUser = localStorage.getItem("agni_user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.branch && parsed.branch.name) {
-          return { branchName: parsed.branch.name };
-        }
-      }
-    } catch (e) {}
-    return getManagerBranchDetails(userEmail);
-  }, [userEmail]);
+    if (authBranch) return { branchName: authBranch };
+    if (authUser?.branch?.name) return { branchName: authUser.branch.name };
+    return getManagerBranchDetails(effectiveEmail);
+  }, [authBranch, authUser, effectiveEmail]);
 
   // Selected Branch (dynamically bound to logged-in Admin's branch)
   const [selectedBranch, setSelectedBranch] = useState(() => {
-    try {
-      const storedBranch = localStorage.getItem("agni_user_branch");
-      if (storedBranch) return storedBranch;
-      const storedUser = localStorage.getItem("agni_user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.branch && parsed.branch.name) {
-          return parsed.branch.name;
-        }
-      }
-    } catch (e) {}
-    
-    const details = getManagerBranchDetails(userEmail);
+    if (authBranch) return authBranch;
+    if (authUser?.branch?.name) return authUser.branch.name;
+    const details = getManagerBranchDetails(effectiveEmail);
     return details?.branchName || "North Zone (Delhi)";
   });
 
   useEffect(() => {
-    // Force sync on mount (handles HMR, backend verification, and stale state issues)
+    // Force sync on mount or auth change
     async function syncAdminBranch() {
+      if (authUser?.branch?.name) {
+        setSelectedBranch(authUser.branch.name);
+        return;
+      }
       try {
-        const storedBranch = localStorage.getItem("agni_user_branch");
-        const storedUser = localStorage.getItem("agni_user");
-        let foundBranch = storedBranch || null;
-        if (!foundBranch && storedUser) {
-          const parsed = JSON.parse(storedUser);
-          if (parsed.branch && parsed.branch.name) {
-            foundBranch = parsed.branch.name;
-          }
-        }
-        if (foundBranch) {
-          if (foundBranch !== selectedBranch) {
-            setSelectedBranch(foundBranch);
-          }
-          return;
-        }
-
         const res = await apiFetch("/auth/me");
         if (res.ok) {
           const data = await res.json();
-          if (data?.user) {
-            localStorage.setItem("agni_user", JSON.stringify(data.user));
-            if (data.user.branch?.name) {
-              localStorage.setItem("agni_user_branch", data.user.branch.name);
-              if (data.user.branch.name !== selectedBranch) {
-                setSelectedBranch(data.user.branch.name);
-              }
-            }
+          if (data?.user?.branch?.name) {
+            setSelectedBranch(data.user.branch.name);
           }
         }
       } catch (e) {}
     }
     syncAdminBranch();
-  }, []);
-
-  useEffect(() => {
-    if (selectedBranch) {
-      try {
-        localStorage.setItem("agni_user_branch", selectedBranch);
-      } catch (e) { }
-    }
-  }, [selectedBranch]);
+  }, [authUser]);
 
   const [teamMembers, setTeamMembers] = useState(initialBranchTeam);
 
@@ -220,17 +173,27 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
   }, []);
 
 
-  const handleDismissNotif = (notifId) => {
-    try {
-      const saved = localStorage.getItem("agni_department_notifications");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const updated = parsed.map((n) => (n.id === notifId ? { ...n, read: true } : n));
-          localStorage.setItem("agni_department_notifications", JSON.stringify(updated));
-          setDepartmentNotifs(updated.filter((n) => n.department === "Admin" && !n.read));
+  useEffect(() => {
+    async function fetchAdminNotifs() {
+      try {
+        const res = await apiFetch("/notifications");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            setDepartmentNotifs(json.data.filter((n) => (!n.department || n.department === "Admin") && !n.isRead));
+          }
         }
-      }
+      } catch (e) {}
+    }
+    fetchAdminNotifs();
+    window.addEventListener("agni_notifications_updated", fetchAdminNotifs);
+    return () => window.removeEventListener("agni_notifications_updated", fetchAdminNotifs);
+  }, []);
+
+  const handleDismissNotif = async (notifId) => {
+    setDepartmentNotifs((prev) => prev.filter((n) => n.id !== notifId));
+    try {
+      await apiFetch(`/notifications/${notifId}/read`, { method: "PATCH" });
     } catch (e) { }
   };
 

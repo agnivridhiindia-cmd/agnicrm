@@ -15,6 +15,7 @@ import { sanitizeClientRecord, normalizeSalesPersonName, sortByRoleRanking, merg
 import { apiFetch } from "../../services/apiClient";
 import { isMockClient } from "../../utils/revenueCalculator";
 import { ACTIVITY_STAGES } from "../Admin/mockAdminData";
+import { useAuth } from "../../context/AuthContext";
 import "./owner.css";
 
 // Modular Page Components
@@ -41,6 +42,7 @@ import {
 } from "./mockOwnerData";
 
 export default function OwnerDashboard({ onSignOut, userEmail }) {
+  const { user: authUser, userName: authName } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -74,16 +76,60 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
 
   const [dark, setDark] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [currentUser, setCurrentUser] = useState(() => authUser);
 
-  // Owner Name derived from userEmail
+  // Authoritatively fetch logged-in Owner profile from PostgreSQL database
+  useEffect(() => {
+    let isMounted = true;
+    apiFetch("/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.success && data?.user) {
+          setCurrentUser(data.user);
+          if (data.user.fullName || data.user.name) {
+            localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
+          }
+          localStorage.setItem("agni_user", JSON.stringify(data.user));
+          if (data.user.email) {
+            localStorage.setItem("agni_user_email", data.user.email);
+          }
+          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Effective Owner email dynamically loaded from database
+  const effectiveEmail = currentUser?.email || authUser?.email || userEmail || localStorage.getItem("agni_user_email") || "";
+
+  // Owner Name derived from live user profile or userEmail
   const ownerName = useMemo(() => {
-    if (!userEmail) return "Owner";
-    const raw = userEmail.split("@")[0];
+    if (currentUser?.fullName?.trim()) return currentUser.fullName.trim();
+    if (currentUser?.name?.trim()) return currentUser.name.trim();
+    if (authUser?.fullName?.trim()) return authUser.fullName.trim();
+    if (authName) return authName;
+    const email = effectiveEmail;
+    if (!email) return "Owner";
+    const raw = email.split("@")[0];
     const parts = raw.split(/[\.\-_\s]+/).filter(Boolean);
     return parts
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(" ");
-  }, [userEmail]);
+  }, [effectiveEmail, authUser, authName, currentUser]);
+
+  const effectiveName = currentUser?.fullName?.trim() || currentUser?.name?.trim() || authUser?.fullName?.trim() || ownerName;
+  const ownerInitials = effectiveName
+    ? effectiveName
+        .split(" ")
+        .filter(Boolean)
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "RS";
 
   // Clients state
   const [clients, setClients] = useState([]);
@@ -374,30 +420,6 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       console.warn("Could not persist milestone tracker update to DB:", err);
     }
 
-    // Sync across localStorage caches for offline/cross-dashboard consistency
-    try {
-      ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) {
-            const nextList = list.map((item) =>
-              (item.id === clientId || (item.email && client.email && item.email.toLowerCase() === client.email.toLowerCase()))
-                ? {
-                    ...item,
-                    completedSteps: tracker.completedStages,
-                    applicationStatus: activeStageName,
-                    progressPercent: tracker.progressPercent,
-                    progress: tracker.progressPercent,
-                    stage: activeStageName,
-                  }
-                : item
-            );
-            localStorage.setItem(key, JSON.stringify(nextList));
-          }
-        }
-      });
-    } catch (e) {}
 
     // Broadcast update event to all active dashboards (Sales, Manager, Branch Manager, Admin, Client Portal)
     window.dispatchEvent(new Event("agni_clients_updated"));
@@ -628,27 +650,6 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         console.warn("Could not save client edit to DB:", err);
       }
 
-      // Sync across localStorage caches for offline/cross-dashboard consistency
-      try {
-        ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            const list = JSON.parse(raw);
-            if (Array.isArray(list)) {
-              const nextList = list.map((item) =>
-                (item.id === clientId || (item.email && updatedClient.email && item.email.toLowerCase() === updatedClient.email.toLowerCase()))
-                  ? {
-                      ...item,
-                      ...updatedClient,
-                      stage: activeStageName,
-                    }
-                  : item
-              );
-              localStorage.setItem(key, JSON.stringify(nextList));
-            }
-          }
-        });
-      } catch (e) {}
 
       // Broadcast update event across all dashboards
       window.dispatchEvent(new Event("agni_clients_updated"));
@@ -682,19 +683,6 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         console.warn("Could not delete client from DB:", err);
       }
 
-      // Remove from localStorage caches
-      try {
-        ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            const list = JSON.parse(raw);
-            if (Array.isArray(list)) {
-              const nextList = list.filter((item) => item.id !== clientId && item.email !== confirmModal.item.email);
-              localStorage.setItem(key, JSON.stringify(nextList));
-            }
-          }
-        });
-      } catch (e) {}
 
       window.dispatchEvent(new Event("agni_clients_updated"));
       window.dispatchEvent(new Event("storage"));
@@ -742,26 +730,26 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       <section className="dashboard-content">
         <DashboardHeader
           eyebrow="Owner workspace"
-          title={`Hello, ${ownerName}`}
+          title={`Hello, ${effectiveName}`}
           copy="Track revenue, top performers, and client activity in one place."
           className="owner-dashboard-top"
         >
           <div className="top-actions owner-top-actions">
-            <NotificationBell role="Owner" userEmail={userEmail} userName={ownerName} />
+            <NotificationBell role="Owner" userEmail={effectiveEmail} userName={effectiveName} />
 
             <UserProfileMenu
               user={{
-                name: ownerName || "Yashvardhan Trivedi",
-                email: "owner@agnicrm.com",
-                phone: "+91 98000 00001",
-                branch: "Enterprise HQ (Mumbai)",
+                name: effectiveName,
+                email: effectiveEmail,
+                phone: currentUser?.phone || authUser?.phone || "+91 98000 00001",
+                branch: (typeof currentUser?.branch === "string" ? currentUser.branch : currentUser?.branch?.name) || (typeof authUser?.branch === "string" ? authUser.branch : authUser?.branch?.name) || "Enterprise HQ (Mumbai)",
                 designation: "Enterprise Founder & Managing Director",
-                empId: "EMP-OWN-0001",
+                empId: currentUser?.id ? `EMP-${currentUser.id.slice(0, 6).toUpperCase()}` : "EMP-OWN-0001",
                 reportingManager: "Board of Directors",
               }}
               role="Owner"
               roleBadge="Owner"
-              initials="JB"
+              initials={ownerInitials}
               avatarColor="linear-gradient(135deg, #8c5ff8 0%, #6366f1 100%)"
               onSignOut={onSignOut}
               showToast={(msg) => showToast(msg)}

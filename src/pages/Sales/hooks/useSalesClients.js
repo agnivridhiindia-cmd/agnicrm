@@ -11,7 +11,7 @@ import { getTrackerState } from "../../../utils/schemeTracker";
 import { sanitizeClientRecord, mergeSecondaryClients } from "../../../utils/branchHelper";
 import { apiFetch } from "../../../services/apiClient";
 
-export function useSalesClients(salesPersonName, onClientAdded) {
+export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -39,75 +39,13 @@ export function useSalesClients(salesPersonName, onClientAdded) {
               });
 
               const isSec = c.isPrimary === false || c.processType === "secondary" || c.serviceType === "More Services" || (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
-              const rawTot = Number(c.totalPayment || c.invoices?.[0]?.rawTotal || c.fundingRequirement || 0);
+              const rawTot = Number(c.totalPayment !== undefined && c.totalPayment !== null ? c.totalPayment : (c.invoices?.[0]?.rawTotal || c.fundingRequirement || 0));
               const finalTot = (!isSec && rawTot === 0) ? 118000 : rawTot;
-              const rawRec = Math.max(Number(c.paymentReceived || 0), Number(c.invoices?.[0]?.paymentReceived || 0));
-
-              // Check local storage updates for this client
-              let localRec = 0;
-              try {
-                ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
-                  const sClients = localStorage.getItem(key);
-                  if (sClients) {
-                    const parsed = JSON.parse(sClients);
-                    if (Array.isArray(parsed)) {
-                      const matched = parsed.find(
-                        (lc) =>
-                          (c.id && String(lc.id) === String(c.id)) ||
-                          (c.email && String(lc.email).toLowerCase().trim() === String(c.email).toLowerCase().trim() && (Math.abs(Number(lc.totalPayment || 0) - finalTot) < 5 || rawTot <= 0))
-                      );
-                      if (matched && matched.paymentReceived) {
-                        const parsedVal = parseFloat(String(matched.paymentReceived).replace(/[^0-9.]/g, "")) || 0;
-                        if (parsedVal > localRec) localRec = parsedVal;
-                      }
-                    }
-                  }
-                });
-              } catch (e) {}
-
-              // Also check any approved/paid payment records in agni_sales_payments & settlement requests
-              let paidDemandsSum = 0;
-              try {
-                const checkedKeys = ["agni_sales_payments", "agni_payment_demands", "agni_pending_payment_settlement_requests"];
-                const processedPayIds = new Set();
-                checkedKeys.forEach((key) => {
-                  const sPays = localStorage.getItem(key);
-                  if (sPays) {
-                    const pList = JSON.parse(sPays);
-                    if (Array.isArray(pList)) {
-                      pList.forEach((p) => {
-                        const pId = String(p.id || p.paymentId || p.rawId || "");
-                        if (processedPayIds.has(pId)) return;
-                        const pStatus = String(p.status || "").toLowerCase();
-                        const isPaid = pStatus === "paid" || pStatus === "settled & paid" || pStatus === "approved" || pStatus.includes("paid");
-                        if (isPaid && p.amount) {
-                          const pEmail = String(p.clientEmail || "").toLowerCase().trim();
-                          const pComp = String(p.clientCompany || p.clientName || "").toLowerCase().trim();
-                          const pClientId = String(p.clientId || p.raw?.clientId || "").toLowerCase().trim();
-                          const curPending = Math.max(0, finalTot - rawRec);
-                          const pAmt = parseFloat(String(p.amount).replace(/[^0-9.]/g, "")) || 0;
-
-                          const isMatch =
-                            (c.id && pClientId && pClientId !== "1" && pClientId === String(c.id).toLowerCase().trim()) ||
-                            (!pClientId || pClientId === "1" ? (
-                              (c.email && pEmail === String(c.email).toLowerCase().trim() && (Math.abs(pAmt - curPending) < 5 || curPending === 0)) ||
-                              (c.companyName && pComp && (pComp.includes(String(c.companyName).toLowerCase().trim()) || String(c.companyName).toLowerCase().trim().includes(pComp)) && Math.abs(pAmt - curPending) < 5)
-                            ) : false);
-
-                          if (isMatch) {
-                            processedPayIds.add(pId);
-                            paidDemandsSum += pAmt;
-                          }
-                        }
-                      });
-                    }
-                  }
-                });
-              } catch (e) {}
-
-              const computedRec = Math.min(finalTot, Math.max(rawRec, localRec, (rawRec + paidDemandsSum)));
-              const finalRec = (computedRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE" || c.stage === "ACTIVE")) ? finalTot : computedRec;
-              const finalPend = Math.max(0, finalTot - finalRec);
+              const rawRec = Number(c.paymentReceived !== undefined && c.paymentReceived !== null ? c.paymentReceived : (c.invoices?.[0]?.paymentReceived || 0));
+              const finalRec = Math.min(finalTot, rawRec);
+              const finalPend = c.paymentPending !== undefined && c.paymentPending !== null && !isNaN(Number(c.paymentPending))
+                ? Number(c.paymentPending)
+                : Math.max(0, finalTot - finalRec);
 
               return sanitizeClientRecord({
                 ...c,
@@ -258,53 +196,6 @@ export function useSalesClients(salesPersonName, onClientAdded) {
       return sum + netRec;
     }, 0);
 
-    // Also include any approved/paid payment records that haven't been incorporated into clients yet
-    try {
-      const checkedKeys = ["agni_sales_payments", "agni_pending_payment_settlement_requests"];
-      const countedPayIds = new Set();
-
-      checkedKeys.forEach((key) => {
-        const sPays = localStorage.getItem(key);
-        if (sPays) {
-          const pList = JSON.parse(sPays);
-          if (Array.isArray(pList)) {
-            pList.forEach((p) => {
-              const pId = String(p.id || p.paymentId || p.rawId || "");
-              if (countedPayIds.has(pId)) return;
-              const pStatus = String(p.status || "").toLowerCase();
-              const isPaid = pStatus === "paid" || pStatus === "settled & paid" || pStatus === "approved" || pStatus.includes("paid");
-              if (isPaid && p.amount) {
-                const amt = parseFloat(String(p.amount).replace(/[^0-9.]/g, "")) || 0;
-                if (amt <= 0) return;
-                countedPayIds.add(pId);
-
-                const pEmail = String(p.clientEmail || "").toLowerCase().trim();
-                const pComp = String(p.clientCompany || p.clientName || "").toLowerCase().trim();
-                const pClientId = String(p.clientId || p.raw?.clientId || "").toLowerCase().trim();
-
-                const matched = clients.find(
-                  (c) =>
-                    (pClientId && pClientId !== "1" && String(c.id).toLowerCase().trim() === pClientId) ||
-                    (pEmail && String(c.email || "").toLowerCase().trim() === pEmail && Math.abs(Number(c.paymentReceived || 0) + amt - Number(c.totalPayment || 0)) < 5) ||
-                    (pComp && String(c.company || c.name || "").toLowerCase().trim().includes(pComp) && Math.abs(Number(c.paymentReceived || 0) + amt - Number(c.totalPayment || 0)) < 5)
-                );
-
-                if (!matched) {
-                  totalRealized += Math.round(amt / 1.18);
-                } else {
-                  const cRec = Number(matched.paymentReceived || 0);
-                  const cTot = Number(matched.totalPayment || 0);
-                  if (cTot > 0 && cRec <= (cTot - amt + 5)) {
-                    totalRealized += Math.round(amt / 1.18);
-                  }
-                }
-              }
-            });
-          }
-        }
-      });
-    } catch (e) {}
-
     const initialQuotaTarget = 80000;
     const leftNum = Math.max(initialQuotaTarget - totalRealized, 0);
     const progressPct = initialQuotaTarget > 0 ? Math.min(100, Math.round((totalRealized / initialQuotaTarget) * 100)) : 0;
@@ -439,7 +330,7 @@ export function useSalesClients(salesPersonName, onClientAdded) {
       paymentMode: (newClient.paymentMode || "ONLINE").toUpperCase() === "OFFLINE" ? "OFFLINE" : "ONLINE",
       paymentReceived: Number(newClient.paymentReceived || 0),
       adminNotes: newClient.notes || "Client profile registered by salesperson.",
-      salesPersonEmail: localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || undefined,
+      salesPersonEmail: userEmail || undefined,
     };
 
     try {
@@ -490,31 +381,6 @@ export function useSalesClients(salesPersonName, onClientAdded) {
       return prev;
     });
 
-    const clientEmailKey = selectedClient?.email ? selectedClient.email.trim().toLowerCase() : "";
-    if (clientEmailKey) {
-      try {
-        localStorage.setItem(`agni_client_eligible_schemes_${clientEmailKey}`, JSON.stringify(updatedSchemes));
-        localStorage.setItem(`agni_approved_client_plans_${clientEmailKey}`, JSON.stringify(updatedSchemes));
-      } catch (e) { }
-
-      try {
-        ["agni_sales_clients", "agni_branch_clients"].forEach((storageKey) => {
-          const savedList = localStorage.getItem(storageKey);
-          if (savedList) {
-            const list = JSON.parse(savedList);
-            if (Array.isArray(list)) {
-              const updated = list.map((c) =>
-                c.email && c.email.toLowerCase().trim() === clientEmailKey
-                  ? { ...c, eligibleSchemes: updatedSchemes }
-                  : c
-              );
-              localStorage.setItem(storageKey, JSON.stringify(updated));
-            }
-          }
-        });
-      } catch (e) { }
-    }
-
     if (clientId) {
       apiFetch(`/clients/${clientId}/eligible-schemes`, {
         method: "PATCH",
@@ -524,7 +390,6 @@ export function useSalesClients(salesPersonName, onClientAdded) {
       });
     }
 
-    window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new CustomEvent("agni_clients_updated"));
   };
 
@@ -547,30 +412,6 @@ export function useSalesClients(salesPersonName, onClientAdded) {
       return prev;
     });
 
-    const clientEmailKey = selectedClient?.email ? selectedClient.email.trim().toLowerCase() : "";
-    if (clientEmailKey) {
-      try {
-        localStorage.setItem(`agni_client_due_date_${clientEmailKey}`, newDueDate || "");
-      } catch (e) {}
-
-      try {
-        ["agni_sales_clients", "agni_branch_clients"].forEach((storageKey) => {
-          const savedList = localStorage.getItem(storageKey);
-          if (savedList) {
-            const list = JSON.parse(savedList);
-            if (Array.isArray(list)) {
-              const updated = list.map((c) =>
-                c.email && c.email.toLowerCase().trim() === clientEmailKey
-                  ? { ...c, dueDate: newDueDate }
-                  : c
-              );
-              localStorage.setItem(storageKey, JSON.stringify(updated));
-            }
-          }
-        });
-      } catch (e) {}
-    }
-
     try {
       await apiFetch(`/clients/${clientId}/due-date`, {
         method: "PATCH",
@@ -580,7 +421,6 @@ export function useSalesClients(salesPersonName, onClientAdded) {
       console.warn("Failed to persist due date to backend:", err);
     }
 
-    window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new CustomEvent("agni_clients_updated"));
   };
 

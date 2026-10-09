@@ -79,21 +79,6 @@ export function initRealtimeService() {
           }
 
           if (isRecipient) {
-            // Save notification to local storage for the notification bell
-            try {
-              const savedNotifs = JSON.parse(localStorage.getItem("agni_sales_notifications") || "[]");
-              const newNotif = {
-                id: Date.now(),
-                title,
-                message: msg,
-                time: "Just now",
-                read: false,
-                type: isApproved ? "approval" : "rejection",
-                createdAt: new Date().toISOString(),
-              };
-              localStorage.setItem("agni_sales_notifications", JSON.stringify([newNotif, ...savedNotifs.slice(0, 49)]));
-            } catch (e) {}
-
             // Dispatch notification events ONLY for the intended recipient
             window.dispatchEvent(new CustomEvent("agni_notifications_updated", { detail: { title, message: msg } }));
             window.dispatchEvent(new CustomEvent("agni_toast_notification", { detail: msg }));

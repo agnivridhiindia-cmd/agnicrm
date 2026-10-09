@@ -3,6 +3,7 @@ import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
 import { isClientCreatedByUser } from "./hooks/useSalesClients";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 
 const requestTypes = [
   {
@@ -26,18 +27,12 @@ const requestTypes = [
 const makeRequestId = () => `RQ-${Math.floor(1000 + Math.random() * 9000)}`;
 
 export default function CreateRequestModal({ clients = [], userEmail, salesPersonName, onClose, onSubmit }) {
-  const storedUser = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("agni_user") || "{}");
-    } catch (e) {
-      return {};
-    }
-  }, []);
+  const { user, userEmail: authEmail, userRole: authRole, userName: authName } = useAuth();
 
-  const currentSalesName = salesPersonName || storedUser.fullName || storedUser.name || localStorage.getItem("agni_user_name") || "";
-  const currentUserEmail = userEmail || storedUser.email || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "";
-  const currentUserId = storedUser.id || "";
-  const userRole = localStorage.getItem("agni_user_role") || storedUser.role || "";
+  const currentSalesName = salesPersonName || authName || user?.fullName || user?.name || "";
+  const currentUserEmail = userEmail || authEmail || user?.email || "";
+  const currentUserId = user?.id || "";
+  const userRole = authRole || user?.role || "";
 
   // Fallback internal clients if clients prop is empty
   const [internalClients, setInternalClients] = useState([]);
@@ -60,13 +55,6 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
   const rawList = useMemo(() => {
     if (Array.isArray(clients) && clients.length > 0) return clients;
     if (internalClients.length > 0) return internalClients;
-    try {
-      const saved = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_clients");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
     return [];
   }, [clients, internalClients]);
 

@@ -67,12 +67,5 @@ export async function loadAgreementsFromStorage() {
 }
 
 export function saveAgreementsToStorage(agreements) {
-  // Handled inside agreementService
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem("agni_crm_agreements_v4", JSON.stringify(agreements));
-    }
-  } catch (e) {
-    console.warn("Failed to save agreements to localStorage", e);
-  }
+  // Managed by backend PostgreSQL agreement service
 }

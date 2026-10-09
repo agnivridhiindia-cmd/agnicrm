@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 import Icon from "../../components/Icon";
 import RequestTable from "./RequestTable";
 import RequestHistory from "./RequestHistory";
@@ -30,10 +31,10 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
     }
   }, [clients]);
 
+  const { userEmail: authEmail } = useAuth();
   const branchInfo = useMemo(() => {
-    const userEmail = localStorage.getItem("agni_user_email") || "";
-    return getManagerBranchDetails(userEmail);
-  }, []);
+    return getManagerBranchDetails(authEmail || "");
+  }, [authEmail]);
 
   // Consolidate all branch team member names & emails for isolation
   const branchSalesNames = useMemo(() => {

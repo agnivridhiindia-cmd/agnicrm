@@ -74,45 +74,12 @@ export function useApiPayments() {
             };
           });
 
-          // Synchronize Paid/Settled records back into local storage caches so stale "Requested" entries are cleaned up
-          try {
-            const paidKeys = new Set(apiMapped.filter((p) => p.status === "Paid").map((p) => String(p.id)));
-            const awaitingKeys = new Set(apiMapped.filter((p) => p.status === "Awaiting Approval").map((p) => String(p.id)));
-
-            const syncLocal = (key) => {
-              const raw = localStorage.getItem(key);
-              if (!raw) return;
-              const list = JSON.parse(raw);
-              if (!Array.isArray(list)) return;
-              let changed = false;
-              const nextList = list.map((item) => {
-                const iId = String(item.paymentId || item.id || "");
-                if (paidKeys.has(iId) && item.status !== "Paid") {
-                  changed = true;
-                  return { ...item, status: "Paid" };
-                }
-                if (awaitingKeys.has(iId) && item.status !== "Awaiting Approval" && item.status !== "Paid") {
-                  changed = true;
-                  return { ...item, status: "Awaiting Approval" };
-                }
-                return item;
-              });
-              if (changed) {
-                localStorage.setItem(key, JSON.stringify(nextList));
-              }
-            };
-
-            syncLocal("agni_sales_payments");
-            syncLocal("agni_payment_demands");
-            syncLocal("agni_client_requests");
-            for (let i = 0; i < localStorage.length; i++) {
-              const k = localStorage.key(i) || "";
-              if (k.startsWith("agni_payment_demands_")) {
-                syncLocal(k);
-              }
-            }
-          } catch (e) {}
+          setPayments(apiMapped);
+        } else {
+          setPayments([]);
         }
+      } else {
+        setPayments([]);
       }
     } catch (err) {
       console.warn("Failed to fetch payments from API:", err);
@@ -120,81 +87,6 @@ export function useApiPayments() {
     } finally {
       setLoading(false);
     }
-
-    // Merge LocalStorage payment demands & requests
-    let localDemands = [];
-    try {
-      const s1 = localStorage.getItem("agni_sales_payments");
-      const s2 = localStorage.getItem("agni_payment_demands");
-      const s3 = localStorage.getItem("agni_client_requests");
-      const l1 = s1 ? JSON.parse(s1) : [];
-      const l2 = s2 ? JSON.parse(s2) : [];
-      const l3 = s3 ? JSON.parse(s3) : [];
-      localDemands = [...l1, ...l2, ...l3];
-
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i) || "";
-        if (k.startsWith("agni_payment_demands_")) {
-          try {
-            const parsed = JSON.parse(localStorage.getItem(k));
-            if (Array.isArray(parsed)) {
-              localDemands.push(...parsed);
-            }
-          } catch (e) {}
-        }
-      }
-    } catch (e) {}
-
-    const dedupeMap = new Map();
-    localDemands.forEach((p) => {
-      const pId = String(p?.id || p?.paymentId || "");
-      if (p && p.id && pId !== "PAY-2026-C4EF3" && pId !== "PAY-2026-F981C") {
-        const cComp = p.clientCompany || p.companyName || p.company || p.clientName || "Client";
-        const cName = p.clientName || p.representativeName || cComp;
-        const cEmail = (p.clientEmail || p.email || "").toLowerCase().trim();
-        const cPhone = p.clientPhone || p.phone || "";
-
-        dedupeMap.set(String(p.id), {
-          ...p,
-          id: p.id,
-          paymentId: p.paymentId || p.id,
-          clientId: p.clientId || "",
-          clientName: cName,
-          clientCompany: cComp,
-          company: cComp,
-          companyName: cComp,
-          clientEmail: cEmail,
-          email: cEmail,
-          clientPhone: cPhone,
-          phone: cPhone,
-          amount: Number(p.amount || 0),
-          paymentMode: p.paymentMode || p.mode || "Online Gateway",
-          status: p.status || "Requested",
-          type: p.type || "Payment Request",
-        });
-      }
-    });
-
-    apiMapped.forEach((p) => {
-      if (p && p.id) {
-        const key = String(p.id);
-        if (!dedupeMap.has(key)) {
-          dedupeMap.set(key, p);
-        } else {
-          // If local demand was marked as Paid or settled, preserve paid status and enrich with DB metadata
-          const existing = dedupeMap.get(key);
-          const isPaid = existing.status === "Paid" || p.status === "Paid";
-          const isAwaiting = !isPaid && (existing.status === "Awaiting Approval" || p.status === "Awaiting Approval");
-          dedupeMap.set(key, {
-            ...existing,
-            ...p,
-            status: isPaid ? "Paid" : isAwaiting ? "Awaiting Approval" : (p.status || existing.status),
-          });
-        }
-      }
-    });
-
-    setPayments(Array.from(dedupeMap.values()));
   }, []);
 
   useEffect(() => {
@@ -208,15 +100,14 @@ export function useApiPayments() {
     window.addEventListener("agni_requests_updated", handleUpdate);
     window.addEventListener("agni_pending_updated", handleUpdate);
     window.addEventListener("agni_invoices_updated", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
     return () => {
       window.removeEventListener("agni_payments_updated", handleUpdate);
       window.removeEventListener("agni_requests_updated", handleUpdate);
       window.removeEventListener("agni_pending_updated", handleUpdate);
       window.removeEventListener("agni_invoices_updated", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
     };
   }, [fetchPayments]);
 
   return { payments, loading, error, refreshPayments: fetchPayments, setPayments };
 }
+

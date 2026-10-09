@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { apiFetch } from "../services/apiClient";
 
 const AuthContext = createContext({
   token: null,
   user: null,
   userRole: null,
   userEmail: null,
+  userName: null,
+  userBranch: null,
   isAuthenticated: false,
   login: () => {},
   logout: () => {},
@@ -42,6 +45,14 @@ export function AuthProvider({ children }) {
   const jwtPayload = parseJwtPayload(token);
   const userRole = jwtPayload?.role || user?.role || localStorage.getItem("agni_user_role") || localStorage.getItem("agni_role");
   const userEmail = jwtPayload?.email || user?.email || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email");
+  
+  const storedName = localStorage.getItem("agni_user_name");
+  const storedEmail = localStorage.getItem("agni_user_email");
+  const activeEmail = user?.email || jwtPayload?.email;
+  const isStoredNameValid = storedName && (!activeEmail || !storedEmail || storedEmail.toLowerCase() === activeEmail.toLowerCase());
+
+  const userName = user?.fullName || user?.name || jwtPayload?.name || (isStoredNameValid ? storedName : null);
+  const userBranch = user?.branch?.name || (typeof user?.branch === "string" ? user.branch : null) || localStorage.getItem("agni_user_branch") || null;
 
   const syncAuthFromStorage = useCallback(() => {
     const curToken = localStorage.getItem("agni_token");
@@ -54,6 +65,33 @@ export function AuthProvider({ children }) {
     setToken(curToken);
     setUser(curUser);
   }, []);
+
+  // Authoritative live sync from backend /auth/me on mount or when token updates
+  useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+    apiFetch("/auth/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.success && data?.user) {
+          setUser(data.user);
+          localStorage.setItem("agni_user", JSON.stringify(data.user));
+          if (data.user.fullName || data.user.name) {
+            localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
+          }
+          if (data.user.email) {
+            localStorage.setItem("agni_user_email", data.user.email);
+          }
+          if (data.user.role) {
+            localStorage.setItem("agni_user_role", data.user.role);
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
   useEffect(() => {
     // Synchronize authentication state across multiple open browser tabs in real-time
@@ -72,6 +110,9 @@ export function AuthProvider({ children }) {
     }
     if (newUser) {
       localStorage.setItem("agni_user", JSON.stringify(newUser));
+      if (newUser.fullName || newUser.name) {
+        localStorage.setItem("agni_user_name", newUser.fullName || newUser.name);
+      }
       if (newUser.role) {
         localStorage.setItem("agni_user_role", newUser.role);
         localStorage.setItem("agni_role", newUser.role);
@@ -92,6 +133,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     localStorage.removeItem("agni_token");
     localStorage.removeItem("agni_user");
+    localStorage.removeItem("agni_user_name");
     localStorage.removeItem("agni_user_branch");
     localStorage.removeItem("agni_user_role");
     localStorage.removeItem("agni_role");
@@ -108,6 +150,8 @@ export function AuthProvider({ children }) {
     user,
     userRole,
     userEmail,
+    userName,
+    userBranch,
     isAuthenticated: Boolean(token),
     login,
     logout,

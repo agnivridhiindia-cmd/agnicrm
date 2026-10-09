@@ -111,90 +111,70 @@ const CONSTRAINTS = {
 };
 
 export default function DocumentForm({ email, onComplete, onSignOut }) {
-  const emailKey = email || "default";
-
-  const [documentData, setDocumentData] = useState(() => {
-    const saved = localStorage.getItem(`agni_doc_temp_${emailKey}`);
-    return saved
-      ? JSON.parse(saved)
-      : {
-        companyName: "",
-        representativeName: "",
-        contactNumber: "",
-        address: "",
-        businessType: "Proprietorship",
-        sector: "Manufacturing",
-        companyAge: "1",
-        annualTurnover: "",
-        fundingRequirement: "",
-        companyDescription: "",
-        fundingPurpose: "",
-        gstNumber: "",
-        aadharNumber: "",
-        panNumber: "",
-        msmeNumber: "",
-        companyPan: "",
-        tanNumber: "",
-        cinNumber: "",
-        twelveARegNumber: "",
-        eightyGCertNumber: "",
-        darpanId: "",
-      };
+  const [documentData, setDocumentData] = useState({
+    companyName: "",
+    representativeName: "",
+    contactNumber: "",
+    address: "",
+    businessType: "Proprietorship",
+    sector: "Manufacturing",
+    companyAge: "1",
+    annualTurnover: "",
+    fundingRequirement: "",
+    companyDescription: "",
+    fundingPurpose: "",
+    gstNumber: "",
+    aadharNumber: "",
+    panNumber: "",
+    msmeNumber: "",
+    companyPan: "",
+    tanNumber: "",
+    cinNumber: "",
+    twelveARegNumber: "",
+    eightyGCertNumber: "",
+    darpanId: "",
   });
 
   const [touched, setTouched] = useState({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [formErrors, setFormErrors] = useState([]);
 
+  // Auto-fetch profile from database
   useEffect(() => {
-    localStorage.setItem(`agni_doc_temp_${emailKey}`, JSON.stringify(documentData));
-  }, [documentData, emailKey]);
-
-  // Auto-fetch Contact Person and Phone Number from Salesperson CRM creation entry
-  useEffect(() => {
-    let fetchedRep = "";
-    let fetchedPhone = "";
-    let fetchedCompany = "";
-    let fetchedAddress = "";
-
-    try {
-      const savedSales = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_branch_clients");
-      if (savedSales) {
-        const parsed = JSON.parse(savedSales);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const match = parsed.find((c) => c.email && email && c.email.toLowerCase() === email.toLowerCase());
-          if (match) {
-            fetchedRep = match.contactPerson || match.name || match.representativeName || "";
-            fetchedPhone = match.phone || match.contactNumber || "";
-            fetchedCompany = match.company || match.companyName || "";
-            fetchedAddress = match.address || "";
-          }
-        }
-      }
-    } catch (e) { }
-
     async function fetchDbProfile() {
       try {
         const res = await apiFetch("/clients/my-profile");
         if (res.ok) {
           const data = await res.json();
-          const p = data.profile || data;
+          const p = data.profile || data?.data || data;
           if (p) {
-            if (p.contactPerson || p.fullName) fetchedRep = p.contactPerson || p.fullName;
-            if (p.phone) fetchedPhone = p.phone;
-            if (p.companyName) fetchedCompany = p.companyName;
-            if (p.address) fetchedAddress = p.address;
+            setDocumentData((prev) => ({
+              ...prev,
+              companyName: p.companyName || prev.companyName || "",
+              representativeName: p.representativeName || p.contactPerson || p.fullName || prev.representativeName || "Representative",
+              contactNumber: p.contactNumber || p.phone || prev.contactNumber || "+91 98765 43210",
+              address: p.address || prev.address || "",
+              businessType: p.businessType || prev.businessType,
+              sector: p.sector || prev.sector,
+              companyAge: p.companyAge ? String(p.companyAge) : prev.companyAge,
+              annualTurnover: p.annualTurnover ? String(p.annualTurnover) : prev.annualTurnover,
+              fundingRequirement: p.fundingRequirement ? String(p.fundingRequirement) : prev.fundingRequirement,
+              companyDescription: p.companyDescription || prev.companyDescription,
+              fundingPurpose: p.fundingPurpose || prev.fundingPurpose,
+              gstNumber: p.gstNumber || prev.gstNumber,
+              aadharNumber: p.aadharNumber || prev.aadharNumber,
+              panNumber: p.panNumber || prev.panNumber,
+              msmeNumber: p.msmeNumber || prev.msmeNumber,
+              companyPan: p.companyPan || prev.companyPan,
+              tanNumber: p.tanNumber || prev.tanNumber,
+              cinNumber: p.cinNumber || prev.cinNumber,
+              twelveARegNumber: p.twelveARegNumber || prev.twelveARegNumber,
+              eightyGCertNumber: p.eightyGCertNumber || prev.eightyGCertNumber,
+              darpanId: p.darpanId || prev.darpanId,
+            }));
           }
         }
       } catch (e) { }
-
-      setDocumentData((prev) => ({
-        ...prev,
-        representativeName: prev.representativeName || fetchedRep || "Representative",
-        contactNumber: prev.contactNumber || fetchedPhone || "+91 98765 43210",
-        companyName: prev.companyName || fetchedCompany || prev.companyName,
-        address: prev.address || fetchedAddress || "",
-      }));
     }
 
     fetchDbProfile();
@@ -331,69 +311,8 @@ export default function DocumentForm({ email, onComplete, onSignOut }) {
       console.warn("Could not save onboarding profile directly to backend DB:", err);
     }
 
-    localStorage.setItem(`agni_client_doc_data_${emailKey}`, JSON.stringify(documentData));
-    localStorage.setItem(`agni_client_doc_data_${emailKey.toLowerCase()}`, JSON.stringify(documentData));
-    localStorage.setItem("agni_client_doc_data_active", JSON.stringify(documentData));
-    localStorage.setItem(`agni_client_doc_submitted_${emailKey}`, "true");
-    localStorage.setItem(`agni_client_doc_submitted_${emailKey.toLowerCase()}`, "true");
-    localStorage.removeItem(`agni_doc_temp_${emailKey}`);
-
-    try {
-      ["agni_sales_clients", "agni_branch_clients"].forEach((storageKey) => {
-        let list = [];
-        try {
-          const savedList = localStorage.getItem(storageKey);
-          if (savedList) list = JSON.parse(savedList);
-        } catch (e) { }
-        if (!Array.isArray(list)) list = [];
-
-        const idx = list.findIndex(
-          (c) =>
-            (c.email && email && c.email.toLowerCase() === email.toLowerCase()) ||
-            (c.company && documentData.companyName && c.company.toLowerCase() === documentData.companyName.toLowerCase()) ||
-            (c.name && documentData.companyName && c.name.toLowerCase() === documentData.companyName.toLowerCase())
-        );
-
-        if (idx >= 0) {
-          list[idx] = {
-            ...list[idx],
-            company: documentData.companyName || list[idx].company,
-            companyName: documentData.companyName || list[idx].companyName,
-            name: documentData.companyName || list[idx].name,
-            contactPerson: documentData.representativeName || list[idx].contactPerson,
-            representativeName: documentData.representativeName || list[idx].representativeName,
-            phone: documentData.contactNumber || list[idx].phone,
-            contactNumber: documentData.contactNumber || list[idx].contactNumber,
-            address: documentData.address || list[idx].address,
-            gstNumber: documentData.gstNumber || list[idx].gstNumber,
-            gstin: documentData.gstNumber || list[idx].gstin,
-            panNumber: documentData.panNumber || documentData.companyPan || list[idx].panNumber,
-            fundingRequirement: parseFloat(documentData.fundingRequirement) || list[idx].fundingRequirement || 0,
-            requiredAmount: parseFloat(documentData.fundingRequirement) || list[idx].requiredAmount || 0,
-            fundingPurpose: documentData.fundingPurpose || list[idx].fundingPurpose,
-            companyDescription: documentData.companyDescription || list[idx].companyDescription,
-            documentData: documentData,
-            owner: list[idx].owner,
-            ownerEmail: list[idx].ownerEmail,
-            salesPerson: list[idx].salesPerson,
-            salesPersonEmail: list[idx].salesPersonEmail,
-            salesperson: list[idx].salesperson,
-            salespersonEmail: list[idx].salespersonEmail,
-            salesRep: list[idx].salesRep,
-            branch: list[idx].branch,
-            branchCode: list[idx].branchCode,
-            region: list[idx].region,
-            salesManager: list[idx].salesManager,
-            salesManagerEmail: list[idx].salesManagerEmail,
-          };
-          localStorage.setItem(storageKey, JSON.stringify(list));
-        }
-      });
-      window.dispatchEvent(new Event("storage"));
-      window.dispatchEvent(new Event("agni_clients_updated"));
-    } catch (e) {
-      console.warn("Could not sync DocumentForm data to sales client storage:", e);
-    }
+    window.dispatchEvent(new Event("agni_clients_updated"));
+    window.dispatchEvent(new Event("agni_requests_updated"));
 
     if (typeof onComplete === "function") {
       onComplete(documentData);

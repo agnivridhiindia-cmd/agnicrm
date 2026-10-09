@@ -8,16 +8,6 @@ import { apiFetch } from "../services/apiClient";
 let dynamicHierarchyCache = null;
 let hierarchySyncPromise = null;
 
-// Seed initial memory cache from localStorage if available
-if (typeof window !== "undefined" && window.localStorage) {
-  try {
-    const saved = localStorage.getItem("agni_db_team_hierarchy");
-    if (saved) {
-      dynamicHierarchyCache = JSON.parse(saved);
-    }
-  } catch (e) {}
-}
-
 /**
  * Fetch and sync complete branch team hierarchy directly from PostgreSQL database:
  * GET /api/v1/employees/hierarchy
@@ -33,9 +23,6 @@ export async function syncTeamHierarchyFromDB() {
         const data = json.hierarchy || json.data;
         if (Array.isArray(data) && data.length > 0) {
           dynamicHierarchyCache = data;
-          if (typeof window !== "undefined" && window.localStorage) {
-            localStorage.setItem("agni_db_team_hierarchy", JSON.stringify(data));
-          }
           return data;
         }
       }
@@ -58,15 +45,6 @@ if (typeof window !== "undefined") {
 export function getCachedHierarchy() {
   if (dynamicHierarchyCache && Array.isArray(dynamicHierarchyCache) && dynamicHierarchyCache.length > 0) {
     return dynamicHierarchyCache;
-  }
-  if (typeof window !== "undefined" && window.localStorage) {
-    try {
-      const saved = localStorage.getItem("agni_db_team_hierarchy");
-      if (saved) {
-        dynamicHierarchyCache = JSON.parse(saved);
-        return dynamicHierarchyCache;
-      }
-    } catch (e) {}
   }
   return null;
 }
@@ -292,8 +270,10 @@ export function getManagerBranchDetails(emailOrName = "") {
     };
   }
 
-  // 2. North Zone (Delhi) - Ananya Sen
+  // 2. North Zone (Delhi) - Urvashi & Ruhi Srivastava
   if (
+    str.includes("ruhi") ||
+    str.includes("urvashi") ||
     str.includes("ananya") ||
     str.includes("rajesh") ||
     str.includes("rohan") ||
@@ -302,21 +282,24 @@ export function getManagerBranchDetails(emailOrName = "") {
     str.includes("north") ||
     str.includes("br-02") ||
     str.includes("nz") ||
-    str.includes("anmol")
+    str.includes("anmol") ||
+    str.includes("ganga") ||
+    str.includes("kshitiz") ||
+    str.includes("aishish")
   ) {
     return {
-      managerName: "Ananya Sen",
-      managerEmail: "ananya.sm@agni.com",
+      managerName: "Urvashi",
+      managerEmail: "urvashi@agnivridhiindia.com",
       managerPhone: "+91 98111 22335",
-      branchManagerName: "Rajesh Khanna",
-      branchManagerEmail: "rajesh.bm@agni.com",
+      branchManagerName: "Ruhi Srivastava",
+      branchManagerEmail: "ruhi@agnivridhiindia.com",
       branchName: "North Zone (Delhi)",
       branch: "North Zone (Delhi)",
       region: "North Zone",
       code: "BR-02",
       branchCode: "BR-02",
-      salespersons: ["Rohan Gupta", "Kavya Sharma"],
-      salesEmails: ["rohan.sales@agni.com", "kavya.sales@agni.com"],
+      salespersons: ["ganga", "kshitiz", "aishish", "yash", "Abhi", "Rohan Gupta", "Kavya Sharma"],
+      salesEmails: ["ganga@agnivridhiindia.com", "kshitiz@agnivridhiindia.com", "rohan.sales@agni.com", "kavya.sales@agni.com"],
     };
   }
 
@@ -511,41 +494,9 @@ export function isBranchMatch(branchA = "", branchB = "") {
 }
 
 export function repairClientStorageData() {
-  if (typeof window === "undefined" || !window.localStorage) return;
-  try {
-    const keys = ["agni_sales_clients", "agni_branch_clients"];
-    keys.forEach((key) => {
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const list = JSON.parse(raw);
-      if (!Array.isArray(list)) return;
-      let changed = false;
-      const fixed = list.map((c) => {
-        const rep = (c.assignedSalesPerson || c.salesRep || c.salesPerson || c.owner || "").trim();
-        if (rep && rep !== "Sales Representative") {
-          const details = getManagerBranchDetails(rep);
-          if (details && details.managerName && c.salesManager !== details.managerName) {
-            changed = true;
-            return {
-              ...c,
-              salesManager: details.managerName,
-              salesManagerEmail: details.managerEmail,
-              branch: details.branchName,
-              branchCode: details.code,
-              region: details.region,
-            };
-          }
-        }
-        return c;
-      });
-      if (changed) {
-        localStorage.setItem(key, JSON.stringify(fixed));
-      }
-    });
-  } catch (e) {}
+  // Deprecated: client data is maintained authoritatively in PostgreSQL database
 }
 
 export function repairPendingClientCreations() {
-  repairClientStorageData();
   return [];
 }

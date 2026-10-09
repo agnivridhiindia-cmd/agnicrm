@@ -18,17 +18,10 @@ import BranchManagerMarketingPage from "./BranchManagerMarketingPage";
 import BranchManagerRequestsPage from "./BranchManagerRequestsPage";
 import "./branchmanagerdashboard.css";
 
+import { useAuth } from "../../context/AuthContext";
 import { getTrackerState } from "../../utils/schemeTracker";
 import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, mergeSecondaryClients } from "../../utils/branchHelper";
 import { apiFetch } from "../../services/apiClient";
-
-// Mock & Initial Data
-import {
-  initialBranchAdmins,
-  initialBranchIT,
-  initialBranchMarketing,
-  initialEmployeesList,
-} from "./mockBranchManagerData";
 
 const navItems = [
   { icon: "dashboard", label: "Dashboard" },
@@ -45,6 +38,9 @@ const navItems = [
 export default function BranchManagerDashboard({ onSignOut, userEmail }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user: authUser, userName: authName, userEmail: authEmail, userBranch: authBranch } = useAuth() || {};
+
+  const effectiveEmail = userEmail || authEmail || (authUser && authUser.email) || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email");
 
   const urlToNavMap = useMemo(() => ({
     dashboard: "Dashboard",
@@ -73,24 +69,104 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
 
   const [dark, setDark] = useState(false);
 
-  // States
+  // States - ONLY PostgreSQL database is the single source of truth
   const [clients, setClients] = useState([]);
-  const [branchAdmins] = useState(initialBranchAdmins);
-  const [branchIT] = useState(initialBranchIT);
-  const [branchMarketing] = useState(initialBranchMarketing);
-  const [employeesList] = useState(initialEmployeesList);
+  const [branchAdmins, setBranchAdmins] = useState([]);
+  const [branchIT, setBranchIT] = useState([]);
+  const [branchMarketing, setBranchMarketing] = useState([]);
+  const [employeesList, setEmployeesList] = useState([]);
 
-  const branchInfo = useMemo(() => getManagerBranchDetails(userEmail), [userEmail]);
-  const branchManagerName = branchInfo.branchManagerName;
-  const managedRegion = branchInfo.region;
-  const managedBranch = branchInfo.branchName;
+  const branchInfo = useMemo(() => getManagerBranchDetails(effectiveEmail), [effectiveEmail]);
+  const branchManagerName = authUser?.fullName || authUser?.name || authName || branchInfo.branchManagerName || "Branch Manager";
+  const managedRegion = authUser?.branch?.region || branchInfo.region || "North Zone";
+  const managedBranch = authBranch || authUser?.branch?.name || branchInfo.branchName || "North Zone (Delhi)";
 
   const salesPersonName = useMemo(() => {
-    return branchManagerName || "Ariana Lee";
+    return branchManagerName || "Branch Manager";
   }, [branchManagerName]);
 
   // Branch scope
   const myBranch = managedRegion || "West Zone";
+
+  // Live Fetch Employees & Branch Staff strictly from PostgreSQL Backend API
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchBranchUsersFromDB() {
+      try {
+        const response = await apiFetch("/auth/users");
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.users) && isMounted) {
+            const rawUsers = resData.users;
+
+            const mappedUsers = rawUsers.map((u) => {
+              const bName = u.branch ? (typeof u.branch === "string" ? u.branch : u.branch.name) : (u.region || "");
+              const bRegion = u.region || (u.branch && typeof u.branch === "object" ? u.branch.region : "");
+              const repMgr = typeof u.reportingManager === "object"
+                ? (u.reportingManager?.fullName || u.reportingManager?.name || "")
+                : (u.reportingManager || "");
+
+              return {
+                ...u,
+                id: u.id,
+                name: u.fullName || u.name,
+                fullName: u.fullName || u.name,
+                email: u.email,
+                phone: u.phone || "N/A",
+                role: u.role || "Sales Representative",
+                rawRole: u.rawRole || u.role,
+                branch: bName,
+                region: bRegion || (bName.includes("North") ? "North Zone" : bName.includes("West") ? "West Zone" : bName.includes("South") ? "South Zone" : bName.includes("East") ? "East Zone" : managedRegion),
+                reportingManager: repMgr,
+                branchManager: u.branchManager || (bName.includes("North") ? "Ruhi Srivastava" : bName.includes("West") ? "Ariana Lee" : bName.includes("South") ? "Suresh Reddy" : bName.includes("East") ? "Subhash Banerjee" : branchManagerName),
+                branchManagerName: u.branchManagerName || (bName.includes("North") ? "Ruhi Srivastava" : bName.includes("West") ? "Ariana Lee" : bName.includes("South") ? "Suresh Reddy" : bName.includes("East") ? "Subhash Banerjee" : branchManagerName),
+                joiningDate: u.createdAt ? new Date(u.createdAt).toISOString().split("T")[0] : "2024",
+              };
+            });
+
+            // 1. Sales Team (Managers and Sales Persons) - ONLY from PostgreSQL
+            const salesUsers = mappedUsers.filter((u) => {
+              const r = (u.rawRole || u.role || "").toUpperCase();
+              return r === "MANAGER" || r === "SALES_PERSON" || (r.includes("SALES") && !r.includes("ADMIN") && !r.includes("IT") && !r.includes("MARKETING"));
+            });
+
+            // 2. Branch Admins - ONLY from PostgreSQL
+            const adminUsers = mappedUsers.filter((u) => {
+              const r = (u.rawRole || u.role || "").toUpperCase();
+              return r === "ADMIN" || r.includes("ADMIN");
+            });
+
+            // 3. IT - ONLY from PostgreSQL
+            const itUsers = mappedUsers.filter((u) => {
+              const r = (u.rawRole || u.role || "").toUpperCase();
+              return r === "IT" || r.includes("TECH") || r.includes("SYSTEM");
+            });
+
+            // 4. Marketing - ONLY from PostgreSQL
+            const marketingUsers = mappedUsers.filter((u) => {
+              const r = (u.rawRole || u.role || "").toUpperCase();
+              return r === "MARKETING" || r.includes("MARKET");
+            });
+
+            // Strictly set directly from PostgreSQL database with zero mock fallbacks
+            setEmployeesList(salesUsers);
+            setBranchAdmins(adminUsers);
+            setBranchIT(itUsers);
+            setBranchMarketing(marketingUsers);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch branch users from DB:", err);
+      }
+    }
+
+    fetchBranchUsersFromDB();
+    window.addEventListener("agni_users_updated", fetchBranchUsersFromDB);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("agni_users_updated", fetchBranchUsersFromDB);
+    };
+  }, [managedRegion, branchManagerName]);
 
   // Live Fetch Clients from PostgreSQL Backend API
   useEffect(() => {
@@ -195,8 +271,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             <UserProfileMenu
               user={{
                 name: salesPersonName,
-                email: branchInfo.branchManagerEmail || "ariana@agni.com",
-                phone: "+91 98200 98765",
+                email: userEmail || authUser?.email || branchInfo.branchManagerEmail || "ariana@agni.com",
+                phone: authUser?.phone || "+91 98200 98765",
                 branch: managedBranch,
                 designation: "Branch Director & Manager",
                 empId: "EMP-BM-1002",
@@ -284,6 +360,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 employeesList={employeesList}
                 branchManagerName={branchManagerName}
                 managedRegion={managedRegion}
+                managedBranch={managedBranch}
               />
             }
           />
@@ -294,6 +371,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 employeesList={employeesList}
                 branchManagerName={branchManagerName}
                 managedRegion={managedRegion}
+                managedBranch={managedBranch}
               />
             }
           />
@@ -334,6 +412,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 branchAdmins={branchAdmins}
                 branchManagerName={branchManagerName}
                 managedRegion={managedRegion}
+                managedBranch={managedBranch}
               />
             }
           />
@@ -344,6 +423,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 branchAdmins={branchAdmins}
                 branchManagerName={branchManagerName}
                 managedRegion={managedRegion}
+                managedBranch={managedBranch}
               />
             }
           />
@@ -354,6 +434,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 branchIT={branchIT}
                 branchManagerName={branchManagerName}
                 managedRegion={managedRegion}
+                managedBranch={managedBranch}
               />
             }
           />
@@ -364,6 +445,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 branchMarketing={branchMarketing}
                 branchManagerName={branchManagerName}
                 managedRegion={managedRegion}
+                managedBranch={managedBranch}
               />
             }
           />
@@ -374,6 +456,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 branchMarketing={branchMarketing}
                 branchManagerName={branchManagerName}
                 managedRegion={managedRegion}
+                managedBranch={managedBranch}
               />
             }
           />

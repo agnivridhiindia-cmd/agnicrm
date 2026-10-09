@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
 import { mockClients } from "./mockClients";
@@ -103,20 +104,8 @@ function CreateInvoiceModal({ clients, onClose, onSubmit }) {
     const client = clients.find((c) => String(c.id) === String(clientId) || String(c.email) === String(clientId));
 
     if (client) {
-      // Fetch any submitted onboarding document form data for this client
-      let docData = client.documentData || {};
-      const clientEmailKey = (client.email || "").trim().toLowerCase();
-      try {
-        const savedDoc =
-          (clientEmailKey && localStorage.getItem(`agni_client_doc_data_${clientEmailKey}`)) ||
-          localStorage.getItem("agni_client_doc_data_active");
-        if (savedDoc) {
-          const parsedDoc = JSON.parse(savedDoc);
-          if (parsedDoc && typeof parsedDoc === "object") {
-            docData = { ...docData, ...parsedDoc };
-          }
-        }
-      } catch (err) { }
+      // Authoritative client onboarding details directly from PostgreSQL client object
+      const docData = client.documentData || {};
 
       const clientNameVal = docData.companyName || client.company || client.companyName || client.name || "";
       const contactPersonVal = docData.representativeName || client.contactPerson || client.representativeName || client.name || "";
@@ -745,10 +734,11 @@ function InvoiceDetailsModal({ invoice, onClose, onDownload }) {
 
 export default function SalesInvoices({ clients: propClients, salesPersonName, userEmail }) {
   const [activeTab, setActiveTab] = useState("All Invoices");
+  const { user, userRole: authRole, userEmail: authEmail } = useAuth();
 
-  const currentSalesName = salesPersonName || localStorage.getItem("agni_user_name") || "";
-  const currentUserEmail = userEmail || localStorage.getItem("agni_user_email") || "";
-  const userRole = localStorage.getItem("agni_user_role") || "";
+  const currentSalesName = salesPersonName || user?.fullName || user?.name || "";
+  const currentUserEmail = userEmail || authEmail || "";
+  const userRole = authRole || "";
 
   // Active clients created by / assigned to current salesperson ONLY
   const { clients: apiClients } = useApiClients();

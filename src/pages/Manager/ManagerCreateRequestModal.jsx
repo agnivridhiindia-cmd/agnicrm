@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 
 const clientRequestTypes = [
   {
@@ -92,6 +93,7 @@ export default function ManagerCreateRequestModal({
   initialClientId = "",
   initialSalespersonId = "",
 }) {
+  const { user } = useAuth();
   const [targetCategory, setTargetCategory] = useState(initialCategory); // 'client' | 'salesperson'
   const [selectedType, setSelectedType] = useState(initialType);
   const [reason, setReason] = useState("");
@@ -362,7 +364,7 @@ export default function ManagerCreateRequestModal({
         salesPerson: selectedClient.salesRep || selectedClient.owner || "Sales Executive",
         salesPersonEmail: selectedClient.salesPersonEmail || "",
         managerId: 4,
-        managerName: localStorage.getItem("agni_user_name") || "Sales Manager",
+        managerName: user?.fullName || user?.name || "Sales Manager",
         requestCategory: "Client Account",
         requestType: selectedType,
         requestedChanges: requestedChanges,
@@ -450,7 +452,7 @@ export default function ManagerCreateRequestModal({
         company: selectedSalesperson.branch || "Branch Team",
         salesPerson: selectedSalesperson.name,
         managerId: 4,
-        managerName: localStorage.getItem("agni_user_name") || "Sales Manager",
+        managerName: user?.fullName || user?.name || "Sales Manager",
         requestCategory: "Sales Representative",
         requestType: selectedType,
         requestedChanges: requestedChanges,

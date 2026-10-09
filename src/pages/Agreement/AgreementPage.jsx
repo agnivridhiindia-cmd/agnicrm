@@ -120,11 +120,7 @@ export default function AgreementPage({
           createdAt: new Date().toISOString(),
           clientEmail: recipientEmail,
         };
-        const savedNotifs = localStorage.getItem("agni_client_notifications");
-        let list = savedNotifs ? JSON.parse(savedNotifs) : [];
-        if (!Array.isArray(list)) list = [];
-        list.unshift(notif);
-        localStorage.setItem("agni_client_notifications", JSON.stringify(list));
+        window.dispatchEvent(new CustomEvent("agni_notifications_updated", { detail: notif }));
       } catch (e) { }
 
       if (showToast) {

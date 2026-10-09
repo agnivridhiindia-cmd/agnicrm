@@ -208,33 +208,14 @@ const initialMockAgreements = [
   },
 ].map(normalizeAgreementData);
 
-const STORAGE_KEY = "agni_crm_agreements_v4";
+let inMemoryAgreementsCache = initialMockAgreements;
 
 function loadFromStorage() {
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(normalizeAgreementData);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("Could not load agreements from local storage", e);
-  }
-  return initialMockAgreements;
+  return inMemoryAgreementsCache;
 }
 
 function saveToStorage(list) {
-  try {
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    }
-  } catch (e) {
-    console.warn("Could not save agreements to local storage", e);
-  }
+  inMemoryAgreementsCache = list;
 }
 
 export function getAuthHeaders() {

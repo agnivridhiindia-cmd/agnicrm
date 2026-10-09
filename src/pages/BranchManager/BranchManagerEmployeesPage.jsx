@@ -5,8 +5,9 @@ import { sortByRoleRanking } from "../../utils/branchHelper";
 
 export default function BranchManagerEmployeesPage({
   employeesList = [],
-  branchManagerName = "Ariana Lee",
-  managedRegion = "West Zone",
+  branchManagerName = "",
+  managedRegion = "",
+  managedBranch = "",
 }) {
   const [selectedManagerForTeam, setSelectedManagerForTeam] = useState(null);
   const [selectedEmployeeInfo, setSelectedEmployeeInfo] = useState(null);
@@ -15,20 +16,58 @@ export default function BranchManagerEmployeesPage({
   const branchEmployees = useMemo(() => {
     const list = employeesList.filter((emp) => {
       if (!emp) return false;
+
+      // Exclude Branch Manager herself/himself from branch subordinate list
+      const rawRole = (emp.rawRole || emp.role || "").toUpperCase();
+      const roleStr = (emp.role || "").toLowerCase();
+      if (
+        rawRole === "BRANCH_MANAGER" ||
+        roleStr.includes("branch manager") ||
+        roleStr.includes("branch director")
+      ) {
+        return false;
+      }
+      if (
+        emp.name &&
+        branchManagerName &&
+        emp.name.toLowerCase().trim() === branchManagerName.toLowerCase().trim()
+      ) {
+        return false;
+      }
+
       const empBM = (emp.branchManager || emp.branchManagerName || "").toLowerCase().trim();
-      const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();
+      const empRegion = (emp.region || "").toLowerCase().trim();
+      const empBranch = (emp.branch || "").toLowerCase().trim();
       const targetBM = (branchManagerName || "").toLowerCase().trim();
       const targetRegion = (managedRegion || "").toLowerCase().trim();
+      const targetBranch = (managedBranch || "").toLowerCase().trim();
 
-      if (targetBM && empBM && empBM !== targetBM) return false;
-      if (targetRegion && empRegion && !empRegion.includes(targetRegion.split(" ")[0].toLowerCase()) && !targetRegion.includes(empRegion)) return false;
-      return true;
+      // 1. Direct BM match
+      if (targetBM && empBM && empBM === targetBM) return true;
+
+      // 2. Exact match on branch or region
+      if (targetBranch && empBranch && (empBranch === targetBranch || empBranch.includes(targetBranch) || targetBranch.includes(empBranch))) return true;
+      if (targetRegion && empRegion && (empRegion === targetRegion || empRegion.includes(targetRegion) || targetRegion.includes(empRegion))) return true;
+
+      // 3. Keyword matching across zones
+      const keywords = ["mumbai", "west", "delhi", "north", "bengaluru", "south", "kolkata", "east"];
+      for (const kw of keywords) {
+        const matchesTarget = (targetRegion && targetRegion.includes(kw)) || (targetBranch && targetBranch.includes(kw));
+        const matchesEmp = (empRegion && empRegion.includes(kw)) || (empBranch && empBranch.includes(kw));
+        if (matchesTarget && matchesEmp) return true;
+      }
+
+      return false;
     });
     return sortByRoleRanking(list);
-  }, [employeesList, branchManagerName, managedRegion]);
+  }, [employeesList, branchManagerName, managedRegion, managedBranch]);
 
   const managers = useMemo(() => {
-    return branchEmployees.filter((emp) => (emp.role || "").toLowerCase().includes("manager"));
+    return branchEmployees.filter((emp) => {
+      const r = (emp.role || "").toLowerCase();
+      const raw = (emp.rawRole || "").toUpperCase();
+      return (raw === "MANAGER" || r.includes("manager") || r.includes("lead")) && !r.includes("branch");
+    });
   }, [branchEmployees]);
 
   const displayedManagers = useMemo(() => {
@@ -46,10 +85,22 @@ export default function BranchManagerEmployeesPage({
 
   const teamMembers = useMemo(() => {
     if (!selectedManagerForTeam) return [];
-    return branchEmployees.filter(
-      (emp) => emp.reportingManager === selectedManagerForTeam.name || emp.branchManager === selectedManagerForTeam.name
-    );
-  }, [branchEmployees, selectedManagerForTeam]);
+    const mgrName = (selectedManagerForTeam.name || selectedManagerForTeam.fullName || "").toLowerCase().trim();
+    return branchEmployees.filter((emp) => {
+      const repMgr = (typeof emp.reportingManager === "object"
+        ? (emp.reportingManager?.fullName || emp.reportingManager?.name || "")
+        : (emp.reportingManager || "")).toLowerCase().trim();
+      const empBM = (emp.branchManager || emp.branchManagerName || "").toLowerCase().trim();
+      const isManagerHimself = emp.id === selectedManagerForTeam.id || (emp.email && emp.email.toLowerCase() === selectedManagerForTeam.email?.toLowerCase());
+      if (isManagerHimself) return false;
+
+      return (
+        (repMgr && (repMgr === mgrName || repMgr.includes(mgrName) || mgrName.includes(repMgr))) ||
+        (empBM && (empBM === mgrName || empBM.includes(mgrName) || mgrName.includes(empBM))) ||
+        (managers.length === 1 && !((emp.role || "").toLowerCase().includes("manager")))
+      );
+    });
+  }, [branchEmployees, selectedManagerForTeam, managers.length]);
 
   const displayedTeam = useMemo(() => {
     return teamMembers.filter((emp) => {
@@ -295,9 +346,21 @@ export default function BranchManagerEmployeesPage({
                 </thead>
                 <tbody>
                   {displayedManagers.map((manager) => {
-                    const teamCount = employeesList.filter(
-                      (emp) => emp.reportingManager === manager.name || emp.branchManager === manager.name
-                    ).length;
+                    const mgrName = (manager.name || manager.fullName || "").toLowerCase().trim();
+                    const teamCount = branchEmployees.filter((emp) => {
+                      const repMgr = (typeof emp.reportingManager === "object"
+                        ? (emp.reportingManager?.fullName || emp.reportingManager?.name || "")
+                        : (emp.reportingManager || "")).toLowerCase().trim();
+                      const empBM = (emp.branchManager || emp.branchManagerName || "").toLowerCase().trim();
+                      const isManagerHimself = emp.id === manager.id || (emp.email && emp.email.toLowerCase() === manager.email?.toLowerCase());
+                      if (isManagerHimself) return false;
+
+                      return (
+                        (repMgr && (repMgr === mgrName || repMgr.includes(mgrName) || mgrName.includes(repMgr))) ||
+                        (empBM && (empBM === mgrName || empBM.includes(mgrName) || mgrName.includes(empBM))) ||
+                        (managers.length === 1 && !((emp.role || "").toLowerCase().includes("manager")))
+                      );
+                    }).length;
 
                     const initials = manager.name
                       ? manager.name

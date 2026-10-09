@@ -1,5 +1,6 @@
 import React from "react";
 import { getManagerBranchDetails, normalizeSalesPersonName } from "../utils/branchHelper";
+import { useAuth } from "../context/AuthContext";
 
 const serviceGroups = [
   {
@@ -166,6 +167,8 @@ export default function MoreServicesPage({
   dedicatedTeam,
   userEmail,
 }) {
+  const { userEmail: authEmail } = useAuth();
+  const effectiveEmail = userEmail || authEmail || "";
   const [activeCategory, setActiveCategory] = React.useState("all");
   const [requestedService, setRequestedService] = React.useState(null);
   const [submittedService, setSubmittedService] = React.useState(null);
@@ -188,43 +191,24 @@ export default function MoreServicesPage({
   // Bug #4 fix: Clear optimisticRequested for schemes that are now declined or approved.
   // Ensures the "Request Scheme" button reverts after a salesperson declines the request.
   React.useEffect(() => {
-    function clearSettledOptimistic() {
-      try {
-        const saved = localStorage.getItem("agni_pending_scheme_requests");
-        if (!saved) return;
-        const list = JSON.parse(saved);
-        if (!Array.isArray(list) || list.length === 0) return;
-        const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
-        const settled = new Set();
-        const normFn = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        list.forEach((r) => {
-          const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
-          const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
-          if (!emailMatch) return;
-          const statusStr = String(r.status || "").toLowerCase();
-          if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
-            const sNorm = normFn(r.schemeName || r.name);
-            const sName = String(r.schemeName || r.name || "").toLowerCase().trim();
-            if (sNorm) settled.add(sNorm);
-            if (sName) settled.add(sName);
-          }
-        });
-        if (settled.size === 0) return;
-        setOptimisticRequested((prev) => {
-          const next = new Set(prev);
-          settled.forEach((key) => next.delete(key));
-          return next.size === prev.size ? prev : next;
-        });
-      } catch (e) { }
-    }
-    clearSettledOptimistic();
-    window.addEventListener("agni_pending_updated", clearSettledOptimistic);
-    window.addEventListener("storage", clearSettledOptimistic);
-    return () => {
-      window.removeEventListener("agni_pending_updated", clearSettledOptimistic);
-      window.removeEventListener("storage", clearSettledOptimistic);
-    };
-  }, [userEmail]);
+    const settled = new Set();
+    const normFn = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    (pendingRequests || []).forEach((r) => {
+      const statusStr = String(r.status || "").toLowerCase();
+      if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
+        const sNorm = normFn(r.schemeName || r.name);
+        const sName = String(r.schemeName || r.name || "").toLowerCase().trim();
+        if (sNorm) settled.add(sNorm);
+        if (sName) settled.add(sName);
+      }
+    });
+    if (settled.size === 0) return;
+    setOptimisticRequested((prev) => {
+      const next = new Set(prev);
+      settled.forEach((key) => next.delete(key));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [pendingRequests]);
 
   const norm = (str) => String(str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -253,33 +237,7 @@ export default function MoreServicesPage({
     // 2. Active in-memory optimistic request
     if (optimisticRequested.has(sName) || optimisticRequested.has(sNorm)) return true;
 
-    // 3. Optional fallback to localStorage cache
-    try {
-      if (typeof window !== "undefined" && window.localStorage) {
-        const saved = localStorage.getItem("agni_pending_scheme_requests");
-        if (saved) {
-          const list = JSON.parse(saved);
-          if (Array.isArray(list)) {
-            const resolvedEmail = String(userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
-            const match = list.find((r) => {
-              const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
-              const emailMatch = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
-              const rNorm = norm(r.schemeName || r.name);
-              return emailMatch && rNorm && (rNorm === sNorm || rNorm.includes(sNorm) || sNorm.includes(rNorm));
-            });
-            if (match) {
-              const statusStr = String(match.status || "").toLowerCase();
-              if (statusStr.includes("decline") || statusStr.includes("reject") || statusStr.includes("approved")) {
-                return false;
-              }
-              if (!match.status || statusStr.includes("pending")) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-    } catch (e) { }
+
 
     return false;
   }, [optimisticRequested, pendingRequests, userEmail]);
@@ -298,28 +256,13 @@ export default function MoreServicesPage({
     if (assignedSalesPerson) return assignedSalesPerson;
     if (dedicatedTeam?.salesRepName) return dedicatedTeam.salesRepName;
 
-    try {
-      const saved = localStorage.getItem("agni_branch_clients") || localStorage.getItem("agni_sales_clients");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const email = (userEmail || localStorage.getItem("agni_user_email") || "").trim().toLowerCase();
-        const rawMatch = parsed.find(
-          (c) => c.email && email && c.email.toLowerCase().trim() === email
-        );
-        if (rawMatch) {
-          const sr = rawMatch.assignedSalesPerson || rawMatch.owner || rawMatch.salesRepresentative || rawMatch.salesperson;
-          const foundName = typeof sr === "string" ? sr : (sr?.name || "");
-          if (foundName) return normalizeSalesPersonName(foundName);
-        }
-      }
-    } catch (e) { }
 
-    const email = userEmail || localStorage.getItem("agni_user_email") || "";
+    const email = effectiveEmail;
     const details = getManagerBranchDetails(email);
     const riyaMatch = details?.salespersons?.find((s) => s.toLowerCase().includes("riya"));
     if (riyaMatch) return riyaMatch;
     return details?.salespersons?.[0] || "Riya Mukherjee";
-  }, [assignedSalesPerson, dedicatedTeam, userEmail]);
+  }, [assignedSalesPerson, dedicatedTeam, effectiveEmail]);
 
   const salesLeadRole = salesRole || dedicatedTeam?.salesRepRole || "Assigned Sales Representative";
 

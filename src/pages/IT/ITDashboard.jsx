@@ -5,6 +5,8 @@ import DashboardHeader from "../../components/dashboard/DashboardHeader";
 import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
+import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 
 // Modular Sub-pages
 import ITOverviewPage from "./ITOverviewPage";
@@ -21,6 +23,7 @@ import {
 } from "./mockITData";
 
 export default function ITDashboard({ onSignOut, userEmail }) {
+  const { user: authUser, userName: authName } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -60,8 +63,11 @@ export default function ITDashboard({ onSignOut, userEmail }) {
   };
 
   const itLeadName = useMemo(() => {
-    if (!userEmail) return "IT Administrator";
-    let raw = userEmail.split("@")[0];
+    if (authUser?.fullName) return authUser.fullName;
+    if (authName) return authName;
+    const email = userEmail || authUser?.email;
+    if (!email) return "IT Administrator";
+    let raw = email.split("@")[0];
     // Strip trailing digits if any
     raw = raw.replace(/\d+$/, "");
     const parts = raw.split(/[^a-zA-Z]+/).filter(Boolean);
@@ -69,7 +75,7 @@ export default function ITDashboard({ onSignOut, userEmail }) {
     return parts
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(" ");
-  }, [userEmail]);
+  }, [userEmail, authUser, authName]);
 
   const handleClientCreated = (newClient) => {
     setCreatedClients((prev) => [newClient, ...prev]);
@@ -80,46 +86,42 @@ export default function ITDashboard({ onSignOut, userEmail }) {
   const [departmentNotifs, setDepartmentNotifs] = useState([]);
 
   useEffect(() => {
-    function syncITData() {
+    async function syncITData() {
       try {
-        const savedClients = localStorage.getItem("agni_it_clients");
-        if (savedClients) {
-          const parsed = JSON.parse(savedClients);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSalesPitchedClients(parsed);
+        const res = await apiFetch("/clients");
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success && Array.isArray(resData.data)) {
+            const itClients = resData.data.filter((c) => String(c.serviceType || "").toUpperCase() === "IT");
+            if (itClients.length > 0) setSalesPitchedClients(itClients);
           }
         }
-        const savedNotifs = localStorage.getItem("agni_department_notifications");
-        if (savedNotifs) {
-          const parsed = JSON.parse(savedNotifs);
-          if (Array.isArray(parsed)) {
-            setDepartmentNotifs(parsed.filter((n) => n.department === "IT" && !n.read));
+        const notifRes = await apiFetch("/notifications");
+        if (notifRes.ok) {
+          const notifData = await notifRes.json();
+          if (notifData.success && Array.isArray(notifData.data)) {
+            setDepartmentNotifs(notifData.data.filter((n) => (!n.department || n.department === "IT") && !n.isRead));
           }
         }
       } catch (e) {}
     }
     syncITData();
-    window.addEventListener("storage", syncITData);
     window.addEventListener("agni_dept_assigned", syncITData);
+    window.addEventListener("agni_clients_updated", syncITData);
+    window.addEventListener("agni_notifications_updated", syncITData);
     const interval = setInterval(syncITData, 30000);
     return () => {
-      window.removeEventListener("storage", syncITData);
       window.removeEventListener("agni_dept_assigned", syncITData);
+      window.removeEventListener("agni_clients_updated", syncITData);
+      window.removeEventListener("agni_notifications_updated", syncITData);
       clearInterval(interval);
     };
   }, []);
 
-  const handleDismissNotif = (notifId) => {
+  const handleDismissNotif = async (notifId) => {
+    setDepartmentNotifs((prev) => prev.filter((n) => n.id !== notifId));
     try {
-      const saved = localStorage.getItem("agni_department_notifications");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const updated = parsed.map((n) => (n.id === notifId ? { ...n, read: true } : n));
-          localStorage.setItem("agni_department_notifications", JSON.stringify(updated));
-          setDepartmentNotifs(updated.filter((n) => n.department === "IT" && !n.read));
-        }
-      }
+      await apiFetch(`/notifications/${notifId}/read`, { method: "PATCH" });
     } catch (e) {}
   };
 
@@ -156,8 +158,8 @@ export default function ITDashboard({ onSignOut, userEmail }) {
             <UserProfileMenu
               user={{
                 name: itLeadName || "Aakash Varma",
-                email: "aakash.it@agnicrm.com",
-                phone: "+91 98205 77889",
+                email: userEmail || authUser?.email || "aakash.it@agnicrm.com",
+                phone: authUser?.phone || "+91 98205 77889",
                 branch: "Enterprise HQ (Mumbai)",
                 designation: "Lead Enterprise Solutions Architect",
                 empId: "EMP-IT-4001",

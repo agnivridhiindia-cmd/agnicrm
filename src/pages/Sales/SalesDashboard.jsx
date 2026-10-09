@@ -6,6 +6,7 @@ import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 import "./salesdashboard.css";
 
 // Sub-components
@@ -24,14 +25,9 @@ import { useSalesClients } from "./hooks/useSalesClients";
 import { navItems, notifications } from "./mockSalesData";
 
 export default function SalesDashboard({ onSignOut, userEmail }) {
+  const { user: authUser } = useAuth();
   const [showRegisterModal, setShowRegisterModal] = React.useState(false);
-  const [currentUser, setCurrentUser] = React.useState(() => {
-    try {
-      const stored = localStorage.getItem("agni_user");
-      if (stored) return JSON.parse(stored);
-    } catch (e) {}
-    return null;
-  });
+  const [currentUser, setCurrentUser] = React.useState(() => authUser);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -40,10 +36,11 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
       .then((data) => {
         if (isMounted && data?.success && data?.user) {
           setCurrentUser(data.user);
-          localStorage.setItem("agni_user", JSON.stringify(data.user));
-          if (data.user.email) {
-            localStorage.setItem("agni_user_email", data.user.email);
+          if (data.user.fullName || data.user.name) {
+            localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
           }
+          localStorage.setItem("agni_user", JSON.stringify(data.user));
+          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
         }
       })
       .catch(() => {});
@@ -61,7 +58,10 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
     setToastMessage,
     showToast,
     salesPersonName,
-  } = useSalesDashboard(userEmail);
+  } = useSalesDashboard(userEmail, currentUser);
+
+  // Authoritative salesperson display name directly from backend PostgreSQL profile
+  const displayName = currentUser?.fullName?.trim() || currentUser?.name?.trim() || authUser?.fullName?.trim() || salesPersonName;
 
   const {
     clients,
@@ -92,12 +92,12 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
     handleApproveSchemeRequest,
     handleDeclineSchemeRequest,
     handleUpdateClientDueDate,
-  } = useSalesClients(salesPersonName, (createdClient) => {
+  } = useSalesClients(displayName, (createdClient) => {
     showToast(
       `✓ Client registration for "${createdClient?.company || createdClient?.name || 'New Client'}" submitted to Sales Manager for approval!`
     );
     setShowRegisterModal(false);
-  });
+  }, userEmail);
 
   return (
     <main className={`owner-dashboard sales-dashboard ${dark ? "dashboard-dark" : ""}`}>
@@ -118,15 +118,15 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
       <section className="dashboard-content">
         <DashboardHeader
           eyebrow="Sales workspace"
-          title={`Hello, ${salesPersonName}`}
+          title={`Hello, ${displayName}`}
           className="sales-dashboard-top"
         >
           <div className="top-actions">
-            <NotificationBell role="Sales" userEmail={userEmail} userName={salesPersonName} />
+            <NotificationBell role="Sales" userEmail={userEmail} userName={displayName} />
             <UserProfileMenu
               user={{
-                name: currentUser?.fullName || salesPersonName,
-                email: currentUser?.email || userEmail || localStorage.getItem("agni_user_email") || "",
+                name: displayName,
+                email: currentUser?.email || userEmail || "",
                 phone: currentUser?.phone || "+91 98201 54321",
                 branch: currentUser?.branch?.name || (typeof currentUser?.branch === "string" ? currentUser.branch : "West Zone (Mumbai)"),
                 designation: "Senior Sales Officer",
@@ -137,7 +137,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
               }}
               role="Sales"
               roleBadge="Sales"
-              initials={currentUser?.fullName ? currentUser.fullName.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() : "SP"}
+              initials={displayName ? displayName.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() : "SP"}
               avatarColor="linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)"
               onSignOut={onSignOut}
               showToast={(msg) => setToastMessage(msg)}
@@ -189,14 +189,14 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
           <SalesRequests
             clients={clients}
             userEmail={userEmail}
-            userRole={localStorage.getItem("agni_user_role")}
-            salesPersonName={salesPersonName}
+            userRole={currentUser?.role || "Sales Person"}
+            salesPersonName={displayName}
           />
         )}
 
-        {activeNav === "Invoices" && <SalesInvoices clients={clients} userEmail={userEmail} salesPersonName={salesPersonName} />}
+        {activeNav === "Invoices" && <SalesInvoices clients={clients} userEmail={userEmail} salesPersonName={displayName} />}
 
-        {activeNav === "Payment" && <SalesPayments clients={clients} userEmail={userEmail} salesPersonName={salesPersonName} />}
+        {activeNav === "Payment" && <SalesPayments clients={clients} userEmail={userEmail} salesPersonName={displayName} />}
 
         {activeNav === "Performance" && <SalesPerformance />}
 
@@ -216,7 +216,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
                 setPipelineFilter={setPipelineFilter}
                 onSelectClient={(client) => setSelectedClient(client)}
                 onCreateNewClient={() => setShowRegisterModal(true)}
-                salesPersonName={salesPersonName}
+                salesPersonName={displayName}
                 dark={dark}
               />
             ) : (
@@ -224,7 +224,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
                 selectedClient={selectedClient}
                 allClients={clients}
                 onBack={() => setSelectedClient(null)}
-                salesPersonName={salesPersonName}
+                salesPersonName={displayName}
                 onSchemeSave={(updatedSchemes) => {
                   if (selectedClient && updatedSchemes) {
                     handleSaveClientSchemes(selectedClient.id, updatedSchemes);
