@@ -287,8 +287,11 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     let processedFromPayments = 0;
     if (subPayments && subPayments.length > 0) {
       subPayments.forEach((p) => {
+        const pStatus = String(p.status || "").toLowerCase();
+        if (pStatus === "pending" || pStatus === "requested" || pStatus === "failed" || pStatus === "declined") return;
+
         const pGross = parseFloat(String(p.amount || 0).replace(/[^0-9.]/g, "")) || 0;
-        const pDate = p.paymentDate || p.createdAt || c.updatedAt || dt;
+        const pDate = p.paymentDate || p.createdAt || dt;
         if (pGross > 0) {
           processCollection(pGross, pDate, sp, br, compName);
           processedFromPayments += pGross;
@@ -298,8 +301,8 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
 
     const remainingDirect = Math.max(0, rec - processedFromPayments);
     if (remainingDirect > 0) {
-      // If remaining payment was made recently, c.updatedAt reflects the latest payment time
-      const paymentDate = c.updatedAt || c.lastPaymentDate || c.paymentDate || dt;
+      // Prioritize explicit payment/registration dates so past payments aren't attributed to today when a record is updated
+      const paymentDate = c.lastPaymentDate || c.paymentDate || c.registrationDate || c.createdAt || dt;
       processCollection(remainingDirect, paymentDate, sp, br, compName);
     }
 
@@ -342,6 +345,9 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     const hasSubPayments = Array.isArray(inv.payments) && inv.payments.length > 0;
     if (hasSubPayments) {
       inv.payments.forEach((p) => {
+        const pStatus = String(p.status || "").toLowerCase();
+        if (pStatus === "pending" || pStatus === "requested" || pStatus === "failed" || pStatus === "declined") return;
+
         const pGross = parseFloat(String(p.amount || 0).replace(/[^0-9.]/g, "")) || 0;
         const pDate = p.paymentDate || p.createdAt || dt;
         if (pGross > 0) {
@@ -351,7 +357,7 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     } else {
       const recAmt = parseFloat(String(inv.paymentReceived || 0).replace(/[^0-9.]/g, "")) || (status === "paid" ? gross : 0);
       if (recAmt > 0) {
-        processCollection(recAmt, inv.paidAt || inv.updatedAt || dt, sp, br, invClientName);
+        processCollection(recAmt, inv.paidAt || inv.issueDate || inv.createdAt || dt, sp, br, invClientName);
       }
     }
 
