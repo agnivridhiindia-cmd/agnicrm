@@ -5,6 +5,8 @@ import DashboardHeader from "../../components/dashboard/DashboardHeader";
 import NotificationBell from "../../components/dashboard/NotificationBell";
 import UserProfileMenu from "../../components/dashboard/UserProfileMenu";
 import Icon from "../../components/Icon";
+import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 
 // Modular Sub-pages
 import MarketingOverviewPage from "./MarketingOverviewPage";
@@ -21,6 +23,7 @@ import {
 } from "./mockMarketingData";
 
 export default function MarketingDashboard({ onSignOut, userEmail }) {
+  const { user: authUser, userName: authName } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -60,15 +63,18 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
   };
 
   const marketingLeadName = useMemo(() => {
-    if (!userEmail) return "Marketing Lead";
-    let raw = userEmail.split("@")[0];
+    if (authUser?.fullName) return authUser.fullName;
+    if (authName) return authName;
+    const email = userEmail || authUser?.email;
+    if (!email) return "Marketing Lead";
+    let raw = email.split("@")[0];
     raw = raw.replace(/\d+$/, "");
     const parts = raw.split(/[^a-zA-Z]+/).filter(Boolean);
     if (parts.length === 0) return "Marketing Lead";
     return parts
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(" ");
-  }, [userEmail]);
+  }, [userEmail, authUser, authName]);
 
   const handleClientCreated = (newClient) => {
     setCreatedClients((prev) => [newClient, ...prev]);
@@ -79,46 +85,42 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
   const [departmentNotifs, setDepartmentNotifs] = useState([]);
 
   useEffect(() => {
-    function syncMarketingData() {
+    async function syncMarketingData() {
       try {
-        const savedClients = localStorage.getItem("agni_marketing_clients");
-        if (savedClients) {
-          const parsed = JSON.parse(savedClients);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSalesPitchedClients(parsed);
+        const res = await apiFetch("/clients");
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success && Array.isArray(resData.data)) {
+            const mktClients = resData.data.filter((c) => String(c.serviceType || "").toUpperCase() === "MARKETING");
+            if (mktClients.length > 0) setSalesPitchedClients(mktClients);
           }
         }
-        const savedNotifs = localStorage.getItem("agni_department_notifications");
-        if (savedNotifs) {
-          const parsed = JSON.parse(savedNotifs);
-          if (Array.isArray(parsed)) {
-            setDepartmentNotifs(parsed.filter((n) => n.department === "Marketing" && !n.read));
+        const notifRes = await apiFetch("/notifications");
+        if (notifRes.ok) {
+          const notifData = await notifRes.json();
+          if (notifData.success && Array.isArray(notifData.data)) {
+            setDepartmentNotifs(notifData.data.filter((n) => (!n.department || n.department === "Marketing") && !n.isRead));
           }
         }
       } catch (e) {}
     }
     syncMarketingData();
-    window.addEventListener("storage", syncMarketingData);
     window.addEventListener("agni_dept_assigned", syncMarketingData);
+    window.addEventListener("agni_clients_updated", syncMarketingData);
+    window.addEventListener("agni_notifications_updated", syncMarketingData);
     const interval = setInterval(syncMarketingData, 30000);
     return () => {
-      window.removeEventListener("storage", syncMarketingData);
       window.removeEventListener("agni_dept_assigned", syncMarketingData);
+      window.removeEventListener("agni_clients_updated", syncMarketingData);
+      window.removeEventListener("agni_notifications_updated", syncMarketingData);
       clearInterval(interval);
     };
   }, []);
 
-  const handleDismissNotif = (notifId) => {
+  const handleDismissNotif = async (notifId) => {
+    setDepartmentNotifs((prev) => prev.filter((n) => n.id !== notifId));
     try {
-      const saved = localStorage.getItem("agni_department_notifications");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const updated = parsed.map((n) => (n.id === notifId ? { ...n, read: true } : n));
-          localStorage.setItem("agni_department_notifications", JSON.stringify(updated));
-          setDepartmentNotifs(updated.filter((n) => n.department === "Marketing" && !n.read));
-        }
-      }
+      await apiFetch(`/notifications/${notifId}/read`, { method: "PATCH" });
     } catch (e) {}
   };
 
@@ -155,8 +157,8 @@ export default function MarketingDashboard({ onSignOut, userEmail }) {
             <UserProfileMenu
               user={{
                 name: marketingLeadName || "Pooja Hegde",
-                email: "pooja.marketing@agnicrm.com",
-                phone: "+91 98206 99001",
+                email: userEmail || authUser?.email || "pooja.marketing@agnicrm.com",
+                phone: authUser?.phone || "+91 98206 99001",
                 branch: "Enterprise HQ (Mumbai)",
                 designation: "Chief Marketing Strategist",
                 empId: "EMP-MKT-5001",

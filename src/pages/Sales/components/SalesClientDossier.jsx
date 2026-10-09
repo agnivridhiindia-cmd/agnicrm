@@ -129,55 +129,20 @@ export default function SalesClientDossier({
 
     const clientEmailKey = selectedClient?.email || "default";
 
-    // Also check the enrolled schemes DB key
-    try {
-      const savedEnrolled = localStorage.getItem("agni_client_enrolled_schemes_db");
-      if (savedEnrolled && clientEmailKey) {
-        const parsedEnrolled = JSON.parse(savedEnrolled);
-        if (Array.isArray(parsedEnrolled)) {
-          parsedEnrolled.forEach((entry) => {
-            if (
-              entry.clientEmail &&
-              entry.clientEmail.toLowerCase().trim() === clientEmailKey.toLowerCase().trim() &&
-              entry.schemeName &&
-              !isPaymentDemandOrSettlement(entry.schemeName)
-            ) {
-              list.push(entry.schemeName.toLowerCase());
-            }
-          });
-        }
-      }
-    } catch (e) { }
+
 
     return [...new Set(list)];
   }, [selectedClient, siblingClients]);
 
-  const clientEmailKey = selectedClient?.email ? selectedClient.email.trim().toLowerCase() : "";
+  // Detect if client has submitted the document form based on DB status
+  const clientDocSubmitted = Boolean(selectedClient?.documentStatus && selectedClient.documentStatus !== "NOT_SUBMITTED");
 
-  let localDocData = {};
-  try {
-    const saved = localStorage.getItem(`agni_client_doc_data_${clientEmailKey}`);
-    if (saved) localDocData = JSON.parse(saved);
-  } catch (e) { }
-
-  const hasLocalDoc = localStorage.getItem(`agni_client_doc_submitted_${clientEmailKey}`) === "true";
-
-  // Detect if client has submitted the document form based on DB status OR local storage
-  const clientDocSubmitted = (selectedClient?.documentStatus && selectedClient.documentStatus !== "NOT_SUBMITTED") || hasLocalDoc;
-
-  // Merge local document data with DB selectedClient (DB takes precedence if exists and is not null)
-  let clientSubmittedDocData = { ...localDocData };
-  if (selectedClient) {
-    for (const key in selectedClient) {
-      if (selectedClient[key] !== null && selectedClient[key] !== undefined && selectedClient[key] !== "") {
-        clientSubmittedDocData[key] = selectedClient[key];
-      }
-    }
-  }
+  // Client document data directly from PostgreSQL selectedClient
+  const clientSubmittedDocData = selectedClient || {};
 
   // Determine business entity type (Corporate vs Proprietorship)
-  const bType = selectedClient?.businessType || clientSubmittedDocData?.businessType || "";
-  const compName = selectedClient?.company || selectedClient?.companyName || selectedClient?.name || clientSubmittedDocData?.companyName || "";
+  const bType = selectedClient?.businessType || "";
+  const compName = selectedClient?.company || selectedClient?.companyName || selectedClient?.name || "";
   const isCorp = ["Pvt Ltd", "OPC", "LLP", "Section 8 Company", "Private Limited"].includes(bType) ||
     /pvt\s*ltd|private\s*limited|llp|opc|section\s*8/i.test(compName);
 

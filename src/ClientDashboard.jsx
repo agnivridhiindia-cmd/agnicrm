@@ -339,9 +339,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
             const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
             const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-            const saved = localStorage.getItem("agni_pending_scheme_requests");
-            let localList = saved ? JSON.parse(saved) : [];
-            if (!Array.isArray(localList)) localList = [];
+            const requestsList = [];
 
             resData.data.forEach((r) => {
               const pendingData = r.requestType === "NEW_SERVICE" && r.requestedChanges ? r.requestedChanges : null;
@@ -357,7 +355,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
               const rNorm = norm(sName);
               const rStatus = r.status === "APPROVED" ? "Approved & Active" : r.status === "REJECTED" ? "Declined" : "Pending Sales Approval & Payment";
 
-              const existingIdx = localList.findIndex((item) => norm(item.schemeName) === rNorm);
               const itemObj = {
                 id: r.requestCode || r.id,
                 rawId: r.id,
@@ -378,18 +375,15 @@ export default function Dashboard({ onSignOut, userEmail }) {
                 createdAt: r.createdAt,
               };
 
+              const existingIdx = requestsList.findIndex((item) => norm(item.schemeName) === rNorm);
               if (existingIdx >= 0) {
-                localList[existingIdx] = { ...localList[existingIdx], ...itemObj, status: rStatus };
+                requestsList[existingIdx] = { ...requestsList[existingIdx], ...itemObj, status: rStatus };
               } else {
-                localList.push(itemObj);
+                requestsList.push(itemObj);
               }
             });
 
-            try {
-              localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(localList));
-            } catch (e) {}
-
-            const activePending = localList.filter((r) => {
+            const activePending = requestsList.filter((r) => {
               const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
               const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
               const statusStr = String(r.status || "").toLowerCase();
@@ -426,24 +420,12 @@ export default function Dashboard({ onSignOut, userEmail }) {
   }, [userEmail]);
 
   const activeSalesClient = React.useMemo(() => {
-    try {
-      const savedSales = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_branch_clients");
-      if (savedSales) {
-        const parsed = JSON.parse(savedSales);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const match = parsed.find((c) => c.email && userEmail && c.email.toLowerCase().trim() === userEmail.toLowerCase().trim());
-          if (match) return match;
-        }
-      }
-    } catch (e) { }
-    return null;
-  }, [userEmail]);
+    return dbProfile || null;
+  }, [dbProfile]);
 
   const clientStoredData = React.useMemo(() => {
-    const emailKey = (userEmail || "default").trim().toLowerCase();
-    const saved = localStorage.getItem(`agni_client_doc_data_${emailKey}`) || localStorage.getItem(`agni_doc_temp_${emailKey}`);
-    return saved ? JSON.parse(saved) : null;
-  }, [userEmail]);
+    return dbProfile || null;
+  }, [dbProfile]);
 
   const clientInfo = React.useMemo(() => {
     let authUser = null;
@@ -452,20 +434,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
       if (savedUser) authUser = JSON.parse(savedUser);
     } catch (e) {}
 
-    const emailKey = (userEmail || "").trim().toLowerCase();
-    let tempDoc = null;
-    try {
-      const savedTemp = localStorage.getItem(`agni_doc_temp_${emailKey}`);
-      if (savedTemp) tempDoc = JSON.parse(savedTemp);
-    } catch (e) {}
-
     const defaultCompName = userEmail ? userEmail.split("@")[0].toUpperCase() : "Client Company";
     const resolvedCompName =
       dbProfile?.companyName ||
       activeSalesClient?.company ||
       activeSalesClient?.name ||
-      clientStoredData?.companyName ||
-      tempDoc?.companyName ||
       defaultCompName;
 
     const resolvedRepName =
@@ -475,9 +448,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
       activeSalesClient?.contactPerson ||
       activeSalesClient?.representativeName ||
       activeSalesClient?.name ||
-      clientStoredData?.representativeName ||
-      clientStoredData?.contactPerson ||
-      tempDoc?.representativeName ||
       authUser?.fullName ||
       authUser?.name ||
       "Client";
@@ -494,8 +464,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       dbProfile?.fundingRequirement ||
       activeSalesClient?.fundingRequirement ||
       activeSalesClient?.requiredAmount ||
-      clientStoredData?.fundingRequirement ||
-      tempDoc?.fundingRequirement;
+      clientStoredData?.fundingRequirement;
     const reqNum = rawReq && !isNaN(Number(rawReq)) && Number(rawReq) >= 100000 ? Number(rawReq) : 2500000;
 
     return {
@@ -510,61 +479,50 @@ export default function Dashboard({ onSignOut, userEmail }) {
         dbProfile?.phone ||
         activeSalesClient?.phone ||
         clientStoredData?.contactNumber ||
-        tempDoc?.contactNumber ||
         "+91 98765 43210",
       registrationNumber:
         dbProfile?.gstNumber ||
         dbProfile?.panNumber ||
         clientStoredData?.gstNumber ||
         clientStoredData?.panNumber ||
-        tempDoc?.gstNumber ||
-        tempDoc?.panNumber ||
         "GSTIN 27ABCDE1234F1Z5",
       email: userEmail || authUser?.email || "client@company.com",
       address:
         dbProfile?.address ||
         activeSalesClient?.address ||
         clientStoredData?.address ||
-        tempDoc?.address ||
         "Main Office Address",
       gstNumber:
         dbProfile?.gstNumber ||
         clientStoredData?.gstNumber ||
-        tempDoc?.gstNumber ||
         "N/A (Optional)",
       panNumber:
         dbProfile?.panNumber ||
         clientStoredData?.panNumber ||
-        tempDoc?.panNumber ||
         "ABCDE1234F",
       aadharNumber:
         dbProfile?.aadharNumber ||
         clientStoredData?.aadharNumber ||
-        tempDoc?.aadharNumber ||
         "1234 5678 9012",
       msmeNumber:
         dbProfile?.msmeNumber ||
         clientStoredData?.msmeNumber ||
-        tempDoc?.msmeNumber ||
         "N/A",
       businessType:
         dbProfile?.businessType ||
         clientStoredData?.businessType ||
-        tempDoc?.businessType ||
         "Pvt Ltd",
       sector:
         dbProfile?.sector ||
         clientStoredData?.sector ||
-        tempDoc?.sector ||
         "Manufacturing",
       companyAge:
         dbProfile?.companyAge ||
         clientStoredData?.companyAge ||
-        tempDoc?.companyAge ||
         "1 Year",
       annualTurnover:
-        (dbProfile?.annualTurnover || clientStoredData?.annualTurnover || tempDoc?.annualTurnover)
-          ? `₹${Number(dbProfile?.annualTurnover || clientStoredData?.annualTurnover || tempDoc?.annualTurnover).toLocaleString("en-IN")}`
+        (dbProfile?.annualTurnover || clientStoredData?.annualTurnover)
+          ? `₹${Number(dbProfile?.annualTurnover || clientStoredData?.annualTurnover).toLocaleString("en-IN")}`
           : "N/A (Startup)",
       fundingRequirement:
         reqNum >= 10000000 ? `₹${(reqNum / 10000000).toFixed(0)} Cr` : `₹${reqNum.toLocaleString("en-IN")}`,
@@ -617,37 +575,15 @@ export default function Dashboard({ onSignOut, userEmail }) {
     let secondarySchemesAmount = 0;
 
     try {
-      const targetEmail = (userEmail || "").toLowerCase().trim();
-      const savedSales = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_branch_clients");
-      if (savedSales && targetEmail) {
-        const parsed = JSON.parse(savedSales);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((c) => {
-            if (c.email && c.email.toLowerCase().trim() === targetEmail) {
-              const schemeName = String(c.serviceName || c.scheme || "").toLowerCase();
-              const primaryName = String(dbProfile?.serviceName || dbProfile?.scheme || "pmegp").toLowerCase();
-              if (schemeName && !schemeName.includes(primaryName) && c.id !== dbProfile?.id) {
-                const req = Number(c.fundingRequirement || c.amountRequired || 0);
-                secondarySchemesAmount += req;
-              }
-            }
-          });
-        }
+      if (dbProfile && Array.isArray(dbProfile.allServices)) {
+        dbProfile.allServices.forEach((c) => {
+          if (!c.isPrimary && c.id !== dbProfile?.id) {
+            const req = Number(c.fundingRequirement || c.amountRequired || 0);
+            secondarySchemesAmount += req;
+          }
+        });
       }
 
-      const savedPending = localStorage.getItem("agni_pending_scheme_requests");
-      if (savedPending && targetEmail) {
-        const parsedPending = JSON.parse(savedPending);
-        if (Array.isArray(parsedPending)) {
-          parsedPending.forEach((r) => {
-            const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
-            if (rEmail === targetEmail && (r.status === "Approved & Active" || r.status === "Approved")) {
-              const req = Number(r.amountRequired || r.fundingRequirement || 0);
-              secondarySchemesAmount += req;
-            }
-          });
-        }
-      }
     } catch (e) { }
 
     return baseAmount + secondarySchemesAmount;
@@ -699,35 +635,16 @@ export default function Dashboard({ onSignOut, userEmail }) {
     }
 
     let onboardDocData = null;
-    try {
-      const emailKey = (userEmail || "default").trim().toLowerCase();
-      const savedDoc = localStorage.getItem(`agni_client_doc_data_${emailKey}`);
-      if (savedDoc) onboardDocData = JSON.parse(savedDoc);
-    } catch (e) { }
-
-    let match = null;
-    try {
-      const saved = localStorage.getItem("agni_branch_clients") || localStorage.getItem("agni_sales_clients");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          match = parsed.find((c) => c.email && userEmail && c.email.toLowerCase().trim() === userEmail.toLowerCase().trim())
-            || parsed.find((c) => c.company && clientInfo?.companyName && c.company.toLowerCase().includes(clientInfo.companyName.toLowerCase()));
-        }
-      }
-    } catch (e) { }
-
-
-    const bType = onboardDocData?.businessType || dbProfile?.businessType || clientStoredData?.businessType || match?.businessType || "";
-    const compName = onboardDocData?.companyName || dbProfile?.companyName || clientInfo?.companyName || match?.company || match?.name || "";
+    const bType = dbProfile?.businessType || "";
+    const compName = dbProfile?.companyName || clientInfo?.companyName || "";
 
     const isNgo = bType.toLowerCase().includes("ngo") || /ngo/i.test(compName);
     if (isNgo) {
       const ngoDocs = [
-        { name: "12A Registration Number", val: onboardDocData?.twelveARegNumber || dbProfile?.twelveARegNumber || match?.twelveARegNumber },
-        { name: "PAN Card", val: onboardDocData?.panNumber || dbProfile?.panNumber || match?.panNumber },
-        { name: "80G Certificate Number", val: onboardDocData?.eightyGCertNumber || dbProfile?.eightyGCertNumber || match?.eightyGCertNumber },
-        { name: "DARPAN Unique ID", val: onboardDocData?.darpanId || dbProfile?.darpanId || match?.darpanId },
+        { name: "12A Registration Number", val: dbProfile?.twelveARegNumber },
+        { name: "PAN Card", val: dbProfile?.panNumber },
+        { name: "80G Certificate Number", val: dbProfile?.eightyGCertNumber },
+        { name: "DARPAN Unique ID", val: dbProfile?.darpanId },
       ];
       return ngoDocs.map((d) => {
         const norm = normalizeName(d.name);
@@ -750,10 +667,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
     if (isCorp) {
       const corporateDocs = [
-        { name: "Company PAN", val: onboardDocData?.companyPan || onboardDocData?.panNumber || dbProfile?.companyPan || dbProfile?.panNumber || match?.companyPan || match?.panNumber },
-        { name: "TAN Certificate", val: onboardDocData?.tanNumber || dbProfile?.tanNumber || match?.tanNumber },
-        { name: "CIN Certificate", val: onboardDocData?.cinNumber || dbProfile?.cinNumber || match?.cinNumber },
-        { name: "GSTIN Certificate", val: onboardDocData?.gstNumber || dbProfile?.gstNumber || match?.gstNumber },
+        { name: "Company PAN", val: dbProfile?.companyPan || dbProfile?.panNumber },
+        { name: "TAN Certificate", val: dbProfile?.tanNumber },
+        { name: "CIN Certificate", val: dbProfile?.cinNumber },
+        { name: "GSTIN Certificate", val: dbProfile?.gstNumber },
       ];
 
       return corporateDocs.map((d) => {
@@ -774,10 +691,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
     // Proprietorship / Partnership / Default entity type
     const proprietorshipDocs = [
-      { name: "PAN Card", val: onboardDocData?.panNumber || dbProfile?.panNumber || match?.panNumber },
-      { name: "Aadhar Card", val: onboardDocData?.aadharNumber || dbProfile?.aadharNumber || match?.aadharNumber },
-      { name: "GSTIN Certificate", val: onboardDocData?.gstNumber || dbProfile?.gstNumber || match?.gstNumber },
-      { name: "MSME Certificate", val: onboardDocData?.msmeNumber || dbProfile?.msmeNumber || match?.msmeNumber },
+      { name: "PAN Card", val: dbProfile?.panNumber },
+      { name: "Aadhar Card", val: dbProfile?.aadharNumber },
+      { name: "GSTIN Certificate", val: dbProfile?.gstNumber },
+      { name: "MSME Certificate", val: dbProfile?.msmeNumber },
     ];
 
     return proprietorshipDocs.map((d) => {
@@ -794,7 +711,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
             : "Not Verified (Awaiting Verification)",
       };
     });
-  }, [dbProfile, userEmail, clientInfo, clientStoredData]);
+  }, [dbProfile, clientInfo]);
 
   // Dynamic Dedicated Account Leadership calculation (Sales Manager of that particular branch & Sales Representative)
   const dedicatedTeam = React.useMemo(() => {
@@ -823,43 +740,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
     let clientBranchRaw = dbBranch || dbProfile?.branchName || "";
     let clientBranch = typeof clientBranchRaw === "string" ? clientBranchRaw : (clientBranchRaw?.name || "");
 
-    // 2. Fallback to client stored records only if DB profile fields are not yet resolved
-    if (!salesRep || !salesManager || !clientBranch || !salesRepPhone) {
-      try {
-        const saved = localStorage.getItem("agni_branch_clients") || localStorage.getItem("agni_sales_clients");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const rawMatch =
-              parsed.find((c) => c.email && userEmail && c.email.toLowerCase() === userEmail.toLowerCase()) ||
-              parsed.find((c) => c.company && clientInfo?.companyName && c.company.toLowerCase().includes(clientInfo.companyName.toLowerCase()));
-            if (rawMatch) {
-              const match = sanitizeClientRecord(rawMatch);
-              if (!salesRep) {
-                const sr = match.assignedSalesPerson || match.owner || match.salesRepresentative || match.salesperson;
-                salesRep = typeof sr === "string" ? sr : (sr?.name || "");
-              }
-              if (!salesRepPhone) {
-                const sr = match.assignedSalesPerson || match.salesRepresentative || match.salesperson;
-                if (sr && typeof sr === "object" && sr.phone) {
-                  salesRepPhone = sr.phone;
-                } else if (match.salesRepresentativePhone || match.salesPersonPhone || match.repPhone || match.salespersonPhone) {
-                  salesRepPhone = match.salesRepresentativePhone || match.salesPersonPhone || match.repPhone || match.salespersonPhone;
-                }
-              }
-              if (!salesManager) {
-                const sm = match.salesManager || match.managerName || match.reportingManager;
-                salesManager = typeof sm === "string" ? sm : (sm?.name || "");
-              }
-              if (!clientBranch) {
-                const cb = match.branch || match.branchName;
-                clientBranch = typeof cb === "string" ? cb : (cb?.name || "");
-              }
-            }
-          }
-        }
-      } catch (e) {}
-    }
+
 
     // 3. Resolve using dynamic database hierarchy
     const branchDetails = getManagerBranchDetails(salesRep || clientBranch || userEmail);
@@ -939,58 +820,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
     return false;
   }, [clientInfo, dbProfile, userEmail]);
 
-  // Dynamic Enrolled Active Plans state (approved plans stored per client composite key in localStorage)
-  const [enrolledPlans, setEnrolledPlans] = React.useState(() => {
-    const emailKey = (userEmail || "default").trim().toLowerCase();
-    const compKey = getClientCompositeKey(clientInfo.companyName, emailKey);
-    try {
-      let plans = [];
-      const savedComp = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
-      if (savedComp) {
-        const parsed = JSON.parse(savedComp);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((p) => {
-            if (!isClientIdentityName(p.name || p.schemeName) && !isPaymentDemandOrSettlement(p)) plans.push(p);
-          });
-        }
-      }
-      const savedEmail = localStorage.getItem(`agni_approved_client_plans_${emailKey}`);
-      if (savedEmail) {
-        const parsed = JSON.parse(savedEmail);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((p) => {
-            if (!isClientIdentityName(p.name || p.schemeName) && !isPaymentDemandOrSettlement(p) && !plans.some((existing) => (existing.name || "").toLowerCase() === (p.name || "").toLowerCase())) {
-              plans.push(p);
-            }
-          });
-        }
-      }
-      if (plans.length > 0) return plans;
-    } catch (e) { }
-    return [];
-  });
+  // Dynamic Enrolled Active Plans state
+  const [enrolledPlans, setEnrolledPlans] = React.useState(() => []);
 
   // Track pending scheme requests waiting for Sales approval & payment
-  const [pendingRequests, setPendingRequests] = React.useState(() => {
-    try {
-      const saved = localStorage.getItem("agni_pending_scheme_requests");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
-          return parsed.filter((r) => {
-            if (isClientIdentityName(r.schemeName || r.name)) return false;
-            const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
-            const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
-            const statusStr = String(r.status || "").toLowerCase();
-            const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
-            return emailMatches && isPending;
-          });
-        }
-      }
-    } catch (e) { }
-    return [];
-  });
+  const [pendingRequests, setPendingRequests] = React.useState(() => []);
 
   // Authoritatively sync pending scheme requests from PostgreSQL backend (/requests API)
   const syncPendingRequestsFromApi = React.useCallback(async () => {
@@ -1048,42 +882,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
           });
         });
 
-        // Merge with existing localStorage requests (preserve any offline/optimistic records)
-        let localSaved = [];
-        try {
-          const raw = localStorage.getItem("agni_pending_scheme_requests");
-          if (raw) localSaved = JSON.parse(raw);
-          if (!Array.isArray(localSaved)) localSaved = [];
-        } catch (e) {}
-
-        const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        const mergedMap = new Map();
-
-        // Database records take precedence as authoritative truth
-        apiMapped.forEach((r) => {
-          const key = norm(r.schemeName);
-          if (key && !isClientIdentityName(r.schemeName)) mergedMap.set(key, r);
-        });
-
-        // Retain ONLY unindexed local optimistic items (in-flight network requests not yet written to DB)
-        localSaved.forEach((r) => {
-          const key = norm(r.schemeName || r.name);
-          if (!key || isClientIdentityName(r.schemeName || r.name)) return;
-          const statusStr = String(r.status || "").toLowerCase();
-          const isLocalPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject");
-          if (!mergedMap.has(key) && isLocalPending) {
-            mergedMap.set(key, r);
-          }
-        });
-
-        const mergedList = Array.from(mergedMap.values()).filter((r) => !isClientIdentityName(r.schemeName || r.name));
-        try {
-          if (typeof window !== "undefined" && window.localStorage) {
-            localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(mergedList));
-          }
-        } catch (e) {}
-
-        const pendingOnly = mergedList.filter((r) => {
+        const pendingOnly = apiMapped.filter((r) => {
           const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
           const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
           const statusStr = String(r.status || "").toLowerCase();
@@ -1169,26 +968,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       }
     };
 
-    // 1. Process local storage demands first (optimistic cache)
-    try {
-      const s1 = localStorage.getItem("agni_sales_payments");
-      const s2 = localStorage.getItem("agni_payment_demands");
-      const s3 = localStorage.getItem("agni_client_requests");
-      const l1 = s1 ? JSON.parse(s1) : [];
-      const l2 = s2 ? JSON.parse(s2) : [];
-      const l3 = s3 ? JSON.parse(s3) : [];
-      [...l1, ...l2, ...l3].forEach(processItem);
-
-      if (emailKey) {
-        const perEmail = localStorage.getItem(`agni_payment_demands_${emailKey}`);
-        if (perEmail) {
-          const parsed = JSON.parse(perEmail);
-          if (Array.isArray(parsed)) parsed.forEach(processItem);
-        }
-      }
-    } catch (e) { }
-
-    // 2. Authoritative: Process apiPayments (synced from DB across PCs)
+    // Authoritative: Process apiPayments (synced from DB across PCs)
     if (Array.isArray(apiPayments)) {
       apiPayments.forEach(processItem);
     }
@@ -1203,94 +983,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       const emailKey = (userEmail || "default").trim().toLowerCase();
       const compKey = getClientCompositeKey(clientInfo.companyName, emailKey);
       try {
-        // Sanitize corrupt localStorage caches immediately
-        try {
-          const pSaved = localStorage.getItem("agni_pending_scheme_requests");
-          if (pSaved) {
-            const pList = JSON.parse(pSaved);
-            if (Array.isArray(pList)) {
-              const cleanP = pList.filter((r) => !isClientIdentityName(r.schemeName || r.name));
-              if (cleanP.length !== pList.length) {
-                localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(cleanP));
-              }
-            }
-          }
-          const cSaved = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
-          if (cSaved) {
-            const cList = JSON.parse(cSaved);
-            if (Array.isArray(cList)) {
-              const cleanC = cList.filter((p) => !isClientIdentityName(p.name || p.schemeName));
-              if (cleanC.length !== cList.length) {
-                localStorage.setItem(`agni_approved_client_plans_${compKey}`, JSON.stringify(cleanC));
-              }
-            }
-          }
-          const eSaved = localStorage.getItem(`agni_approved_client_plans_${emailKey}`);
-          if (eSaved) {
-            const eList = JSON.parse(eSaved);
-            if (Array.isArray(eList)) {
-              const cleanE = eList.filter((p) => !isClientIdentityName(p.name || p.schemeName));
-              if (cleanE.length !== eList.length) {
-                localStorage.setItem(`agni_approved_client_plans_${emailKey}`, JSON.stringify(cleanE));
-              }
-            }
-          }
-          const dbSaved = localStorage.getItem("agni_client_enrolled_schemes_db");
-          if (dbSaved) {
-            const dbList = JSON.parse(dbSaved);
-            if (Array.isArray(dbList)) {
-              const cleanDb = dbList.filter((p) => !isClientIdentityName(p.schemeName || p.name));
-              if (cleanDb.length !== dbList.length) {
-                localStorage.setItem("agni_client_enrolled_schemes_db", JSON.stringify(cleanDb));
-              }
-            }
-          }
-        } catch (e) {}
-
         let plans = [];
-        const savedComp = localStorage.getItem(`agni_approved_client_plans_${compKey}`);
-        if (savedComp) {
-          const parsed = JSON.parse(savedComp);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((p) => {
-              if (!isPaymentDemandOrSettlement(p) && !isClientIdentityName(p.name || p.schemeName)) plans.push(p);
-            });
-          }
-        }
-        const savedEmail = localStorage.getItem(`agni_approved_client_plans_${emailKey}`);
-        if (savedEmail) {
-          const parsed = JSON.parse(savedEmail);
-          if (Array.isArray(parsed)) {
-            parsed.forEach((p) => {
-              if (!isPaymentDemandOrSettlement(p) && !isClientIdentityName(p.name || p.schemeName) && !plans.some((existing) => (existing.name || "").toLowerCase() === (p.name || "").toLowerCase())) {
-                plans.push(p);
-              }
-            });
-          }
-        }
-        const savedDb = localStorage.getItem("agni_client_enrolled_schemes_db");
-        if (savedDb) {
-          const parsedDb = JSON.parse(savedDb);
-          if (Array.isArray(parsedDb)) {
-            parsedDb.forEach((entry) => {
-              if (!isPaymentDemandOrSettlement(entry) && !isClientIdentityName(entry.schemeName || entry.name)) {
-                if (entry.clientEmail && userEmail && entry.clientEmail.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
-                  if (!plans.some((existing) => (existing.name || "").toLowerCase() === (entry.schemeName || "").toLowerCase())) {
-                    plans.push({
-                      id: `approved-db-${Date.now()}-${Math.random()}`,
-                      name: entry.schemeName,
-                      tag: entry.tag || "Approved Scheme",
-                      cover: entry.pitchedAmount ? `₹${Number(entry.pitchedAmount).toLocaleString("en-IN")}` : "₹10,00,000",
-                      status: "Active",
-                      enrollmentDate: entry.enrollmentDate || entry.approvedAt || "Recently Approved",
-                      detail: `Approved scheme (${entry.schemeName}) active in client profile.`,
-                    });
-                  }
-                }
-              }
-            });
-          }
-        }
 
         if (dbProfile && Array.isArray(dbProfile.allServices)) {
           dbProfile.allServices.forEach((service) => {
@@ -1311,146 +1004,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
           });
         }
 
-        const savedSales = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_branch_clients");
-        if (savedSales && emailKey) {
-          try {
-            const parsedSales = JSON.parse(savedSales);
-            if (Array.isArray(parsedSales)) {
-              parsedSales.forEach((c) => {
-                const cEmail = (c.email || "").toLowerCase().trim();
-                if (cEmail === emailKey) {
-                  const sName = getCanonicalSchemeName(c.serviceName || c.scheme);
-                  if (sName && !isClientIdentityName(sName) && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
-                    const reqAmt = Number(c.fundingRequirement || c.amountRequired || 0);
-                    const reqStr = reqAmt > 0 ? `₹${reqAmt.toLocaleString("en-IN")}` : "₹10,00,000";
-                    plans.push({
-                      id: c.id || `sales-client-scheme-${Date.now()}`,
-                      name: sName,
-                      tag: c.serviceType || "Consultancy Services",
-                      cover: reqStr,
-                      fundingRequirement: reqAmt > 0 ? reqAmt : 1000000,
-                      amountRequired: reqAmt > 0 ? reqAmt : 1000000,
-                      status: "Active",
-                      enrollmentDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Recently Approved",
-                      detail: `Approved secondary scheme (${sName}) active in client profile.`,
-                    });
-                  }
-                }
-              });
-            }
-          } catch (e) { }
-        }
-
-        const savedPending = localStorage.getItem("agni_pending_scheme_requests");
-        if (savedPending) {
-          const parsedPending = JSON.parse(savedPending);
-          if (Array.isArray(parsedPending)) {
-            const resolvedEmail = (userEmail || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email") || "").toLowerCase().trim();
-            const currentPending = parsedPending.filter((r) => {
-              if (isClientIdentityName(r.schemeName || r.name)) return false;
-              const rEmail = String(r.clientEmail || r.email || "").toLowerCase().trim();
-              const emailMatches = !resolvedEmail || !rEmail || rEmail === resolvedEmail;
-              const statusStr = String(r.status || "").toLowerCase();
-              const isPending = (!r.status || statusStr.includes("pending")) && !statusStr.includes("decline") && !statusStr.includes("reject") && !statusStr.includes("approved");
-              return emailMatches && isPending;
-            });
-            setPendingRequests(currentPending);
-
-            parsedPending.forEach((r) => {
-              if (isClientIdentityName(r.schemeName || r.name)) return;
-              const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
-              if ((!resolvedEmail || rEmail === resolvedEmail || rEmail === emailKey) && (r.status === "Approved & Active" || r.status === "Approved")) {
-                const sName = getCanonicalSchemeName(r.schemeName);
-                if (sName && !isClientIdentityName(sName) && !plans.some((existing) => getCanonicalSchemeName(existing.name).toLowerCase() === sName.toLowerCase())) {
-                  const reqAmt = Number(r.amountRequired || r.fundingRequirement || 0);
-                  const reqStr = reqAmt > 0 ? `₹${reqAmt.toLocaleString("en-IN")}` : "₹10,00,000";
-                  plans.push({
-                    id: r.id || `approved-pending-${Date.now()}`,
-                    name: sName,
-                    tag: r.tag || r.category || "Consultancy Services",
-                    cover: reqStr,
-                    fundingRequirement: reqAmt > 0 ? reqAmt : 1000000,
-                    amountRequired: reqAmt > 0 ? reqAmt : 1000000,
-                    status: "Active",
-                    enrollmentDate: r.decisionDate ? new Date(r.decisionDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "Recently Approved",
-                    detail: `Approved secondary scheme (${sName}) active in client profile.`,
-                  });
-                }
-              }
-            });
-          }
-        }
-
         const validPlans = plans.filter((p) => !isPaymentDemandOrSettlement(p) && !isClientIdentityName(p.name || p.schemeName));
         setEnrolledPlans(validPlans);
       } catch (e) { }
 
-      // Ensure active client entry exists in Sales database if client is accessing portal
-      if (userEmail) {
-        try {
-          const savedSales = localStorage.getItem("agni_sales_clients");
-          let salesList = savedSales ? JSON.parse(savedSales) : [];
-          if (!Array.isArray(salesList)) salesList = [];
-          const hasMatch = salesList.some((c) => c.email && c.email.toLowerCase().trim() === userEmail.toLowerCase().trim());
-          if (!hasMatch) {
-            let pendingMatch = null;
-            try {
-              const pendingList = JSON.parse(localStorage.getItem("agni_pending_client_creations") || "[]");
-              pendingMatch = pendingList.find((p) => p && p.email && p.email.toLowerCase().trim() === userEmail.toLowerCase().trim());
-            } catch (e) { }
 
-            const rawHandle = userEmail.split("@")[0].replace(/[^a-zA-Z0-9]/g, " ").trim();
-            const formattedHandle = rawHandle ? rawHandle.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ") : "Client";
-
-            const compName = clientInfo?.companyName || dbProfile?.companyName || pendingMatch?.company || pendingMatch?.name || `${formattedHandle} Enterprise`;
-            const repName = dbProfile?.representativeName || clientInfo?.contactPerson || pendingMatch?.contactPerson || pendingMatch?.name || formattedHandle;
-            const ownerName = dbProfile?.salesPerson?.fullName || pendingMatch?.owner || pendingMatch?.salesPerson || "Lucas Scott";
-            const ownerEmail = dbProfile?.salesPerson?.email || pendingMatch?.ownerEmail || pendingMatch?.salesPersonEmail || "lucas@agni.com";
-            const bDetails = getManagerBranchDetails(ownerEmail || ownerName);
-
-            const newRec = {
-              id: `client-${Date.now()}`,
-              company: compName,
-              companyName: compName,
-              name: compName,
-              contactPerson: repName,
-              email: userEmail,
-              phone: phoneNum,
-              address: dbProfile?.address || pendingMatch?.address || "Main Address",
-              serviceType: pendingMatch?.serviceType || "Consultancy Services",
-              stage: "Active",
-              owner: ownerName,
-              ownerEmail: ownerEmail,
-              salesPerson: ownerName,
-              salesPersonEmail: ownerEmail,
-              salesperson: ownerName,
-              salespersonEmail: ownerEmail,
-              branch: bDetails.branchName,
-              branchCode: bDetails.branchCode,
-              region: bDetails.region,
-              salesManager: bDetails.managerName,
-              salesManagerEmail: bDetails.managerEmail,
-              scheme: pendingMatch?.scheme || "PMEGP",
-              amount: pendingMatch?.amount || "100000",
-              paymentMode: pendingMatch?.paymentMode || "Online",
-              gstAmount: 18000,
-              totalPayment: pendingMatch?.totalPayment || "118000",
-              paymentReceived: pendingMatch?.paymentReceived || "0",
-              paymentPending: pendingMatch?.paymentPending || "118000",
-              createdAt: new Date().toISOString(),
-            };
-            salesList.unshift(newRec);
-            localStorage.setItem("agni_sales_clients", JSON.stringify(salesList));
-
-            let branchList = [];
-            try { branchList = JSON.parse(localStorage.getItem("agni_branch_clients") || "[]"); } catch (e) { }
-            branchList.unshift(newRec);
-            localStorage.setItem("agni_branch_clients", JSON.stringify(branchList));
-
-            window.dispatchEvent(new Event("agni_clients_updated"));
-          }
-        } catch (e) { }
-      }
 
       setTrackerSyncTick((t) => t + 1);
     }
@@ -1475,19 +1033,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
   // Combine primary CRM scheme with additional approved enrolled plans
   const activePlansList = React.useMemo(() => {
     // Look up local salesperson client entry if available
-    let salesClientMatch = null;
-    try {
-      const savedSales = localStorage.getItem("agni_sales_clients") || localStorage.getItem("agni_branch_clients");
-      if (savedSales) {
-        const parsed = JSON.parse(savedSales);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          salesClientMatch = parsed.find((c) => c.email && userEmail && c.email.toLowerCase().trim() === userEmail.toLowerCase().trim() && (c.isPrimary || c.processType !== "secondary"))
-            || parsed.find((c) => c.email && userEmail && c.email.toLowerCase().trim() === userEmail.toLowerCase().trim())
-            || parsed.find((c) => c.company && clientInfo?.companyName && c.company.toLowerCase().includes(clientInfo.companyName.toLowerCase()))
-            || (userEmail ? null : parsed[0]);
-        }
-      }
-    } catch (e) { }
+    const salesClientMatch = dbProfile || null;
 
     // 1st Plan: Primary CRM Plan details dynamically fetched from CRM DB / Sales Client / Document Form
     let primaryType = dbProfile?.serviceType || salesClientMatch?.serviceType || dbProfile?.serviceCategory || clientStoredData?.serviceType || "Consultancy Services";
@@ -1655,55 +1201,29 @@ export default function Dashboard({ onSignOut, userEmail }) {
     }
 
     try {
-      const saved = localStorage.getItem("agni_pending_scheme_requests");
-      let allReqs = saved ? JSON.parse(saved) : [];
-      if (!Array.isArray(allReqs)) allReqs = [];
+      setPendingRequests((prev) => [pendingReq, ...prev.filter((p) => norm(p.schemeName || p.name) !== reqNorm)]);
 
-      // Avoid duplicate pending requests for the same scheme in localStorage cache
-      const isDuplicate = allReqs.some((r) => {
-        const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
-        const rNorm = norm(r.schemeName || r.name);
-        const emailMatches = !rEmail || !resolvedEmail || rEmail === resolvedEmail;
-        const nameMatches = rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm));
-        const isPending = !r.status || String(r.status).toLowerCase().includes("pending");
-        return emailMatches && nameMatches && isPending;
-      });
+      // Notify client and salesperson components immediately
+      window.dispatchEvent(new CustomEvent("agni_pending_updated"));
+      window.dispatchEvent(new CustomEvent("agni_clients_updated"));
+      window.dispatchEvent(new Event("storage"));
 
-      if (!isDuplicate) {
-        // Clean out any older/declined requests for this same scheme so the new application is fresh
-        allReqs = allReqs.filter((r) => {
-          const rEmail = (r.clientEmail || r.email || "").toLowerCase().trim();
-          const rNorm = norm(r.schemeName || r.name);
-          const emailMatches = !rEmail || !resolvedEmail || rEmail === resolvedEmail;
-          const nameMatches = rNorm && reqNorm && (rNorm === reqNorm || rNorm.includes(reqNorm) || reqNorm.includes(rNorm));
-          return !(emailMatches && nameMatches);
-        });
-        allReqs.unshift(pendingReq);
-        localStorage.setItem("agni_pending_scheme_requests", JSON.stringify(allReqs));
-        setPendingRequests((prev) => [pendingReq, ...prev.filter((p) => norm(p.schemeName || p.name) !== reqNorm)]);
-
-        // Notify client and salesperson components immediately
-        window.dispatchEvent(new CustomEvent("agni_pending_updated"));
+      // Post to backend database so Reps and Managers receive the request across devices
+      apiFetch("/requests", {
+        method: "POST",
+        body: {
+          clientId: dbProfile?.id,
+          requestType: "NEW_SERVICE",
+          reason: `Client self-enrollment for ${pendingReq.schemeName} (${pendingReq.cover})`,
+          requestedChanges: pendingReq,
+        },
+      }).then(() => {
+        syncPendingRequestsFromApi();
         window.dispatchEvent(new CustomEvent("agni_clients_updated"));
-        window.dispatchEvent(new Event("storage"));
-
-        // Post to backend database so Reps and Managers receive the request across devices
-        apiFetch("/requests", {
-          method: "POST",
-          body: {
-            clientId: dbProfile?.id,
-            requestType: "NEW_SERVICE",
-            reason: `Client self-enrollment for ${pendingReq.schemeName} (${pendingReq.cover})`,
-            requestedChanges: pendingReq,
-          },
-        }).then(() => {
-          syncPendingRequestsFromApi();
-          window.dispatchEvent(new CustomEvent("agni_clients_updated"));
-          window.dispatchEvent(new CustomEvent("agni_pending_updated"));
-        }).catch((err) => {
-          console.warn("Could not post scheme request to backend API:", err);
-        });
-      }
+        window.dispatchEvent(new CustomEvent("agni_pending_updated"));
+      }).catch((err) => {
+        console.warn("Could not post scheme request to backend API:", err);
+      });
     } catch (e) {
       console.warn("Could not save scheme application request:", e);
     }
@@ -1848,31 +1368,59 @@ export default function Dashboard({ onSignOut, userEmail }) {
   }, [formattedTotalLoan, activePlansList, clientProgressPercent, formattedRenewalDate]);
   const filteredSchemes = activePlansList.filter((s) => !isPaymentDemandOrSettlement(s));
 
+  const [clearedNotifications, setClearedNotifications] = React.useState(false);
+  const [clientNotifications, setClientNotifications] = React.useState(() => [
+    { id: "default-1", type: "alerts", tone: "#10b981", title: "CRM Account Active", detail: "Registered under CRM account and operational.", time: "1h ago" },
+    { id: "default-2", type: "payments", tone: "#44bfb0", title: "Primary Contract Active", detail: "Primary CRM service contract is operational.", time: "3h ago" },
+  ]);
+
+  React.useEffect(() => {
+    async function fetchClientNotifs() {
+      try {
+        const res = await apiFetch("/notifications");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const mapped = json.data.map(n => ({
+              id: n.id,
+              type: n.type === "PAYMENT" ? "payments" : "alerts",
+              tone: n.type === "PAYMENT" ? "#38bdf8" : "#9a74e9",
+              title: n.title,
+              detail: n.message || n.detail,
+              time: n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recent",
+              createdAt: n.createdAt,
+              clientEmail: userEmail || "",
+            }));
+            setClientNotifications(mapped);
+          }
+        }
+      } catch (e) {}
+    }
+    fetchClientNotifs();
+    window.addEventListener("agni_notifications_updated", fetchClientNotifs);
+    return () => window.removeEventListener("agni_notifications_updated", fetchClientNotifs);
+  }, [userEmail]);
+
   // Auto notification listener for Pipeline Stage / Progress Updates
   const prevStageRef = React.useRef(null);
   React.useEffect(() => {
     if (!clientTracker || !activePipelineScheme) return;
     const currentKey = `${activePipelineScheme}_${clientTracker.currentStage}_${clientTracker.progressPercent}`;
     if (prevStageRef.current && prevStageRef.current !== currentKey) {
-      try {
-        const notif = {
-          id: `notif-pipe-${Date.now()}`,
-          type: "alerts",
-          tone: "#9a74e9",
-          title: `Service Pipeline Updated: ${activePipelineScheme}`,
-          detail: `Your service stage updated to "${clientTracker.currentStage}" (${clientTracker.progressPercent}% completed).`,
-          time: "Just now",
-          createdAt: new Date().toISOString(),
-          clientEmail: userEmail || "",
-        };
-        const savedNotifs = localStorage.getItem("agni_client_notifications");
-        let list = savedNotifs ? JSON.parse(savedNotifs) : [];
-        if (!Array.isArray(list)) list = [];
-        if (!list.some(n => n.detail === notif.detail)) {
-          list.unshift(notif);
-          localStorage.setItem("agni_client_notifications", JSON.stringify(list));
-        }
-      } catch (e) { }
+      const notif = {
+        id: `notif-pipe-${Date.now()}`,
+        type: "alerts",
+        tone: "#9a74e9",
+        title: `Service Pipeline Updated: ${activePipelineScheme}`,
+        detail: `Your service stage updated to "${clientTracker.currentStage}" (${clientTracker.progressPercent}% completed).`,
+        time: "Just now",
+        createdAt: new Date().toISOString(),
+        clientEmail: userEmail || "",
+      };
+      setClientNotifications((prev) => {
+        if (prev.some(n => n.detail === notif.detail)) return prev;
+        return [notif, ...prev];
+      });
     }
     prevStageRef.current = currentKey;
   }, [activePipelineScheme, clientTracker, userEmail]);
@@ -1880,37 +1428,26 @@ export default function Dashboard({ onSignOut, userEmail }) {
   // Auto notification listener for New Invoices Issued
   const prevInvoiceCountRef = React.useRef(0);
   React.useEffect(() => {
-    try {
-      const emailKey = (userEmail || "").toLowerCase().trim();
-      const savedInvoices = localStorage.getItem(`agni_invoices_${emailKey}`) || localStorage.getItem("agni_sales_invoices");
-      if (savedInvoices) {
-        const parsed = JSON.parse(savedInvoices);
-        if (Array.isArray(parsed) && parsed.length > prevInvoiceCountRef.current && prevInvoiceCountRef.current > 0) {
-          const latestInv = parsed[0];
-          const notif = {
-            id: `notif-inv-${Date.now()}`,
-            type: "payments",
-            tone: "#38bdf8",
-            title: "New Invoice Issued",
-            detail: `An official invoice ${latestInv.id || latestInv.number || ""} for ₹${Number(latestInv.amount || 0).toLocaleString("en-IN")} has been issued by your Sales Officer.`,
-            time: "Just now",
-            createdAt: new Date().toISOString(),
-            clientEmail: userEmail || "",
-          };
-          const savedNotifs = localStorage.getItem("agni_client_notifications");
-          let list = savedNotifs ? JSON.parse(savedNotifs) : [];
-          if (!Array.isArray(list)) list = [];
-          if (!list.some(n => n.detail === notif.detail)) {
-            list.unshift(notif);
-            localStorage.setItem("agni_client_notifications", JSON.stringify(list));
-          }
-        }
-        if (Array.isArray(parsed)) prevInvoiceCountRef.current = parsed.length;
-      }
-    } catch (e) { }
-  }, [userEmail, trackerSyncTick]);
-
-  const [clearedNotifications, setClearedNotifications] = React.useState(false);
+    const invoices = dbProfile?.invoices || [];
+    if (invoices.length > prevInvoiceCountRef.current && prevInvoiceCountRef.current > 0) {
+      const latestInv = invoices[0];
+      const notif = {
+        id: `notif-inv-${Date.now()}`,
+        type: "payments",
+        tone: "#38bdf8",
+        title: "New Invoice Issued",
+        detail: `An official invoice ${latestInv.invoiceNumber || latestInv.id || ""} for ₹${Number(latestInv.amount || 0).toLocaleString("en-IN")} has been issued by your Sales Officer.`,
+        time: "Just now",
+        createdAt: new Date().toISOString(),
+        clientEmail: userEmail || "",
+      };
+      setClientNotifications((prev) => {
+        if (prev.some(n => n.detail === notif.detail)) return prev;
+        return [notif, ...prev];
+      });
+    }
+    prevInvoiceCountRef.current = invoices.length;
+  }, [dbProfile?.invoices, userEmail]);
 
   const handleMarkAllRead = React.useCallback(() => {
     setUnreadNotifCount(0);
@@ -1919,20 +1456,8 @@ export default function Dashboard({ onSignOut, userEmail }) {
   const handleClearNotifications = React.useCallback(() => {
     setUnreadNotifCount(0);
     setClearedNotifications(true);
-    try {
-      const targetEmail = (userEmail || localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
-      localStorage.setItem(`agni_cleared_client_notifs_${targetEmail}`, "true");
-
-      const saved = localStorage.getItem("agni_client_notifications");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const remaining = parsed.filter(n => n.clientEmail && n.clientEmail.toLowerCase().trim() !== targetEmail);
-          localStorage.setItem("agni_client_notifications", JSON.stringify(remaining));
-        }
-      }
-    } catch (e) { }
-  }, [userEmail]);
+    setClientNotifications([]);
+  }, []);
 
   // Contact Sales Manager state & action
   const [contactManagerStatus, setContactManagerStatus] = React.useState("idle"); // 'idle' | 'sending' | 'sent'
@@ -1966,26 +1491,7 @@ export default function Dashboard({ onSignOut, userEmail }) {
       console.warn("Backend notification creation notice:", err);
     }
 
-    // 2. Prepend to manager's notifications in localStorage
-    try {
-      const savedManagerNotifs = JSON.parse(localStorage.getItem("agni_manager_notifications") || "[]");
-      const newManagerNotice = {
-        id: `mgr-req-${Date.now()}`,
-        title,
-        detail,
-        issuer: clientDisplayName,
-        tone: "coral",
-        time: "Just now",
-        isRead: false,
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem(
-        "agni_manager_notifications",
-        JSON.stringify([newManagerNotice, ...savedManagerNotifs.slice(0, 49)])
-      );
-    } catch (e) {}
-
-    // 3. Dispatch real-time events for active manager dashboards / notification bell
+    // 2. Dispatch real-time events for active manager dashboards / notification bell
     try {
       window.dispatchEvent(
         new CustomEvent("agni_notifications_updated", {
@@ -1999,7 +1505,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
           },
         })
       );
-      window.dispatchEvent(new Event("storage"));
     } catch (e) {}
 
     setContactManagerStatus("sent");
@@ -2010,45 +1515,11 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
   // Dynamic Client Notifications List
   const notificationsList = React.useMemo(() => {
-    const targetEmail = (userEmail || localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
-
     if (clearedNotifications) {
       return [];
     }
-
-    try {
-      const isCleared = localStorage.getItem(`agni_cleared_client_notifs_${targetEmail}`);
-      if (isCleared === "true") {
-        const saved = localStorage.getItem("agni_client_notifications");
-        let customNotifs = [];
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            customNotifs = parsed.filter(n => n.clientEmail && n.clientEmail.toLowerCase().trim() === targetEmail);
-          }
-        }
-        return customNotifs;
-      }
-    } catch (e) { }
-
-    let savedNotifs = [];
-    try {
-      const saved = localStorage.getItem("agni_client_notifications");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          savedNotifs = parsed.filter(n => !n.clientEmail || !targetEmail || n.clientEmail.toLowerCase().trim() === targetEmail);
-        }
-      }
-    } catch (e) { }
-
-    const defaultNotifs = [
-      { id: "default-1", type: "alerts", tone: "#10b981", title: "CRM Account Active", detail: `Registered under ${clientInfo.companyName} (${clientInfo.registrationNumber}).`, time: "1h ago" },
-      { id: "default-2", type: "payments", tone: "#44bfb0", title: "Primary Contract Active", detail: "Primary CRM service contract is operational.", time: "3h ago" },
-    ];
-
-    return [...savedNotifs, ...defaultNotifs];
-  }, [userEmail, trackerSyncTick, clientInfo, clearedNotifications]);
+    return clientNotifications;
+  }, [clearedNotifications, clientNotifications]);
 
   React.useEffect(() => {
     setUnreadNotifCount(notificationsList.length);
@@ -2100,14 +1571,13 @@ export default function Dashboard({ onSignOut, userEmail }) {
     };
 
     try {
-      const saved = localStorage.getItem("agni_sales_notifications");
-      let allNotifs = saved ? JSON.parse(saved) : [];
-      if (!Array.isArray(allNotifs)) allNotifs = [];
-      allNotifs.unshift(queryNotification);
-      localStorage.setItem("agni_sales_notifications", JSON.stringify(allNotifs));
-      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(
+        new CustomEvent("agni_notifications_updated", {
+          detail: queryNotification,
+        })
+      );
     } catch (err) {
-      console.warn("Could not post sales notification:", err);
+      console.warn("Could not dispatch sales notification:", err);
     }
 
     setRequestSubmitted(true);

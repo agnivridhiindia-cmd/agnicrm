@@ -1,15 +1,9 @@
 import React, { useMemo } from "react";
 import KpiCard from "../../components/KpiCard";
 import { BranchRevenueChart } from "../../components/charts";
-import {
-  kpiCards as defaultKpiCards,
-  branchRevenueData,
-  initialEmployeesList as defaultEmployeesList,
-  initialBranchAdmins as defaultBranchAdmins,
-  initialBranchIT as defaultBranchIT,
-  initialBranchMarketing as defaultBranchMarketing,
-} from "./mockBranchManagerData";
+import { branchRevenueData } from "./mockBranchManagerData";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
+import { apiFetch } from "../../services/apiClient";
 
 const branchActivities = [
   {
@@ -80,36 +74,48 @@ export default function BranchManagerOverviewPage({
   const isBranchMember = React.useCallback((emp) => {
     if (!emp) return false;
     const role = (emp.role || "").toLowerCase().trim();
-    if (role.includes("branch manager") || role.includes("branch director")) return false;
+    const rawRole = (emp.rawRole || "").toUpperCase().trim();
+    if (rawRole === "BRANCH_MANAGER" || role.includes("branch manager") || role.includes("branch director")) return false;
     if (emp.name && branchManagerName && emp.name.toLowerCase().trim() === branchManagerName.toLowerCase().trim()) return false;
 
     const empBM = (emp.branchManager || emp.branchManagerName || "").toLowerCase().trim();
-    const empRegion = (emp.region || emp.branch || "").toLowerCase().trim();
+    const empRegion = (emp.region || "").toLowerCase().trim();
+    const empBranch = (emp.branch || "").toLowerCase().trim();
     const targetBM = (branchManagerName || "").toLowerCase().trim();
     const targetRegion = (managedRegion || "").toLowerCase().trim();
+    const targetBranch = (managedBranch || "").toLowerCase().trim();
 
     if (targetBM && empBM && empBM === targetBM) return true;
-    if (targetRegion && empRegion) {
-      const firstWordTarget = targetRegion.split(" ")[0].toLowerCase();
-      if (empRegion.includes(firstWordTarget) || targetRegion.includes(empRegion)) return true;
+    if (targetBranch && empBranch && (empBranch === targetBranch || empBranch.includes(targetBranch) || targetBranch.includes(empBranch))) return true;
+    if (targetRegion && empRegion && (empRegion === targetRegion || empRegion.includes(targetRegion) || targetRegion.includes(empRegion))) return true;
+
+    const keywords = ["mumbai", "west", "delhi", "north", "bengaluru", "south", "kolkata", "east"];
+    for (const kw of keywords) {
+      const matchesTarget = (targetRegion && targetRegion.includes(kw)) || (targetBranch && targetBranch.includes(kw));
+      const matchesEmp = (empRegion && empRegion.includes(kw)) || (empBranch && empBranch.includes(kw));
+      if (matchesTarget && matchesEmp) return true;
     }
     return false;
-  }, [branchManagerName, managedRegion]);
+  }, [branchManagerName, managedRegion, managedBranch]);
 
-  // Number of Sales Managers in that branch
+  // Number of Sales Managers in that branch (strictly from PostgreSQL)
   const salesManagersCount = useMemo(() => {
-    const list = Array.isArray(employeesList) && employeesList.length > 0 ? employeesList : defaultEmployeesList;
+    const list = Array.isArray(employeesList) ? employeesList : [];
     const branchSalesTeam = list.filter(isBranchMember);
-    const smList = branchSalesTeam.filter((emp) => (emp.role || "").toLowerCase().includes("manager"));
+    const smList = branchSalesTeam.filter((emp) => {
+      const r = (emp.role || "").toLowerCase();
+      const raw = (emp.rawRole || "").toUpperCase();
+      return (raw === "MANAGER" || r.includes("manager") || r.includes("lead")) && !r.includes("branch");
+    });
     return smList.length;
   }, [employeesList, isBranchMember]);
 
-  // Total Employees working in that branch (excluding Branch Manager himself)
+  // Total Employees working in that branch (excluding Branch Manager himself, strictly from PostgreSQL)
   const totalEmployeesCount = useMemo(() => {
-    const salesList = Array.isArray(employeesList) && employeesList.length > 0 ? employeesList : defaultEmployeesList;
-    const adminList = Array.isArray(branchAdmins) && branchAdmins.length > 0 ? branchAdmins : defaultBranchAdmins;
-    const itList = Array.isArray(branchIT) && branchIT.length > 0 ? branchIT : defaultBranchIT;
-    const mktList = Array.isArray(branchMarketing) && branchMarketing.length > 0 ? branchMarketing : defaultBranchMarketing;
+    const salesList = Array.isArray(employeesList) ? employeesList : [];
+    const adminList = Array.isArray(branchAdmins) ? branchAdmins : [];
+    const itList = Array.isArray(branchIT) ? branchIT : [];
+    const mktList = Array.isArray(branchMarketing) ? branchMarketing : [];
 
     const salesTeam = salesList.filter(isBranchMember);
     const adminTeam = adminList.filter(isBranchMember);
@@ -119,45 +125,27 @@ export default function BranchManagerOverviewPage({
     return salesTeam.length + adminTeam.length + itTeam.length + mktTeam.length;
   }, [employeesList, branchAdmins, branchIT, branchMarketing, isBranchMember]);
 
-  const [pendingCount, setPendingCount] = React.useState(() => {
-    try {
-      const c = JSON.parse(localStorage.getItem("agni_pending_client_creations") || "[]");
-      const r = JSON.parse(localStorage.getItem("agni_client_requests") || "[]");
-      const s = JSON.parse(localStorage.getItem("agni_pending_scheme_requests") || "[]");
-      const isPending = (x) => {
-        if (!x) return false;
-        const st = String(x.status || "Pending").toLowerCase().trim();
-        return st === "pending" || st === "pending manager approval" || st.includes("pending");
-      };
-      const pC = Array.isArray(c) ? c.filter(isPending).length : 0;
-      const pR = Array.isArray(r) ? r.filter(isPending).length : 0;
-      const pS = Array.isArray(s) ? s.filter(isPending).length : 0;
-      return pC + pR + pS;
-    } catch (e) { return 0; }
-  });
+  const [pendingCount, setPendingCount] = React.useState(0);
 
   React.useEffect(() => {
-    function syncPending() {
+    async function syncPending() {
       try {
-        const c = JSON.parse(localStorage.getItem("agni_pending_client_creations") || "[]");
-        const r = JSON.parse(localStorage.getItem("agni_client_requests") || "[]");
-        const s = JSON.parse(localStorage.getItem("agni_pending_scheme_requests") || "[]");
-        const isPending = (x) => {
-          if (!x) return false;
-          const st = String(x.status || "Pending").toLowerCase().trim();
-          return st === "pending" || st === "pending manager approval" || st.includes("pending");
-        };
-        const pC = Array.isArray(c) ? c.filter(isPending).length : 0;
-        const pR = Array.isArray(r) ? r.filter(isPending).length : 0;
-        const pS = Array.isArray(s) ? s.filter(isPending).length : 0;
-        setPendingCount(pC + pR + pS);
+        const res = await apiFetch("/requests");
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success && Array.isArray(resData.data)) {
+            const count = resData.data.filter((r) => r.status === "PENDING").length;
+            setPendingCount(count);
+          }
+        }
       } catch (e) {}
     }
+    syncPending();
     window.addEventListener("storage", syncPending);
     window.addEventListener("agni_requests_updated", syncPending);
     window.addEventListener("agni_pending_updated", syncPending);
     window.addEventListener("agni_clients_updated", syncPending);
-    const interval = setInterval(syncPending, 60000);
+    const interval = setInterval(syncPending, 30000);
     return () => {
       window.removeEventListener("storage", syncPending);
       window.removeEventListener("agni_requests_updated", syncPending);

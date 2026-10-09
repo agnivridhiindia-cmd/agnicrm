@@ -1,8 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { notifications as defaultNotifications } from "../mockSalesData";
 import { normalizeSalesPersonName } from "../../../utils/branchHelper";
+import { apiFetch } from "../../../services/apiClient";
+import { useAuth } from "../../../context/AuthContext";
 
-export function useSalesDashboard(userEmail) {
+export function useSalesDashboard(userEmail, currentUser = null) {
+  const { user, userEmail: authEmail, userName: authName } = useAuth();
   const [activeNav, setActiveNav] = useState("Dashboard");
   const [dark, setDark] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -10,44 +13,46 @@ export function useSalesDashboard(userEmail) {
   const [query, setQuery] = useState("");
   const [toastMessage, setToastMessage] = useState("");
 
-  const [notificationsList, setNotificationsList] = useState(() => {
-    try {
-      const saved = localStorage.getItem("agni_sales_notifications");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return [...parsed, ...defaultNotifications];
-        }
-      }
-    } catch (e) {}
-    return defaultNotifications;
-  });
+  const [notificationsList, setNotificationsList] = useState(defaultNotifications);
 
   useEffect(() => {
-    function syncNotifications() {
+    async function syncNotifications() {
       try {
-        const saved = localStorage.getItem("agni_sales_notifications");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            setNotificationsList([...parsed, ...defaultNotifications]);
+        const res = await apiFetch("/notifications");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const apiNotifs = json.data.map((n) => ({
+              id: n.id,
+              title: n.title,
+              detail: n.message || n.detail,
+              message: n.message,
+              time: n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Recent",
+              read: n.isRead,
+              isRead: n.isRead,
+              tone: n.type === "PAYMENT" ? "green" : n.type === "REQUEST" ? "coral" : "blue",
+              issuer: "System",
+            }));
+            setNotificationsList([...apiNotifs, ...defaultNotifications]);
+            return;
           }
         }
       } catch (e) {}
     }
 
+    syncNotifications();
+
     const handleToast = (e) => {
       if (e?.detail) {
-        showToast(e.detail);
+        showToast(typeof e.detail === "string" ? e.detail : e.detail.message || "Notification received");
       }
+      syncNotifications();
     };
 
-    window.addEventListener("storage", syncNotifications);
     window.addEventListener("agni_notifications_updated", syncNotifications);
     window.addEventListener("agni_toast_notification", handleToast);
     const interval = setInterval(syncNotifications, 45000);
     return () => {
-      window.removeEventListener("storage", syncNotifications);
       window.removeEventListener("agni_notifications_updated", syncNotifications);
       window.removeEventListener("agni_toast_notification", handleToast);
       clearInterval(interval);
@@ -59,17 +64,37 @@ export function useSalesDashboard(userEmail) {
   const notificationsPauseTimer = useRef(null);
 
   const salesPersonName = useMemo(() => {
-    const email = userEmail || localStorage.getItem("agni_user_email") || "";
-    if (!email) return "Sales Person";
-    const normByEmail = normalizeSalesPersonName(email);
-    if (normByEmail && normByEmail !== email) return normByEmail;
-    const raw = email.split("@")[0];
+    // 1. Authoritative backend user profile from /auth/me
+    if (currentUser?.fullName?.trim()) return currentUser.fullName.trim();
+    if (currentUser?.name?.trim()) return currentUser.name.trim();
+
+    // 2. AuthContext active user
+    if (user?.fullName?.trim()) return user.fullName.trim();
+    if (user?.name?.trim()) return user.name.trim();
+
+    // 3. Stored userName from AuthContext ONLY if valid and not a mismatched fallback
+    const activeEmail = (currentUser?.email || userEmail || authEmail || user?.email || "").toLowerCase().trim();
+    if (authName && typeof authName === "string" && authName.trim()) {
+      const emailPrefix = activeEmail.split("@")[0].toLowerCase();
+      // Guard against stale cross-user leakage (e.g. "Ruhi Srivastava" while logged in as "kshitiz")
+      const isMismatch = (activeEmail && !emailPrefix.includes("ruhi") && authName.toLowerCase().includes("ruhi")) ||
+                         (emailPrefix && !authName.toLowerCase().includes(emailPrefix) && !emailPrefix.includes(authName.toLowerCase().split(" ")[0]));
+      if (!isMismatch) {
+        return authName.trim();
+      }
+    }
+
+    // 4. Derive from email address
+    if (!activeEmail) return "Sales Representative";
+    const normByEmail = normalizeSalesPersonName(activeEmail);
+    if (normByEmail && normByEmail !== activeEmail && normByEmail !== "Sales Representative") return normByEmail;
+    const raw = activeEmail.split("@")[0];
     const cleaned = raw.replace(/\d+$/, "");
     const parts = cleaned.split(/[^a-zA-Z]+/).filter(Boolean);
-    if (!parts.length) return "Sales Person";
+    if (!parts.length) return "Sales Representative";
     const parsedName = parts.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" ");
     return normalizeSalesPersonName(parsedName);
-  }, [userEmail]);
+  }, [userEmail, authEmail, authName, user, currentUser]);
 
   const showToast = (message, duration = 5000) => {
     setToastMessage(message);

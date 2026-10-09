@@ -239,10 +239,7 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
     const invoicePaymentsSum = (c.invoices || []).reduce((sum: number, inv: any) => sum + Number(inv.paymentReceived || 0), 0);
     const directPaymentsSum = (c.payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
     const schemeReceivedSum = (c.schemes || []).reduce((sum: number, s: any) => sum + Number(s.receivedAmount || 0), 0);
-    let payReceivedNum = Math.max(Number(c.paymentReceived || 0), invoicePaymentsSum, directPaymentsSum, schemeReceivedSum);
-    if (!isSec && payReceivedNum === 0 && c.approvalStatus === "ACTIVE") {
-      payReceivedNum = totalPayNum;
-    }
+    const payReceivedNum = Math.max(Number(c.paymentReceived || 0), invoicePaymentsSum, directPaymentsSum, schemeReceivedSum);
     const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
     const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
 

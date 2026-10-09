@@ -755,36 +755,7 @@ export function getClientAllSchemeTrackers(client, allClientsForSameEmail = []) 
     });
   }
 
-  try {
-    const compSaved = typeof window !== "undefined" && window.localStorage ? localStorage.getItem(`agni_approved_client_plans_${compKey}`) : null;
-    if (compSaved) {
-      const parsed = JSON.parse(compSaved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        parsed.forEach((p) => {
-          if (!isPaymentDemandOrSettlement(p)) {
-            if (p.name) addSchemeName(p.name);
-            if (p.schemeName) addSchemeName(p.schemeName);
-            if (p.title) addSchemeName(p.title);
-          }
-        });
-      }
-    }
 
-    const savedPending = typeof window !== "undefined" && window.localStorage ? localStorage.getItem("agni_pending_scheme_requests") : null;
-    if (savedPending) {
-      const parsedPending = JSON.parse(savedPending);
-      if (Array.isArray(parsedPending)) {
-        parsedPending.forEach((r) => {
-          if (!isPaymentDemandOrSettlement(r)) {
-            const compMatch = !companyName || (r.companyName || r.clientName || "").trim().toLowerCase() === companyName.trim().toLowerCase();
-            if (compMatch && r.clientEmail && r.clientEmail.toLowerCase().trim() === emailKey && r.status && r.status.includes("Approved")) {
-              if (r.schemeName) addSchemeName(r.schemeName);
-            }
-          }
-        });
-      }
-    }
-  } catch (e) { }
 
   const schemeList = Array.from(schemeNamesSet).filter((sName) => !isPaymentDemandOrSettlement(sName) && !isClientIdentity(sName));
   if (schemeList.length === 0) {

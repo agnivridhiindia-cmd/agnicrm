@@ -18,7 +18,6 @@ const ITDashboard = lazy(() => import("./IT/ITDashboard"));
 
 function ClientRouteWrapper({ userEmail, onSignOut }) {
   const emailKey = (userEmail || "").trim().toLowerCase();
-  const docSubmittedKey = `agni_client_doc_submitted_${emailKey}`;
 
   // "loading" = checking DB, "done" = check complete
   const [status, setStatus] = React.useState("loading");
@@ -31,36 +30,11 @@ function ClientRouteWrapper({ userEmail, onSignOut }) {
       return;
     }
 
-    // ── Offline / localStorage fast-path ──────────────────────────────────────
-    // Check localStorage FIRST for immediate UX. If we find a valid submission
-    // flag + data, we can skip the doc form immediately while the DB check runs.
-    const localFlag = localStorage.getItem(docSubmittedKey) === "true";
-    const localDataRaw = localStorage.getItem(`agni_client_doc_data_${emailKey}`);
-    let localHasData = false;
-    if (localDataRaw) {
-      try {
-        const p = JSON.parse(localDataRaw);
-        if (p && (p.companyName || p.representativeName || p.panNumber || p.aadharNumber)) {
-          localHasData = true;
-        }
-      } catch (e) { }
-    }
-    // If localStorage already confirmed submission, show dashboard immediately
-    // while the DB check runs in the background (DB result can only confirm or upgrade, never downgrade)
-    if (localFlag && localHasData) {
-      setHasCompletedSetup(true);
-      setStatus("done");
-    }
-
     // ── PostgreSQL authoritative check ────────────────────────────────────────
-    // The DB is the source of truth for documentStatus after approval.
     async function checkDbDocumentStatus() {
       const token = localStorage.getItem("agni_token");
       if (!token) {
-        // No token — fall back to localStorage result
-        if (!(localFlag && localHasData)) {
-          setHasCompletedSetup(false);
-        }
+        setHasCompletedSetup(false);
         setStatus("done");
         return;
       }
@@ -70,19 +44,15 @@ function ClientRouteWrapper({ userEmail, onSignOut }) {
 
         if (res.ok) {
           const data = await res.json();
-          const docStatus = data?.data?.documentStatus;
+          const docStatus = data?.data?.documentStatus || data?.documentStatus;
           // DB says SUBMITTED or VERIFIED → client has filled the form
           if (docStatus === "SUBMITTED" || docStatus === "VERIFIED") {
-            // Persist the flag to localStorage so subsequent loads skip the DB check
-            localStorage.setItem(docSubmittedKey, "true");
             setHasCompletedSetup(true);
             setStatus("done");
             return;
           }
-          // DB says NOT_SUBMITTED → show document form regardless of localStorage state
+          // DB says NOT_SUBMITTED → show document form
           if (docStatus === "NOT_SUBMITTED") {
-            // Clear any stale localStorage flag to keep state consistent
-            localStorage.removeItem(docSubmittedKey);
             setHasCompletedSetup(false);
             setStatus("done");
             return;
@@ -96,24 +66,27 @@ function ClientRouteWrapper({ userEmail, onSignOut }) {
           localStorage.removeItem("agni_role");
           localStorage.removeItem("agni_user_email");
           localStorage.removeItem("agni_email");
-          localStorage.removeItem(docSubmittedKey);
           if (onSignOut) onSignOut();
           window.dispatchEvent(new CustomEvent("agni_auth_changed"));
           return;
         }
       } catch (e) {
-        // Network error — fall back to localStorage result already set above
+        console.warn("Could not check document status from database:", e);
       }
 
-      // DB check failed or returned unexpected status — use localStorage result
-      if (!(localFlag && localHasData)) {
-        setHasCompletedSetup(false);
-      }
       setStatus("done");
     }
 
     checkDbDocumentStatus();
-  }, [emailKey, docSubmittedKey]);
+
+    const handleClientsUpdated = () => {
+      checkDbDocumentStatus();
+    };
+    window.addEventListener("agni_clients_updated", handleClientsUpdated);
+    return () => {
+      window.removeEventListener("agni_clients_updated", handleClientsUpdated);
+    };
+  }, [emailKey]);
 
   // ── Loading spinner while DB check is in progress ─────────────────────────
   if (status === "loading") {
@@ -140,7 +113,6 @@ function ClientRouteWrapper({ userEmail, onSignOut }) {
         email={userEmail}
         onSignOut={onSignOut}
         onComplete={() => {
-          localStorage.setItem(docSubmittedKey, "true");
           setHasCompletedSetup(true);
         }}
       />
@@ -152,107 +124,44 @@ function ClientRouteWrapper({ userEmail, onSignOut }) {
 
 
 export function clearAllSavedClients() {
-  // ── SCOPE: This function ONLY removes mock/test data entries. ─────────────────
-  // It must NOT wipe agni_client_doc_submitted_*, agni_client_doc_data_* for real
-  // client emails, nor clear agni_sales_clients / agni_branch_clients entirely.
-  // PostgreSQL is the source of truth after client approval. localStorage is only
-  // used as a read-through cache and for the pending approval queue.
-
-  const MOCK_EMAIL_FRAGMENTS = [
-    "121221@gmail.com", "sharmaji@gmail.com", "vanshikayadavji@gmail.com",
-    "mishraji@gmail.com", "feedusmomos", "rajput", "yash@", "bar@",
+  const legacyKeys = [
+    "agni_sales_clients", "agni_branch_clients", "agni_pending_client_creations",
+    "agni_sales_invoices", "agni_sales_payments", "agni_clients",
+    "agni_client_requests", "agni_pending_scheme_requests", "agni_crm_agreements_v4",
+    "agni_sales_notifications", "agni_manager_notifications", "agni_department_notifications",
+    "agni_client_notifications", "agni_db_team_hierarchy", "agni_client_doc_data_active"
   ];
-  const MOCK_NAME_FRAGMENTS = [
-    "workshala", "yash ear", "bright retail", "urban foods", "nova textiles",
-    "peak logistics", "crest pharma", "riverstone", "acme", "techsolutions",
-    "nexus", "starlight", "zenith", "summit", "horizon",
-    "community", "microsoft", "yadav dairy farm", "vanshika",
-    "abhishek", "sengar", "bar",
-  ];
+  legacyKeys.forEach((k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch (e) {}
+  });
 
-  const isMockEmail = (email) => {
-    if (!email) return false;
-    const e = email.trim().toLowerCase();
-    return MOCK_EMAIL_FRAGMENTS.some((f) => e.includes(f));
-  };
-
-  const isTestItem = (item) => {
-    if (!item) return false;
-    const str = `${item.company || ""} ${item.name || ""} ${item.companyName || ""} ${item.clientName || ""} ${item.email || ""} ${item.clientEmail || ""}`.toLowerCase();
-    return MOCK_NAME_FRAGMENTS.some((m) => str.includes(m)) || isMockEmail(item.email || item.clientEmail || "");
-  };
+  // Remove stale mock sessions if active
+  try {
+    const activeEmail = (localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
+    if (
+      activeEmail.includes("feedus") ||
+      activeEmail.includes("rajput") ||
+      activeEmail.includes("yash") ||
+      activeEmail.includes("bar@") ||
+      activeEmail.includes("kshitiz007")
+    ) {
+      localStorage.removeItem("agni_token");
+      localStorage.removeItem("agni_user");
+      localStorage.removeItem("agni_user_name");
+      localStorage.removeItem("agni_user_email");
+      localStorage.removeItem("agni_user_role");
+      localStorage.removeItem("agni_role");
+      localStorage.removeItem("agni_email");
+      localStorage.removeItem("agni_remember_email");
+    }
+  } catch (e) {}
 
   try {
-    // ── Only remove per-email localStorage keys for known mock emails ──────────
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i) || "";
-      const keyLower = key.toLowerCase();
-      // NEVER remove scheme stages, even for mock emails, so testing works
-      if (keyLower.includes("agni_scheme_stages_")) continue;
-
-      const isMockKey = MOCK_EMAIL_FRAGMENTS.some((f) => keyLower.includes(f));
-      // Also remove stale mock sessions
-      const isStaleSession = keyLower.includes("kshitiz007") || keyLower.includes("community_") || keyLower.includes("microsoft_");
-      if (isMockKey || isStaleSession) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((k) => localStorage.removeItem(k));
-
-    // ── Filter mock/test entries from client list caches — preserve real clients ─
-    ["agni_sales_clients", "agni_branch_clients", "agni_pending_client_creations",
-      "agni_sales_invoices", "agni_sales_payments", "agni_clients",
-      "agni_client_requests"
-    ].forEach((listKey) => {
-      try {
-        const saved = localStorage.getItem(listKey);
-        if (!saved) return;
-        const parsed = JSON.parse(saved);
-        if (!Array.isArray(parsed)) return;
-
-        const filtered = parsed.filter((c) => !isTestItem(c));
-        const unique = [];
-        filtered.forEach((item) => {
-          const isDup = unique.some(
-            (u) =>
-              (u.id && item.id && String(u.id).toLowerCase() === String(item.id).toLowerCase()) ||
-              (u.email && item.email && u.email.trim().toLowerCase() === item.email.trim().toLowerCase() &&
-                (u.company || u.name) && (item.company || item.name) &&
-                (u.company || u.name).trim().toLowerCase() === (item.company || item.name).trim().toLowerCase())
-          );
-          if (!isDup) unique.push(item);
-        });
-        localStorage.setItem(listKey, JSON.stringify(unique));
-      } catch (e) { }
-    });
-
-    // ── Remove stale sessions if active ──────────────────────────────
-    try {
-      const activeEmail = (localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
-      if (
-        activeEmail.includes("feedus") ||
-        activeEmail.includes("rajput") ||
-        activeEmail.includes("yash") ||
-        activeEmail.includes("bar@") ||
-        activeEmail.includes("kshitiz007")
-      ) {
-        localStorage.removeItem("agni_token");
-        localStorage.removeItem("agni_user");
-        localStorage.removeItem("agni_user_email");
-        localStorage.removeItem("agni_user_role");
-        localStorage.removeItem("agni_role");
-        localStorage.removeItem("agni_email");
-        localStorage.removeItem("agni_remember_email");
-      }
-    } catch (e) { }
-
-    repairClientStorageData();
-
-    window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new Event("agni_clients_updated"));
     window.dispatchEvent(new Event("agni_pending_updated"));
-  } catch (e) { }
+  } catch (e) {}
 }
 
 const ROLE_MAP = {
@@ -346,6 +255,7 @@ export default function App() {
         const res = await apiFetch("/auth/me");
         if (!res.ok) {
           // Token is invalid or user no longer exists in DB!
+          localStorage.removeItem("agni_user_name");
           localStorage.removeItem("agni_user_email");
           localStorage.removeItem("agni_user_role");
           localStorage.removeItem("agni_role");
@@ -365,9 +275,13 @@ export default function App() {
           setUserRole(mappedRole);
           setUserEmail(data.user.email);
           localStorage.setItem("agni_user", JSON.stringify(data.user));
+          if (data.user.fullName || data.user.name) {
+            localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
+          }
           if (data.user.branch?.name) {
             localStorage.setItem("agni_user_branch", data.user.branch.name);
           }
+          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
           if (window.location.pathname === "/" || window.location.pathname === "/login") {
             const targetPath = rolePathMap[mappedRole] || "/login";
             navigate(targetPath, { replace: true });
@@ -412,7 +326,8 @@ export default function App() {
 
   function handleLogin(email, role, token, user = null) {
     // Clear any stale session before writing the new one so an old
-    // cached role can never leak into this login.
+    // cached role or user name can never leak into this login.
+    localStorage.removeItem("agni_user_name");
     localStorage.removeItem("agni_user_email");
     localStorage.removeItem("agni_user_role");
     localStorage.removeItem("agni_role");
@@ -429,10 +344,14 @@ export default function App() {
     }
     if (user) {
       localStorage.setItem("agni_user", JSON.stringify(user));
+      if (user.fullName || user.name) {
+        localStorage.setItem("agni_user_name", user.fullName || user.name);
+      }
       if (user.branch?.name) {
         localStorage.setItem("agni_user_branch", user.branch.name);
       }
     }
+    window.dispatchEvent(new CustomEvent("agni_auth_changed"));
     
     setUserEmail(email);
     setUserRole(role);
@@ -442,6 +361,7 @@ export default function App() {
 
   function handleSignOut() {
     closeRealtimeService();
+    localStorage.removeItem("agni_user_name");
     localStorage.removeItem("agni_user_email");
     localStorage.removeItem("agni_user_role");
     localStorage.removeItem("agni_role");
@@ -449,6 +369,7 @@ export default function App() {
     localStorage.removeItem("agni_user_branch");
     localStorage.removeItem("agni_email");
     localStorage.removeItem("agni_token");
+    window.dispatchEvent(new CustomEvent("agni_auth_changed"));
     setUserRole("");
     setUserEmail("");
     navigate("/auth");

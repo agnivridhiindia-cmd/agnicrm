@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { agreementService, AGREEMENT_STATUSES, TEMPLATE_TYPES, normalizeAgreementData } from "../services/agreementService";
 import { getCanonicalSchemeName } from "../utils/schemeTracker";
+import { useAuth } from "../context/AuthContext";
 import "./Admin/AdminDashboard.css";
 
 export default function ClientAgreementPage({ userEmail, clientInfo = {}, dbProfile = null }) {
+  const { userEmail: authEmail } = useAuth();
   const [agreements, setAgreements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState(null);
   const [actionMsg, setActionMsg] = useState("");
 
-  const targetEmail = (userEmail || localStorage.getItem("agni_user_email") || "").toLowerCase().trim();
+  const targetEmail = (userEmail || authEmail || "").toLowerCase().trim();
   const companyName = (clientInfo?.companyName || dbProfile?.companyName || "Your Enterprise").trim();
 
   const loadClientAgreements = useCallback(async () => {

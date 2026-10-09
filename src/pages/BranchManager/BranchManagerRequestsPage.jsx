@@ -3,7 +3,6 @@ import Icon from "../../components/Icon";
 import BranchManagerCreateRequestModal from "./BranchManagerCreateRequestModal";
 import BranchManagerRequestModal from "./BranchManagerRequestModal";
 import { initialBranchSentRequests, initialManagerReceivedRequests } from "./mockBranchRequests";
-import { repairPendingClientCreations } from "../../utils/branchHelper";
 import { apiFetch } from "../../services/apiClient";
 
 export default function BranchManagerRequestsPage({
@@ -42,31 +41,10 @@ export default function BranchManagerRequestsPage({
   const [deptFilter, setDeptFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Sync live client creation requests into Branch Manager received requests pool
+  // Sync live requests from backend DB into Branch Manager received requests pool
   React.useEffect(() => {
     function loadLiveBranchRequests() {
       try {
-        const repaired = repairPendingClientCreations();
-        const rawCreations = JSON.parse(localStorage.getItem("agni_pending_client_creations") || "[]");
-        const list = Array.isArray(rawCreations) && rawCreations.length ? rawCreations : repaired;
-
-        const liveCreationsMap = list.map((c) => ({
-          id: c.id?.startsWith("REQ") ? c.id : `REQ-REG-${String(c.id || "").slice(-4).toUpperCase() || Math.floor(1000 + Math.random() * 9000)}`,
-          requesterName: c.salesPerson || c.owner || "Sales Executive",
-          targetRole: "Sales Manager / Branch Manager",
-          targetName: c.company || c.companyName || c.clientName || c.name || "New Client Onboarding",
-          department: "Sales",
-          requestType: "Client Onboarding",
-          reason: `Registration request for "${c.company || c.companyName || c.clientName || c.name}" under scheme "${c.scheme || c.serviceName || 'Consultancy'}".`,
-          effectiveDate: c.createdAt ? String(c.createdAt).split("T")[0] : new Date().toISOString().split("T")[0],
-          status: c.status || "Pending",
-          source: "client_creation",
-        }));
-
-        setReceivedRequests((prev) => {
-          const nonCreation = prev.filter((r) => r.source !== "client_creation");
-          return [...liveCreationsMap, ...nonCreation];
-        });
         apiFetch("/requests")
           .then((r) => r.json())
           .then((resData) => {

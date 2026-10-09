@@ -29,17 +29,6 @@ export function useApiClients() {
           let totalPayment = Number(c.totalPayment || 0);
           let paymentReceived = Number(c.paymentReceived || 0);
 
-          if (Array.isArray(c.invoices) && c.invoices.length > 0) {
-            let invTotal = 0;
-            let invReceived = 0;
-            c.invoices.forEach(inv => {
-              invTotal += Number(inv.rawTotal || 0);
-              invReceived += Number(inv.paymentReceived || 0);
-            });
-            if (invTotal > totalPayment) totalPayment = invTotal;
-            if (invReceived > paymentReceived) paymentReceived = invReceived;
-          }
-
           const isSec = c.isPrimary === false ||
             c.processType === "secondary" ||
             c.serviceType === "More Services" ||
@@ -49,11 +38,9 @@ export function useApiClients() {
             totalPayment = 118000;
           }
 
-          if (!isSec && paymentReceived === 0 && (c.approvalStatus === "ACTIVE" || c.paymentStatus === "Paid")) {
-            paymentReceived = totalPayment;
-          }
-
-          let paymentPending = Math.max(0, totalPayment - paymentReceived);
+          let paymentPending = c.paymentPending !== undefined && c.paymentPending !== null && !isNaN(Number(c.paymentPending))
+            ? Number(c.paymentPending)
+            : Math.max(0, totalPayment - paymentReceived);
 
           return {
             ...c,

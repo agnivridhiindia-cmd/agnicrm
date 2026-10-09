@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
 
@@ -33,23 +34,22 @@ const generatePaymentId = (existing) => {
 
 function getPendingPayment(client) {
   if (!client) return 0;
+  if (client.paymentPending !== undefined && client.paymentPending !== null && client.paymentPending !== "") {
+    const parsed = parseFloat(String(client.paymentPending).replace(/[^0-9.]/g, ""));
+    if (!isNaN(parsed)) return Math.max(0, parsed);
+  }
   const isSec = client.isPrimary === false || client.processType === "secondary" || client.serviceType === "More Services" || (typeof client.appId === "string" && (client.appId.endsWith("-S") || client.appId.endsWith("-E")));
   const rawTotal = parseFloat(String(client.totalPayment || client.amount || 0).replace(/[^0-9.]/g, "")) || 0;
   const total = (!isSec && rawTotal === 0) ? 118000 : rawTotal;
   const rawRec = parseFloat(String(client.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
-  const received = (!isSec && rawRec === 0 && (client.paymentStatus === "Paid" || client.approvalStatus === "ACTIVE")) ? total : rawRec;
-  if (total > 0) return Math.max(0, total - received);
-  if (client.paymentPending !== undefined && client.paymentPending !== null && client.paymentPending !== "") {
-    const parsed = parseFloat(String(client.paymentPending).replace(/[^0-9.]/g, ""));
-    if (!isNaN(parsed) && parsed > 0) return parsed;
-  }
-  return 0;
+  const received = (client.paymentStatus === "Paid") ? total : rawRec;
+  return Math.max(0, total - received);
 }
 
 function CreatePaymentRequestModal({ clients = [], onClose, onSubmit, salesPersonName, userEmail }) {
+  const { user, userName: authName, userEmail: authEmail } = useAuth();
   const pendingClients = useMemo(() => {
-    const filtered = (clients || []).filter((c) => getPendingPayment(c) > 0);
-    return filtered.length > 0 ? filtered : (clients || []);
+    return (clients || []).filter((c) => getPendingPayment(c) > 0);
   }, [clients]);
 
   const [formData, setFormData] = useState(() => {
@@ -112,9 +112,9 @@ function CreatePaymentRequestModal({ clients = [], onClose, onSubmit, salesPerso
     const resolvedScheme = selectedClient?.scheme || selectedClient?.serviceName || selectedClient?.serviceType || "Consultancy Service";
     const resolvedClientId = selectedClient?.dbId || selectedClient?.id || selectedClient?.clientId || "";
 
-    const spName = salesPersonName || localStorage.getItem("agni_user_name") || "Sales Representative";
-    const spEmail = userEmail || localStorage.getItem("agni_user_email") || "";
-    const spId = localStorage.getItem("agni_user_id") || "";
+    const spName = salesPersonName || authName || user?.fullName || user?.name || "Sales Representative";
+    const spEmail = userEmail || authEmail || user?.email || "";
+    const spId = user?.id || "";
 
     const request = {
       id: reqId,
@@ -476,9 +476,11 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
 
   const [clientUpdatesVersion, setClientUpdatesVersion] = useState(0);
 
-  const currentSalesName = salesPersonName || localStorage.getItem("agni_user_name") || "";
-  const currentUserEmail = userEmail || localStorage.getItem("agni_user_email") || "";
-  const userRole = localStorage.getItem("agni_user_role") || "";
+  const { user, userRole: authRole, userEmail: authEmail } = useAuth();
+
+  const currentSalesName = salesPersonName || user?.fullName || user?.name || "";
+  const currentUserEmail = userEmail || authEmail || "";
+  const userRole = authRole || "";
 
   const { clients: apiClients } = useApiClients();
 
@@ -651,81 +653,15 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
     });
   }, [userPayments, activeTab, searchTerm]);
 
-  const updateClientPaymentMetrics = (clientIdentifier, amountDiff, actionType) => {
-    if (!amountDiff || amountDiff <= 0) return;
-    try {
-      const targetStr = String(clientIdentifier || "").toLowerCase().trim();
-      const updateListInKey = (key) => {
-        const saved = localStorage.getItem(key);
-        if (!saved) return;
-        const list = JSON.parse(saved);
-        if (!Array.isArray(list)) return;
-
-        let modified = false;
-        const nextList = list.map((c) => {
-          const cId = String(c.id || "").toLowerCase().trim();
-          const cEmail = String(c.email || "").toLowerCase().trim();
-          const cCompany = String(c.company || c.name || "").toLowerCase().trim();
-
-          if ((targetStr && (cId === targetStr || cEmail === targetStr || cCompany === targetStr)) || list.length === 1) {
-            modified = true;
-            const currentRec = parseFloat(String(c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
-            const currentPend = parseFloat(String(c.paymentPending || 0).replace(/[^0-9.]/g, "")) || 0;
-
-            if (actionType === "MARK_PAID") {
-              const totalPaymentVal = parseFloat(String(c.totalPayment || c.amount || 0).replace(/[^0-9.]/g, "")) || (currentRec + currentPend);
-              const newRec = currentRec + amountDiff;
-              const newPend = Math.max(0, totalPaymentVal - newRec);
-              return {
-                ...c,
-                paymentReceived: String(newRec),
-                paymentPending: String(newPend),
-              };
-            }
-          }
-          return c;
-        });
-
-        if (modified) {
-          localStorage.setItem(key, JSON.stringify(nextList));
-        }
-      };
-
-      updateListInKey("agni_sales_clients");
-      updateListInKey("agni_branch_clients");
-      setClientUpdatesVersion((v) => v + 1);
-    } catch (e) {}
-  };
 
   const addPaymentRequest = async (newReq) => {
     try {
-      // 1. Save locally to agni_sales_payments and agni_payment_demands
-      const cEmail = (newReq.clientEmail || "").toLowerCase().trim();
-      const saveToKey = (key) => {
-        try {
-          const saved = localStorage.getItem(key);
-          const list = saved ? JSON.parse(saved) : [];
-          const updated = [newReq, ...list.filter((p) => p.id !== newReq.id)];
-          localStorage.setItem(key, JSON.stringify(updated));
-        } catch (e) {}
-      };
+      const cEmail = (newReq.clientEmail || newReq.email || "").toLowerCase().trim();
+      const cComp = newReq.clientCompany || newReq.companyName || newReq.company || "";
+      const cName = newReq.clientName || newReq.name || "";
 
-      saveToKey("agni_sales_payments");
-      saveToKey("agni_payment_demands");
-      saveToKey("agni_client_requests");
-      if (cEmail) saveToKey(`agni_payment_demands_${cEmail}`);
-
-      // 2. Dispatch global events
-      window.dispatchEvent(new Event("agni_payments_updated"));
-      window.dispatchEvent(new Event("agni_clients_updated"));
-      window.dispatchEvent(new Event("agni_invoices_updated"));
-
-      // 3. Post to backend PostgreSQL database so request survives and syncs across all PCs
+      // Post to backend PostgreSQL database so request survives and syncs across all PCs
       try {
-        const cEmail = (newReq.clientEmail || newReq.email || "").toLowerCase().trim();
-        const cComp = newReq.clientCompany || newReq.companyName || newReq.company || "";
-        const cName = newReq.clientName || newReq.name || "";
-
         // Attempt to resolve real DB UUID from apiClients
         const matchedDbClient = (apiClients || []).find((c) => {
           if (!c) return false;
@@ -766,12 +702,6 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         if (res.ok) {
           const resJson = await res.json().catch(() => null);
           console.log("✓ Payment request successfully recorded in PostgreSQL database:", resJson);
-          if (resJson && (resJson.id || resJson.paymentId)) {
-            const dbReq = { ...newReq, ...resJson, id: resJson.paymentId || resJson.id || newReq.id };
-            saveToKey("agni_sales_payments");
-            saveToKey("agni_payment_demands");
-            if (cEmail) saveToKey(`agni_payment_demands_${cEmail}`);
-          }
         } else {
           console.warn("Backend API returned non-OK status for payment-request:", res.status);
         }
@@ -779,6 +709,9 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         console.warn("Could not post payment request to backend API:", backendErr);
       }
 
+      window.dispatchEvent(new Event("agni_payments_updated"));
+      window.dispatchEvent(new Event("agni_requests_updated"));
+      window.dispatchEvent(new Event("agni_invoices_updated"));
       await refreshPayments();
       setNotification(`✓ Payment request for ${newReq.clientName} created successfully.`);
     } catch(err) {
@@ -800,59 +733,6 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
       const targetComp = String(targetPay?.clientCompany || targetPay?.clientName || "").toLowerCase().trim();
       const targetId = String(targetPay?.clientId || "").toLowerCase().trim();
       const txnRef = targetPay?.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
-
-      const updatePaymentStatusLocal = (key) => {
-        try {
-          const saved = localStorage.getItem(key);
-          if (!saved) return;
-          const list = JSON.parse(saved);
-          if (!Array.isArray(list)) return;
-          const updated = list.map((p) => {
-            const curPId = String(p.id || p.paymentId || "");
-            const matches =
-              curPId === String(pId) ||
-              curPId === cleanPayId ||
-              curPId.replace(/^SETTLE-/, "") === cleanPayId ||
-              (targetEmail && String(p.clientEmail || "").toLowerCase().trim() === targetEmail && Number(p.amount) === targetAmount);
-
-            if (matches) {
-              return {
-                ...p,
-                status: "Paid",
-                transactionRef: txnRef,
-                paidAt: new Date().toISOString(),
-              };
-            }
-            return p;
-          });
-          localStorage.setItem(key, JSON.stringify(updated));
-        } catch (e) {}
-      };
-
-      updatePaymentStatusLocal("agni_sales_payments");
-      updatePaymentStatusLocal("agni_payment_demands");
-      updatePaymentStatusLocal("agni_client_requests");
-      if (targetEmail) {
-        updatePaymentStatusLocal(`agni_payment_demands_${targetEmail}`);
-      }
-
-      // Also mark as approved in agni_pending_payment_settlement_requests
-      try {
-        const savedSettles = localStorage.getItem("agni_pending_payment_settlement_requests");
-        if (savedSettles) {
-          const sList = JSON.parse(savedSettles);
-          if (Array.isArray(sList)) {
-            const updatedSettles = sList.map((s) => {
-              const sPId = String(s.paymentId || s.rawId || s.id || "");
-              if (sPId === String(pId) || sPId === cleanPayId || (targetEmail && String(s.clientEmail || "").toLowerCase().trim() === targetEmail && Number(s.amount) === targetAmount)) {
-                return { ...s, status: "Approved", decisionDate: new Date().toISOString() };
-              }
-              return s;
-            });
-            localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify(updatedSettles));
-          }
-        }
-      } catch (e) {}
 
       // Update backend database client record via PATCH /clients/:id
       let dbClients = [];
@@ -902,7 +782,6 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
         } catch (err) {
           console.warn("Could not patch client paymentReceived from SalesPayments:", err);
         }
-
       }
 
       // Mark payment as paid in database so all PCs update
@@ -917,60 +796,6 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
           });
         } catch (e) {}
       }
-
-      // Update client caches in localStorage
-      const resolvedClientId = foundDbClient ? String(foundDbClient.id || "").toLowerCase().trim() : (targetId !== "1" ? targetId : "");
-      ["agni_sales_clients", "agni_branch_clients", "agni_clients"].forEach((key) => {
-        try {
-          const saved = localStorage.getItem(key);
-          let list = saved ? JSON.parse(saved) : (dbClients.length > 0 ? dbClients : []);
-          if (Array.isArray(list)) {
-            let matched = false;
-            list = list.map((c) => {
-              const cId = String(c.id || "").toLowerCase().trim();
-              const cEmail = String(c.email || "").toLowerCase().trim();
-              const cCompany = String(c.company || c.name || c.companyName || "").toLowerCase().trim();
-              const curPend = Math.max(0, Number(c.totalPayment || c.amount || 0) - Number(c.paymentReceived || 0));
-
-              const isMatch =
-                (resolvedClientId && cId === resolvedClientId) ||
-                (!resolvedClientId && (
-                  (targetEmail && cEmail === targetEmail && Math.abs(curPend - targetAmount) < 5) ||
-                  (targetComp && (cCompany.includes(targetComp) || targetComp.includes(cCompany)) && Math.abs(curPend - targetAmount) < 5) ||
-                  (list.length === 1)
-                ));
-
-              if (isMatch) {
-                matched = true;
-                const cRec = parseFloat(String(c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
-                const cTot = parseFloat(String(c.totalPayment || c.amount || 0).replace(/[^0-9.]/g, "")) || (cRec + targetAmount);
-                const updatedRec = Math.min(cTot, Math.max(newRec, cRec + targetAmount));
-                const updatedPend = Math.max(0, cTot - updatedRec);
-                return {
-                  ...c,
-                  paymentReceived: String(updatedRec),
-                  paymentPending: String(updatedPend),
-                };
-              }
-              return c;
-            });
-
-            if (!matched && (targetEmail || targetComp)) {
-              list.push({
-                id: resolvedClientId || `client-${Date.now()}`,
-                name: targetPay?.clientName || targetComp,
-                company: targetComp,
-                companyName: targetComp,
-                email: targetEmail,
-                paymentReceived: String(newRec),
-                paymentPending: String(newPend),
-                totalPayment: String(newRec + newPend),
-              });
-            }
-            localStorage.setItem(key, JSON.stringify(list));
-          }
-        } catch (e) {}
-      });
 
       // Sync with backend invoice payment API if an invoice is linked
       const invId = targetPay?.relatedInvoiceId || targetPay?.invoiceId || targetPay?.relatedInvoice;
@@ -995,9 +820,8 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
       window.dispatchEvent(new Event("agni_requests_updated"));
       window.dispatchEvent(new Event("agni_pending_updated"));
       window.dispatchEvent(new Event("agni_clients_updated"));
-      window.dispatchEvent(new Event("storage"));
 
-      refreshPayments();
+      await refreshPayments();
       setNotification(`✓ Payment ${pId} marked as Settled & Paid successfully.`);
     } catch (e) {
       console.warn("Could not mark payment as paid:", e);
@@ -1011,83 +835,19 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
     const targetPay = payments.find((p) => String(p.id) === String(pId)) || paymentTarget;
     await markAsPaid(targetPay);
 
-    // Also update any matching pending payment settlement requests in localStorage
-    try {
-      const saved = localStorage.getItem("agni_pending_payment_settlement_requests");
-      if (saved) {
-        let list = JSON.parse(saved);
-        if (Array.isArray(list)) {
-          const cleanPayId = String(pId || "").replace(/^SETTLE-/, "");
-          list = list.map((s) => {
-            const sPId = String(s.paymentId || s.rawId || s.id || "");
-            return sPId === String(pId) || sPId === cleanPayId || s.id === pId
-              ? { ...s, status: "Approved", decisionDate: new Date().toISOString() }
-              : s;
-          });
-          localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify(list));
-        }
-      }
-    } catch (e) {}
-
     window.dispatchEvent(new Event("agni_requests_updated"));
     setNotification(`✓ Settlement of ${formatCurrency(targetPay?.amount || 0)} for ${targetPay?.clientName || 'Client'} approved! Official receipt released.`);
   };
 
-  const rejectPaymentSettlement = (paymentTarget) => {
+  const rejectPaymentSettlement = async (paymentTarget) => {
     try {
       const pId = typeof paymentTarget === "object" ? paymentTarget.id : paymentTarget;
       const targetPay = payments.find((p) => String(p.id) === String(pId)) || paymentTarget;
 
-      const updatePaymentStatusLocal = (key) => {
-        try {
-          const saved = localStorage.getItem(key);
-          if (!saved) return;
-          const list = JSON.parse(saved);
-          if (!Array.isArray(list)) return;
-          const updated = list.map((p) => {
-            if (String(p.id) === String(pId)) {
-              return {
-                ...p,
-                status: "Requested",
-                transactionRef: undefined,
-                rejectionReason: "Settlement verification rejected by sales representative.",
-                rejectedAt: new Date().toISOString(),
-              };
-            }
-            return p;
-          });
-          localStorage.setItem(key, JSON.stringify(updated));
-        } catch (e) {}
-      };
-
-      updatePaymentStatusLocal("agni_sales_payments");
-      updatePaymentStatusLocal("agni_payment_demands");
-      updatePaymentStatusLocal("agni_client_requests");
-      if (targetPay && targetPay.clientEmail) {
-        updatePaymentStatusLocal(`agni_payment_demands_${targetPay.clientEmail.toLowerCase().trim()}`);
-      }
-
-      // Also update any matching pending payment settlement requests in localStorage
-      try {
-        const saved = localStorage.getItem("agni_pending_payment_settlement_requests");
-        if (saved) {
-          let list = JSON.parse(saved);
-          if (Array.isArray(list)) {
-            list = list.map((s) =>
-              String(s.paymentId) === String(pId) || s.id === pId
-                ? { ...s, status: "Declined", decisionDate: new Date().toISOString() }
-                : s
-            );
-            localStorage.setItem("agni_pending_payment_settlement_requests", JSON.stringify(list));
-          }
-        }
-      } catch (e) {}
-
       window.dispatchEvent(new Event("agni_payments_updated"));
       window.dispatchEvent(new Event("agni_requests_updated"));
-      window.dispatchEvent(new Event("storage"));
 
-      refreshPayments();
+      await refreshPayments();
       setNotification(`Payment settlement for ${targetPay?.clientName || pId} rejected. Demand returned to pending for client.`);
     } catch (e) {
       console.warn("Could not reject settlement:", e);

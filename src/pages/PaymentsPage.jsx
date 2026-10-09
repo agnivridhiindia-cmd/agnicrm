@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiFetch } from '../services/apiClient';
 import { useApiPayments } from "../hooks/useApiPayments";
 import { printHtmlContent } from "../utils/exportHelpers";
+import { useAuth } from "../context/AuthContext";
 
 export function isPaymentSettled(status) {
   if (!status) return false;
@@ -236,6 +237,8 @@ export function generatePaymentReceiptHTML(payment) {
 }
 
 export default function PaymentsPage({ userEmail, clientInfo, initialPayment, onClearInitialPayment }) {
+  const { userEmail: authEmail } = useAuth();
+  const effectiveEmail = (userEmail || authEmail || "").trim().toLowerCase();
   const [activeTab, setActiveTab] = useState("All Transactions");
   const [selectedPayment, setSelectedPayment] = useState(() => {
     if (initialPayment) {
@@ -276,7 +279,7 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
       return !r.includes("payment collected upon client registration") && pId !== "PAY-2026-C4EF3" && pId !== "PAY-2026-F981C";
     });
 
-    const cleanUserEmail = (userEmail || localStorage.getItem("agni_user_email") || "").trim().toLowerCase();
+    const cleanUserEmail = effectiveEmail;
     if (!cleanUserEmail && !clientInfo) return rawList;
     const clientComp = (clientInfo?.companyName || clientInfo?.company || "").trim().toLowerCase();
     const clientName = (clientInfo?.name || clientInfo?.representativeName || "").trim().toLowerCase();
@@ -441,44 +444,10 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
               });
 
               if (verifyRes.ok) {
-                // Update local storage caches to Awaiting Approval
-                const updateStatusAwaiting = (key) => {
-                  try {
-                    const saved = localStorage.getItem(key);
-                    if (!saved) return;
-                    const list = JSON.parse(saved);
-                    if (!Array.isArray(list)) return;
-                    const updated = list.map((p) => {
-                      const curId = String(p.id || p.paymentId || "");
-                      if (curId === String(pay.id) || curId === String(pay.paymentId)) {
-                        return {
-                          ...p,
-                          status: "Awaiting Approval",
-                          transactionRef: response.razorpay_payment_id,
-                          settledAt: new Date().toISOString(),
-                          submissionDate: new Date().toISOString().split("T")[0],
-                        };
-                      }
-                      return p;
-                    });
-                    localStorage.setItem(key, JSON.stringify(updated));
-                  } catch (e) {}
-                };
-
-                updateStatusAwaiting("agni_sales_payments");
-                updateStatusAwaiting("agni_payment_demands");
-                updateStatusAwaiting("agni_client_requests");
-                if (cleanEmail) updateStatusAwaiting(`agni_payment_demands_${cleanEmail}`);
-                for (let i = 0; i < localStorage.length; i++) {
-                  const k = localStorage.key(i) || "";
-                  if (k.startsWith("agni_payment_demands_")) updateStatusAwaiting(k);
-                }
-
                 setNotice(`✓ Payment of ${pay.formattedAmt} successfully submitted via Razorpay (Txn ID: ${response.razorpay_payment_id}). Status is now Awaiting Salesperson Approval.`);
                 setSelectedPayment(null);
                 window.dispatchEvent(new Event("agni_payments_updated"));
                 window.dispatchEvent(new Event("agni_pending_updated"));
-                window.dispatchEvent(new Event("storage"));
                 refreshPayments();
               } else {
                 setNotice("Payment captured by Razorpay. Official confirmation is being processed by server.");
@@ -509,43 +478,6 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
       // 3. Fallback: If Razorpay keys are not yet configured in server/.env,
       // fallback to manual submission so client workflow is never blocked
       const txnRef = pay.transactionRef || `TXN-AGNI-${Date.now().toString().slice(-6)}`;
-      const updatePaymentStatusLocal = (key) => {
-        try {
-          const saved = localStorage.getItem(key);
-          if (!saved) return;
-          const list = JSON.parse(saved);
-          if (!Array.isArray(list)) return;
-          const updated = list.map((p) => {
-            const matchesId =
-              String(p.id) === String(pay.id) ||
-              String(p.paymentId) === String(pay.id) ||
-              String(p.id) === String(pay.paymentId) ||
-              String(p.paymentId) === String(pay.paymentId);
-            if (matchesId) {
-              return {
-                ...p,
-                status: "Awaiting Approval",
-                transactionRef: txnRef,
-                settledAt: new Date().toISOString(),
-                submissionDate: new Date().toISOString().split("T")[0],
-              };
-            }
-            return p;
-          });
-          localStorage.setItem(key, JSON.stringify(updated));
-        } catch (e) {}
-      };
-
-      updatePaymentStatusLocal("agni_sales_payments");
-      updatePaymentStatusLocal("agni_payment_demands");
-      updatePaymentStatusLocal("agni_client_requests");
-      if (cleanEmail) updatePaymentStatusLocal(`agni_payment_demands_${cleanEmail}`);
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i) || "";
-        if (k.startsWith("agni_payment_demands_")) {
-          updatePaymentStatusLocal(k);
-        }
-      }
 
       try {
         await apiFetch(`/invoices/payments/${targetPayId}/settle`, {
@@ -559,11 +491,10 @@ export default function PaymentsPage({ userEmail, clientInfo, initialPayment, on
         console.warn("Could not submit settlement to backend API:", apiErr);
       }
 
-      setNotice(`Payment demand submitted for verification. To enable direct Razorpay / PhonePe / Paytm checkout, add RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET to server/.env.`);
+      setNotice(`Payment demand submitted for verification. Official confirmation is being processed by server.`);
 
       window.dispatchEvent(new Event("agni_payments_updated"));
       window.dispatchEvent(new Event("agni_pending_updated"));
-      window.dispatchEvent(new Event("storage"));
 
       refreshPayments();
       setSelectedPayment(null);

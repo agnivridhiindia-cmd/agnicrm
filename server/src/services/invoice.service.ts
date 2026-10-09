@@ -75,11 +75,17 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.clientId);
   let client = null;
   if (isUuid) {
-    client = await prisma.client.findFirst({ where: { id: data.clientId, isDeleted: false } });
+    client = await prisma.client.findFirst({
+      where: { id: data.clientId, isDeleted: false },
+      include: { schemes: true },
+    });
   }
   // Fallback: try email lookup (for legacy/mock clients that use email as id)
   if (!client) {
-    client = await prisma.client.findFirst({ where: { email: data.clientId, isDeleted: false } });
+    client = await prisma.client.findFirst({
+      where: { email: data.clientId, isDeleted: false },
+      include: { schemes: true },
+    });
   }
   if (!client) {
     return { success: false, statusCode: 404, message: "Client not found" };
@@ -107,7 +113,8 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
   }
 
   // Check if client has already made payments or if this is a Tax Invoice for paid fees
-  const clientAlreadyPaid = Number(client.paymentReceived || 0);
+  const schemesPaid = (client.schemes || []).reduce((sum: number, s: any) => sum + Number(s.receivedAmount || 0), 0);
+  const clientAlreadyPaid = Math.max(Number(client.paymentReceived || 0), schemesPaid);
   const existingInvoices = await prisma.invoice.findMany({
     where: { clientId: client.id, isDeleted: false },
     select: { paymentReceived: true },

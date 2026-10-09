@@ -19,6 +19,7 @@ import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord
 import { normalizeSchemeName, isSameClientScheme } from "../Sales/hooks/useSalesClients";
 import { isMockClient } from "../../utils/revenueCalculator";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 
 // Mock & Initial Data
 import {
@@ -29,6 +30,7 @@ import {
 export default function ManagerDashboard({ onSignOut, userEmail }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user: authUser, userName: authName, userEmail: authEmail, userBranch: authBranch } = useAuth();
 
   const urlToNavMap = useMemo(
     () => ({
@@ -59,20 +61,18 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
-  const [currentUser, setCurrentUser] = useState(() => {
-    try {
-      const u = localStorage.getItem("agni_user");
-      return u ? JSON.parse(u) : null;
-    } catch (e) { return null; }
-  });
+  const [currentUser, setCurrentUser] = useState(() => authUser);
+
+  const activeUser = currentUser || authUser;
+  const activeEmail = userEmail || authEmail || activeUser?.email || "";
 
   const branchInfo = useMemo(() => {
-    return getManagerBranchDetails(userEmail || currentUser?.email || currentUser?.branch?.name || "");
-  }, [userEmail, currentUser]);
+    return getManagerBranchDetails(activeEmail || activeUser?.branch?.name || "");
+  }, [activeEmail, activeUser]);
 
-  const managerName = currentUser?.fullName || branchInfo.managerName;
-  const managedBranch = currentUser?.branch?.name || (typeof currentUser?.branch === "string" ? currentUser.branch : "") || branchInfo.branchName;
-  const managedRegion = currentUser?.region || currentUser?.branch?.region || branchInfo.region;
+  const managerName = activeUser?.fullName || activeUser?.name || authName || branchInfo.managerName;
+  const managedBranch = authBranch || activeUser?.branch?.name || (typeof activeUser?.branch === "string" ? activeUser.branch : "") || branchInfo.branchName;
+  const managedRegion = activeUser?.region || activeUser?.branch?.region || branchInfo.region;
 
   // Sync logged in user profile & team hierarchy from API
   useEffect(() => {
@@ -84,8 +84,6 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.user && isMounted) {
-            localStorage.setItem("agni_user_name", data.user.fullName);
-            localStorage.setItem("agni_user", JSON.stringify(data.user));
             setCurrentUser(data.user);
           }
         }
@@ -95,29 +93,25 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
     return () => { isMounted = false; };
   }, []);
 
-  const [managerNotices, setManagerNotices] = useState(() => {
-    try {
-      const saved = localStorage.getItem("agni_manager_notifications");
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
-  });
+  const [managerNotices, setManagerNotices] = useState([]);
 
   useEffect(() => {
-    function syncManagerNotices() {
+    async function syncManagerNotices() {
       try {
-        const saved = localStorage.getItem("agni_manager_notifications");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) setManagerNotices(parsed);
+        const res = await apiFetch("/notifications");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            setManagerNotices(json.data);
+          }
         }
       } catch (e) {}
     }
-    window.addEventListener("storage", syncManagerNotices);
+    syncManagerNotices();
     window.addEventListener("agni_notifications_updated", syncManagerNotices);
     window.addEventListener("agni_pending_updated", syncManagerNotices);
     const interval = setInterval(syncManagerNotices, 45000);
     return () => {
-      window.removeEventListener("storage", syncManagerNotices);
       window.removeEventListener("agni_notifications_updated", syncManagerNotices);
       window.removeEventListener("agni_pending_updated", syncManagerNotices);
       clearInterval(interval);
