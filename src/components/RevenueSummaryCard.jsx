@@ -6,7 +6,7 @@ export default function RevenueSummaryCard({ card }) {
   const isPending = card.accentClass === 'pending';
   
   const statusLabel = isReceived ? 'Collected' : isPending ? 'Pending' : 'Total Pipeline';
-  const statusPercent = card.percentage !== undefined ? `${card.percentage}%` : (isReceived ? '72%' : isPending ? '28%' : '100%');
+  const statusPercent = card.percentage !== undefined ? `${card.percentage}%` : '0%';
 
   return (
     <div className={`revenue-summary-card ${card.accentClass || ''}`}>

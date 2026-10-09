@@ -763,7 +763,6 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         <DashboardHeader
           eyebrow="Owner workspace"
           title={`Hello, ${effectiveName}`}
-          copy="Track revenue, top performers, and client activity in one place."
           className="owner-dashboard-top"
         >
           <div className="top-actions owner-top-actions">

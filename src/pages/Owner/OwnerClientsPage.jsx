@@ -152,9 +152,6 @@ export default function OwnerClientsPage({
         <div className="owner-header-info">
           <p className="owner-header-eyebrow">Enterprise Client Portfolios</p>
           <h1 className="owner-header-title">Corporate Client Directory</h1>
-          <p className="owner-header-subtitle">
-            Comprehensive directory of enterprise client accounts, multi-point scheme pipelines, commercial agreements, audit archives, and milestone tracking.
-          </p>
         </div>
       </div>
 

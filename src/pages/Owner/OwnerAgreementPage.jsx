@@ -160,9 +160,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
         <div className="owner-header-info">
           <p className="owner-header-eyebrow">Enterprise Contracts &amp; Compliance</p>
           <h1 className="owner-header-title">Executive Client Agreements</h1>
-          <p className="owner-header-subtitle">
-            Review formal engagement agreements, statutory mandates, clause details, and delivery dispatches across all client portfolios.
-          </p>
         </div>
       </div>
 
