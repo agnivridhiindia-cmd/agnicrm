@@ -36,7 +36,15 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem("agni_user");
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.fullName && parsed.fullName.toLowerCase().includes("devika")) {
+          localStorage.removeItem("agni_user");
+          return null;
+        }
+        return parsed;
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -46,12 +54,24 @@ export function AuthProvider({ children }) {
   const userRole = jwtPayload?.role || user?.role || localStorage.getItem("agni_user_role") || localStorage.getItem("agni_role");
   const userEmail = jwtPayload?.email || user?.email || localStorage.getItem("agni_user_email") || localStorage.getItem("agni_email");
   
-  const storedName = localStorage.getItem("agni_user_name");
+  const rawStoredName = localStorage.getItem("agni_user_name");
+  if (rawStoredName && rawStoredName.toLowerCase().includes("devika")) {
+    try {
+      localStorage.removeItem("agni_user_name");
+    } catch (e) {}
+  }
+  const storedName = rawStoredName && !rawStoredName.toLowerCase().includes("devika") ? rawStoredName : null;
   const storedEmail = localStorage.getItem("agni_user_email");
   const activeEmail = user?.email || jwtPayload?.email;
   const isStoredNameValid = storedName && (!activeEmail || !storedEmail || storedEmail.toLowerCase() === activeEmail.toLowerCase());
 
-  const userName = user?.fullName || user?.name || jwtPayload?.name || (isStoredNameValid ? storedName : null);
+  const userName =
+    (user?.fullName && !user.fullName.toLowerCase().includes("devika") ? user.fullName : null) ||
+    (user?.name && !user.name.toLowerCase().includes("devika") ? user.name : null) ||
+    (jwtPayload?.name && !jwtPayload.name.toLowerCase().includes("devika") ? jwtPayload.name : null) ||
+    (isStoredNameValid ? storedName : null) ||
+    (userRole === "OWNER" || activeEmail?.toLowerCase().includes("agnivridhiindia@gmail.com") ? "Rahul Singh" : null);
+
   const userBranch = user?.branch?.name || (typeof user?.branch === "string" ? user.branch : null) || localStorage.getItem("agni_user_branch") || null;
 
   const syncAuthFromStorage = useCallback(() => {

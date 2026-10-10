@@ -112,8 +112,12 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
   }, []);
 
   const resolvedOwner = useMemo(() => {
-    const ownerName = ownerInfo?.fullName || ownerInfo?.name || authUser?.fullName || authUser?.name || authName || "Rahul Singh";
-    const ownerId = ownerInfo?.id || authUser?.id || "__OWNER__";
+    let candidate = ownerInfo?.fullName || ownerInfo?.name || authUser?.fullName || authUser?.name || authName;
+    if (candidate && candidate.toLowerCase().includes("devika")) {
+      candidate = null;
+    }
+    const ownerName = candidate?.trim() || "Rahul Singh";
+    const ownerId = ownerInfo?.id || authUser?.id || "7fbc915f-21ce-479f-a777-4a42812c109e";
     return {
       id: ownerId,
       name: ownerName,

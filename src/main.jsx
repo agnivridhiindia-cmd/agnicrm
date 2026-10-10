@@ -7,13 +7,35 @@ import { AuthProvider } from "./context/AuthContext";
 import "./styles.css";
 import "./utils/pwaInstall";
 
-// Register Service Worker for PWA capabilities
+// Register Service Worker for PWA capabilities with aggressive cache busting
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js")
       .then((reg) => {
-        // SW registered
+        // Check for updates on every page load
+        reg.update();
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener("statechange", () => {
+              if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                newWorker.postMessage({ type: "SKIP_WAITING" });
+              }
+            });
+          }
+        });
       })
       .catch((err) => {
         console.warn("ServiceWorker registration error:", err);

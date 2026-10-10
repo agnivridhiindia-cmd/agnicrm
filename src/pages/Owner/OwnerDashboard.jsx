@@ -105,12 +105,15 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
 
   // Owner Name derived from live user profile or userEmail
   const ownerName = useMemo(() => {
-    if (currentUser?.fullName?.trim()) return currentUser.fullName.trim();
-    if (currentUser?.name?.trim()) return currentUser.name.trim();
-    if (authUser?.fullName?.trim()) return authUser.fullName.trim();
-    if (authName) return authName;
+    let candidate = currentUser?.fullName?.trim() || currentUser?.name?.trim() || authUser?.fullName?.trim() || authName;
+    if (candidate && candidate.toLowerCase().includes("devika")) {
+      candidate = null;
+    }
+    if (candidate) return candidate;
     const email = effectiveEmail;
-    if (!email) return "Owner";
+    if (!email || email.toLowerCase().includes("devika") || email.toLowerCase().includes("agnivridhiindia@gmail.com")) {
+      return "Rahul Singh";
+    }
     const raw = email.split("@")[0];
     const parts = raw.split(/[\.\-_\s]+/).filter(Boolean);
     return parts
@@ -118,7 +121,12 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       .join(" ");
   }, [effectiveEmail, authUser, authName, currentUser]);
 
-  const effectiveName = currentUser?.fullName?.trim() || currentUser?.name?.trim() || authUser?.fullName?.trim() || ownerName;
+  const effectiveName =
+    (currentUser?.fullName && !currentUser.fullName.toLowerCase().includes("devika") ? currentUser.fullName.trim() : null) ||
+    (currentUser?.name && !currentUser.name.toLowerCase().includes("devika") ? currentUser.name.trim() : null) ||
+    (authUser?.fullName && !authUser.fullName.toLowerCase().includes("devika") ? authUser.fullName.trim() : null) ||
+    ownerName ||
+    "Rahul Singh";
   const ownerInitials = effectiveName
     ? effectiveName
         .split(" ")

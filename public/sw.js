@@ -1,4 +1,4 @@
-const CACHE_NAME = 'agni-crm-client-v2';
+const CACHE_NAME = 'agni-crm-client-v3';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icons/icon.svg',
@@ -6,6 +6,12 @@ const STATIC_ASSETS = [
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png'
 ];
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 // Install: precache static shell assets only (never cache index.html here)
 self.addEventListener('install', (event) => {

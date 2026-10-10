@@ -11,7 +11,7 @@ export default function OwnerEmployeeInfoModal({
   onEditEmployee,
 }) {
   const { userName: authOwnerName } = useAuth() || {};
-  const fallbackOwner = authOwnerName ? `${authOwnerName} (Owner)` : "Owner";
+  const fallbackOwner = (authOwnerName && !authOwnerName.toLowerCase().includes("devika")) ? `${authOwnerName} (Owner)` : "Rahul Singh (Owner)";
 
   if (!selectedEmployeeInfo) return null;
 
