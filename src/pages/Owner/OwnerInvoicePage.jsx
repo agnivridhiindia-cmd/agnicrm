@@ -139,7 +139,7 @@ export default function OwnerInvoicePage({
         <div className="owner-toolbar-filters">
           <div className="owner-search-box">
             <span className="owner-search-icon">
-              <Icon name="search" size={14} />
+              <Icon name="search" size={15} />
             </span>
             <input
               type="text"
@@ -150,44 +150,88 @@ export default function OwnerInvoicePage({
                 setInvoicePage(1);
               }}
             />
+            {invoiceSearch && (
+              <button
+                type="button"
+                className="owner-search-clear-btn"
+                onClick={() => {
+                  setInvoiceSearch("");
+                  setInvoicePage(1);
+                }}
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          <label className="field-label" style={{ margin: 0 }}>
-            <span>Branch:</span>
-            <select
-              className="owner-filter-select"
-              value={invoiceBranchFilter}
-              onChange={(e) => {
-                setInvoiceBranchFilter(e.target.value);
-                setInvoicePage(1);
-              }}
-            >
-              {branchOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="owner-filter-control-group">
+            <label className="owner-filter-inline-label" htmlFor="owner-invoice-branch-filter">
+              <Icon name="branches" size={13} />
+              <span>Branch:</span>
+            </label>
+            <div className="owner-select-wrapper">
+              <select
+                id="owner-invoice-branch-filter"
+                className="owner-filter-select"
+                value={invoiceBranchFilter}
+                onChange={(e) => {
+                  setInvoiceBranchFilter(e.target.value);
+                  setInvoicePage(1);
+                }}
+              >
+                {branchOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <span className="owner-select-chevron">▾</span>
+            </div>
+          </div>
 
-          <label className="field-label" style={{ margin: 0 }}>
-            <span>Status:</span>
-            <select
-              className="owner-filter-select"
-              value={invoiceStatusFilter}
-              onChange={(e) => {
-                setInvoiceStatusFilter(e.target.value);
-                setInvoicePage(1);
-              }}
+          <div className="owner-filter-control-group">
+            <label className="owner-filter-inline-label" htmlFor="owner-invoice-status-filter">
+              <Icon name="checkCircle" size={13} />
+              <span>Status:</span>
+            </label>
+            <div className="owner-select-wrapper">
+              <select
+                id="owner-invoice-status-filter"
+                className="owner-filter-select"
+                value={invoiceStatusFilter}
+                onChange={(e) => {
+                  setInvoiceStatusFilter(e.target.value);
+                  setInvoicePage(1);
+                }}
+              >
+                <option value="">All Statuses</option>
+                <option value="Paid">Paid</option>
+                <option value="Pending">Pending</option>
+              </select>
+              <span className="owner-select-chevron">▾</span>
+            </div>
+          </div>
+
+          {(invoiceSearch || invoiceBranchFilter || invoiceStatusFilter) && (
+            <button
+              type="button"
+              className="owner-btn-reset-filters"
+              onClick={handleResetFilters}
+              title="Reset all active filters"
             >
-              <option value="">All Statuses</option>
-              <option value="Paid">Paid</option>
-              <option value="Pending">Pending</option>
-            </select>
-          </label>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>Reset</span>
+            </button>
+          )}
         </div>
 
         <div className="owner-count-badge">
+          <span className="owner-count-dot"></span>
           <span>Showing</span>
           <strong>{filteredInvoices.length}</strong>
           <span>of {invoices.length} invoices</span>

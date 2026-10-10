@@ -85,6 +85,15 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
   // Current Financial Year / Calendar Year (Jan 1 of current year)
   const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0).getTime();
 
+  // Sparkline trend buckets (4 progressive periods)
+  const p3Start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0).getTime();
+  const p2Start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 13, 0, 0, 0, 0).getTime();
+  const p1Start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 20, 0, 0, 0, 0).getTime();
+  const p0Start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 27, 0, 0, 0, 0).getTime();
+
+  const weeklyTrendBuckets = [0, 0, 0, 0];
+  const monthlyCompanySeries = new Array(12).fill(0);
+
   // Salesperson & Branch breakdown maps
   const salesMap = new Map();
   const branchMap = new Map();
@@ -236,6 +245,27 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       const m = new Date(timestamp).getMonth();
       sp.yearlySeries[m] += net;
     }
+
+    // Sparkline bucket tracking
+    if (timestamp !== null) {
+      if (timestamp >= p0Start && timestamp < p1Start) {
+        weeklyTrendBuckets[0] += net;
+      } else if (timestamp >= p1Start && timestamp < p2Start) {
+        weeklyTrendBuckets[1] += net;
+      } else if (timestamp >= p2Start && timestamp < p3Start) {
+        weeklyTrendBuckets[2] += net;
+      } else if (timestamp >= p3Start && timestamp <= endOfToday) {
+        weeklyTrendBuckets[3] += net;
+      }
+
+      if (timestamp >= startOfYear && timestamp <= endOfToday) {
+        const m = new Date(timestamp).getMonth();
+        monthlyCompanySeries[m] += net;
+      }
+    } else {
+      weeklyTrendBuckets[3] += net;
+      monthlyCompanySeries[now.getMonth()] += net;
+    }
   };
 
   const processPending = (netPending, dateInput) => {
@@ -386,12 +416,42 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
   // Yearly Revenue should reflect total annual operational total (matching overallReceivedNetTotal)
   const resolvedYearlyNet = Math.max(yearlyNetTotal, overallReceivedNetTotal);
 
+  // Derive dynamic sparkline data based on actual collections
+  let sparklineData = [0, 0, 0, 0];
+  if (overallReceivedNetTotal > 0) {
+    if (weeklyTrendBuckets.some((v) => v > 0)) {
+      sparklineData = [...weeklyTrendBuckets];
+    } else {
+      const currM = now.getMonth();
+      const last4M = [
+        monthlyCompanySeries[(currM - 3 + 12) % 12],
+        monthlyCompanySeries[(currM - 2 + 12) % 12],
+        monthlyCompanySeries[(currM - 1 + 12) % 12],
+        monthlyCompanySeries[currM],
+      ];
+      if (last4M.some((v) => v > 0)) {
+        sparklineData = last4M;
+      } else {
+        const q1 = monthlyCompanySeries.slice(0, 3).reduce((a, b) => a + b, 0);
+        const q2 = monthlyCompanySeries.slice(3, 6).reduce((a, b) => a + b, 0);
+        const q3 = monthlyCompanySeries.slice(6, 9).reduce((a, b) => a + b, 0);
+        const q4 = monthlyCompanySeries.slice(9, 12).reduce((a, b) => a + b, 0);
+        sparklineData = [q1, q2, q3, q4];
+      }
+    }
+    // If still all zeroes (e.g. date outside current year), end with total
+    if (sparklineData.every((v) => v === 0)) {
+      sparklineData = [0, 0, Math.round(overallReceivedNetTotal * 0.4), overallReceivedNetTotal];
+    }
+  }
+
   return {
     dailyNet: dailyNetTotal,
     weeklyNet: weeklyNetTotal,
     monthlyNet: monthlyNetTotal,
     yearlyNet: resolvedYearlyNet,
     totalReceivedNet: overallReceivedNetTotal,
+    sparklineData,
     
     dailyPendingNet,
     weeklyPendingNet,

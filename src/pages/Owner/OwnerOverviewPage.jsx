@@ -258,7 +258,7 @@ export default function OwnerOverviewPage({
               <Icon name="arrowUp" size={14} />
               <span>Revenue trend</span>
             </div>
-            <RevenueSparkline />
+            <RevenueSparkline data={revenueMetrics?.sparklineData || [0, 0, 0, 0]} />
           </div>
         </section>
       </div>

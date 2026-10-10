@@ -294,7 +294,7 @@ export default function OwnerClientsPage({
             <div className="owner-toolbar-filters">
               <div className="owner-search-box">
                 <span className="owner-search-icon">
-                  <Icon name="search" size={14} />
+                  <Icon name="search" size={15} />
                 </span>
                 <input
                   type="text"
@@ -305,55 +305,89 @@ export default function OwnerClientsPage({
                     setClientsPage(1);
                   }}
                 />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    className="owner-search-clear-btn"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setClientsPage(1);
+                    }}
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
-              <label className="field-label" style={{ margin: 0 }}>
-                <span>Service Scheme:</span>
-                <select
-                  className="owner-filter-select"
-                  value={serviceFilter}
-                  onChange={(e) => {
-                    setServiceFilter(e.target.value);
-                    setClientsPage(1);
-                  }}
-                >
-                  <option value="">All Services</option>
-                  {services.map((s) => (
-                    <option key={s.name} value={s.name}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="owner-filter-control-group">
+                <label className="owner-filter-inline-label" htmlFor="owner-client-scheme-filter">
+                  <Icon name="document" size={13} />
+                  <span>Scheme:</span>
+                </label>
+                <div className="owner-select-wrapper">
+                  <select
+                    id="owner-client-scheme-filter"
+                    className="owner-filter-select"
+                    value={serviceFilter}
+                    onChange={(e) => {
+                      setServiceFilter(e.target.value);
+                      setClientsPage(1);
+                    }}
+                  >
+                    <option value="">All Services</option>
+                    {services.map((s) => (
+                      <option key={s.name} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="owner-select-chevron">▾</span>
+                </div>
+              </div>
 
-              <label className="field-label" style={{ margin: 0 }}>
-                <span>Payment Status:</span>
-                <select
-                  className="owner-filter-select"
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                    setClientsPage(1);
-                  }}
-                >
-                  <option value="">All Payment States</option>
-                  <option value="Paid">Fully Paid</option>
-                  <option value="Pending">Payment Pending</option>
-                </select>
-              </label>
+              <div className="owner-filter-control-group">
+                <label className="owner-filter-inline-label" htmlFor="owner-client-payment-filter">
+                  <Icon name="currency" size={13} />
+                  <span>Payment:</span>
+                </label>
+                <div className="owner-select-wrapper">
+                  <select
+                    id="owner-client-payment-filter"
+                    className="owner-filter-select"
+                    value={statusFilter}
+                    onChange={(e) => {
+                      setStatusFilter(e.target.value);
+                      setClientsPage(1);
+                    }}
+                  >
+                    <option value="">All Payment States</option>
+                    <option value="Paid">Fully Paid</option>
+                    <option value="Pending">Payment Pending</option>
+                  </select>
+                  <span className="owner-select-chevron">▾</span>
+                </div>
+              </div>
 
               {(searchTerm || serviceFilter || statusFilter) && (
                 <button
                   type="button"
-                  className="owner-btn-secondary"
+                  className="owner-btn-reset-filters"
                   onClick={handleResetFilters}
+                  title="Reset all active filters"
                 >
-                  Reset Filters
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                  <span>Reset</span>
                 </button>
               )}
             </div>
 
             <div className="owner-count-badge">
+              <span className="owner-count-dot"></span>
               <span>Showing</span>
               <strong>{filteredClients.length}</strong>
               <span>of {clients.length} clients</span>
@@ -577,7 +611,7 @@ export default function OwnerClientsPage({
             <div className="owner-toolbar-filters">
               <div className="owner-search-box">
                 <span className="owner-search-icon">
-                  <Icon name="search" size={14} />
+                  <Icon name="search" size={15} />
                 </span>
                 <input
                   type="text"
@@ -588,22 +622,46 @@ export default function OwnerClientsPage({
                     setArchivePage(1);
                   }}
                 />
+                {archiveSearchTerm && (
+                  <button
+                    type="button"
+                    className="owner-search-clear-btn"
+                    onClick={() => {
+                      setArchiveSearchTerm("");
+                      setArchivePage(1);
+                    }}
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
 
               {archiveSearchTerm && (
                 <button
                   type="button"
-                  className="owner-btn-secondary"
-                  onClick={() => setArchiveSearchTerm("")}
+                  className="owner-btn-reset-filters"
+                  onClick={() => {
+                    setArchiveSearchTerm("");
+                    setArchivePage(1);
+                  }}
+                  title="Reset search"
                 >
-                  Clear Search
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                  <span>Reset</span>
                 </button>
               )}
             </div>
 
             <div className="owner-count-badge">
+              <span className="owner-count-dot"></span>
               <span>Preserved in Database:</span>
-              <strong>{filteredDeletedClients.length} deleted client(s)</strong>
+              <strong>{filteredDeletedClients.length}</strong>
+              <span>deleted client(s)</span>
             </div>
           </div>
 
