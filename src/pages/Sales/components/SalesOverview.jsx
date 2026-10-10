@@ -14,13 +14,17 @@ export default function SalesOverview({ kpiCards, monthlyQuotaChartData, selecte
               key={card.label}
               card={card}
               dark={dark}
-              onClick={() => {
-                if (card.filterKey && onSelectKpiFilter) {
-                  onSelectKpiFilter(card.filterKey);
-                } else if (onNavigate) {
-                  onNavigate("Clients");
-                }
-              }}
+              onClick={
+                card.label === "Daily Quota"
+                  ? undefined
+                  : () => {
+                      if (card.filterKey && onSelectKpiFilter) {
+                        onSelectKpiFilter(card.filterKey);
+                      } else if (onNavigate) {
+                        onNavigate("Clients");
+                      }
+                    }
+              }
             />
           ))}
         </div>

@@ -10,6 +10,7 @@ import { salesTeam } from "../../Manager/mockManagerData";
 import { getTrackerState } from "../../../utils/schemeTracker";
 import { sanitizeClientRecord, mergeSecondaryClients } from "../../../utils/branchHelper";
 import { apiFetch } from "../../../services/apiClient";
+import { isMockClient } from "../../../utils/revenueCalculator";
 
 export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
@@ -201,14 +202,85 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
     const progressPct = initialQuotaTarget > 0 ? Math.min(100, Math.round((totalRealized / initialQuotaTarget) * 100)) : 0;
     const incentiveNum = totalRealized > initialQuotaTarget ? (totalRealized - initialQuotaTarget) : 0;
 
+    // Daily Achieved Quota for this salesperson (reverts to 0 every other day)
+    // Formula: Realized Net = Math.round(Gross Received / 1.18) (excl. 18% GST)
+    // Works strictly like the Owner Dashboard revenue engine, scoped exclusively to this salesperson
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+
+    function parseDateTimestamp(dateInput) {
+      if (!dateInput) return null;
+      if (dateInput instanceof Date) return dateInput.getTime();
+      if (typeof dateInput === "number") return dateInput;
+      if (typeof dateInput === "string") {
+        const trimmed = dateInput.trim();
+        if (!trimmed) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+          const [y, m, d] = trimmed.split("-").map(Number);
+          return new Date(y, m - 1, d).getTime();
+        }
+        const parsed = new Date(trimmed).getTime();
+        if (!isNaN(parsed)) return parsed;
+      }
+      return null;
+    }
+
+    const sLower = (salesPersonName || "").toLowerCase().trim();
+    const myClients = clients.filter((c) => {
+      if (!sLower) return true;
+      const rep = (c.assignedSalesPerson || c.salesRep || c.owner || "").toLowerCase().trim();
+      return !rep || rep.includes(sLower) || sLower.includes(rep);
+    });
+
+    let dailyAchievedNet = 0;
+    myClients.forEach((client) => {
+      if (isMockClient(client)) return;
+
+      const invoices = Array.isArray(client.invoices) ? client.invoices : [];
+      const payments = Array.isArray(client.payments) && client.payments.length > 0
+        ? client.payments
+        : invoices.flatMap((inv) => Array.isArray(inv.payments) ? inv.payments : []);
+
+      let processedFromPayments = 0;
+      if (payments.length > 0) {
+        payments.forEach((payment) => {
+          const status = String(payment.status || "SUCCESS").toUpperCase();
+          if (status === "FAILED" || status === "PENDING" || status === "CANCELLED" || status === "DECLINED") return;
+
+          const paymentDate = payment.paymentDate || payment.date || payment.createdAt;
+          const timestamp = parseDateTimestamp(paymentDate);
+          const grossAmount = Number(payment.amount || payment.paidAmount || 0);
+
+          if (timestamp !== null && timestamp >= startOfToday && timestamp <= endOfToday && grossAmount > 0) {
+            dailyAchievedNet += Math.round(grossAmount / 1.18);
+            processedFromPayments += grossAmount;
+          }
+        });
+      }
+
+      // Check direct payment received if not already accounted for by detailed payments
+      const totalRec = Number(client.paymentReceived || 0);
+      const remainingDirect = Math.max(0, totalRec - processedFromPayments);
+      if (remainingDirect > 0) {
+        const paymentDate = client.lastPaymentDate || client.paymentDate || client.createdAt;
+        const timestamp = parseDateTimestamp(paymentDate);
+        if (timestamp !== null && timestamp >= startOfToday && timestamp <= endOfToday) {
+          dailyAchievedNet += Math.round(remainingDirect / 1.18);
+        }
+      }
+    });
+
     return {
       totalRealized,
       achieved: `₹${totalRealized.toLocaleString("en-IN")}`,
       left: `₹${leftNum.toLocaleString("en-IN")}`,
       incentive: `₹${incentiveNum.toLocaleString("en-IN")}`,
       progress: `${progressPct}%`,
+      dailyAchieved: `₹${dailyAchievedNet.toLocaleString("en-IN")}`,
+      dailyAchievedNum: dailyAchievedNet,
     };
-  }, [clients]);
+  }, [clients, salesPersonName]);
 
   const kpiCards = useMemo(() => [
     { label: "Active clients", value: `${totalActiveClients}`, trend: "+0%", description: "Currently active", accent: "#4e7cff", icon: "clients" },
@@ -216,6 +288,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
     { label: "Quota achieved", value: quotaMetrics.achieved, trend: "+0%", description: "Realized (excl. 18% GST)", accent: "#10b981", icon: "currency" },
     { label: "Quota left", value: quotaMetrics.left, trend: "Remaining gap", description: "To reach target", accent: "#f43f5e", icon: "wallet" },
     { label: "Quota progress", value: quotaMetrics.progress, trend: "+0%", description: "Towards target", accent: "#9a74e9", icon: "revenue" },
+    { label: "Daily Quota", value: quotaMetrics.dailyAchieved, trend: "Today", description: "Realized today (excl. 18% GST)", accent: "#f2aa38", icon: "calendarToday" },
   ], [totalActiveClients, totalClosedDeals, quotaMetrics]);
 
   const monthlyQuotaChartData = useMemo(() => {
