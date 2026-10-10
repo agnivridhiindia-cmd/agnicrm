@@ -41,7 +41,7 @@ export default function OwnerOverviewPage({
       {
         label: "Total Clients",
         value: clientsCount.toLocaleString("en-IN"),
-        trend: "Live DB",
+        description: "Active client accounts",
         accent: "#3b82f6",
         linkTo: "Clients",
         slug: "clients",
@@ -49,7 +49,7 @@ export default function OwnerOverviewPage({
       {
         label: "Total Branch Managers",
         value: branchManagersCount.toLocaleString("en-IN"),
-        trend: "Live DB",
+        description: "Branch performance leads",
         accent: "#0284c7",
         linkTo: "Employees",
         employeeRole: "branch manager",
@@ -58,7 +58,7 @@ export default function OwnerOverviewPage({
       {
         label: "Total Sales Managers",
         value: salesManagersCount.toLocaleString("en-IN"),
-        trend: "Live DB",
+        description: "Regional sales leads",
         accent: "#4f46e5",
         linkTo: "Employees",
         employeeRole: "manager",
@@ -67,7 +67,7 @@ export default function OwnerOverviewPage({
       {
         label: "Sales Persons",
         value: salesPersonsCount.toLocaleString("en-IN"),
-        trend: "Live DB",
+        description: "Active sales reps",
         accent: "#14b8a6",
         linkTo: "Employees",
         employeeRole: "sales",
@@ -88,7 +88,7 @@ export default function OwnerOverviewPage({
       {
         label: "Daily Revenue",
         value: `₹${(revenueMetrics.dailyNet || 0).toLocaleString("en-IN")}`,
-        trend: "+12%",
+        description: "All salespeople & branches (Today)",
         accent: "#10b981",
         linkTo: "Revenue",
         slug: "daily-revenue",
@@ -97,7 +97,7 @@ export default function OwnerOverviewPage({
       {
         label: "Weekly Revenue",
         value: `₹${(revenueMetrics.weeklyNet || 0).toLocaleString("en-IN")}`,
-        trend: "+15%",
+        description: "All salespeople & branches (This week)",
         accent: "#6366f1",
         linkTo: "Revenue",
         slug: "weekly-revenue",
@@ -106,7 +106,7 @@ export default function OwnerOverviewPage({
       {
         label: "Monthly Revenue",
         value: `₹${(revenueMetrics.monthlyNet || 0).toLocaleString("en-IN")}`,
-        trend: "+22%",
+        description: "All salespeople & branches (This month)",
         accent: "#f59e0b",
         linkTo: "Revenue",
         slug: "monthly-revenue",
@@ -115,7 +115,7 @@ export default function OwnerOverviewPage({
       {
         label: "Yearly Revenue",
         value: `₹${(revenueMetrics.yearlyNet || 0).toLocaleString("en-IN")}`,
-        trend: "+28%",
+        description: "FY 2026-27 annual total",
         accent: "#8b5cf6",
         linkTo: "Revenue",
         slug: "yearly-revenue",
@@ -124,7 +124,7 @@ export default function OwnerOverviewPage({
       {
         label: "Total Payment Received",
         value: `₹${(revenueMetrics.totalReceivedNet || 0).toLocaleString("en-IN")}`,
-        trend: "Verified",
+        description: "All revenue generated till date",
         accent: "#059669",
         linkTo: "Invoice",
         slug: "payment-received",
@@ -133,7 +133,7 @@ export default function OwnerOverviewPage({
       {
         label: "Total Payment Pending",
         value: `₹${(revenueMetrics.totalPendingNet || 0).toLocaleString("en-IN")}`,
-        trend: "Outstanding",
+        description: "Pending dues from token & partial clients",
         accent: "#dc2626",
         linkTo: "Invoice",
         slug: "payment-pending",
@@ -178,7 +178,7 @@ export default function OwnerOverviewPage({
               <span className="owner-section-title-dot" style={{ background: '#6366f1' }} />
               Revenue &amp; Payment Overview
             </h3>
-            <span className="owner-section-subtitle">Real-time Financial Metrics (Formula: Amount / 1.18)</span>
+            <span className="owner-section-subtitle">Real-time Financial Metrics</span>
           </div>
           <section className="kpi-grid">
             {revenueKpiCards.map((card) => (
@@ -237,7 +237,7 @@ export default function OwnerOverviewPage({
           <div className="revenue-summary">
             <p className="eyebrow">Revenue overview</p>
             <h2>₹{(revenueMetrics.monthlyNet || 0).toLocaleString("en-IN")}</h2>
-            <p className="revenue-copy">Current net revenue calculated across all regional sales teams (Formula: Collection / 1.18).</p>
+            <p className="revenue-copy">Current net revenue calculated across all regional sales teams.</p>
             <div className="revenue-breakdown">
               <div>
                 <span>Monthly Net Revenue</span>
@@ -317,7 +317,7 @@ export default function OwnerOverviewPage({
               footer={
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 10 }}>
                   <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
-                    Calculated for clients with remaining dues after token/partial payments (Net = Remaining / 1.18)
+                    Calculated for clients with remaining dues after token/partial payments
                   </span>
                   <button
                     type="button"
@@ -356,7 +356,7 @@ export default function OwnerOverviewPage({
                         <th style={{ padding: "10px 14px" }}>Total Deal (₹)</th>
                         <th style={{ padding: "10px 14px" }}>Token Paid (₹)</th>
                         <th style={{ padding: "10px 14px" }}>Remaining Gross (₹)</th>
-                        <th style={{ padding: "10px 14px" }}>Net Pending (÷ 1.18)</th>
+                        <th style={{ padding: "10px 14px" }}>Net Pending</th>
                         <th style={{ padding: "10px 14px", borderRadius: "0 8px 8px 0" }}>Token Status</th>
                       </tr>
                     </thead>
@@ -427,7 +427,7 @@ export default function OwnerOverviewPage({
               footer={
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 10 }}>
                   <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
-                    Formula: Net Revenue = Gross Collection / 1.18 (All-time cumulative total)
+                    All-time cumulative total net revenue
                   </span>
                   <button
                     type="button"
@@ -463,7 +463,7 @@ export default function OwnerOverviewPage({
                         <th style={{ padding: "10px 14px", borderRadius: "8px 0 0 8px" }}>Account / Client</th>
                         <th style={{ padding: "10px 14px" }}>Sales Rep &amp; Branch</th>
                         <th style={{ padding: "10px 14px" }}>Gross Paid (₹)</th>
-                        <th style={{ padding: "10px 14px" }}>Net Revenue (÷ 1.18)</th>
+                        <th style={{ padding: "10px 14px" }}>Net Revenue</th>
                         <th style={{ padding: "10px 14px", borderRadius: "0 8px 8px 0" }}>Date / Checkpoint</th>
                       </tr>
                     </thead>
@@ -534,7 +534,7 @@ export default function OwnerOverviewPage({
             footer={
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 10 }}>
                 <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
-                  Formula: Revenue = Gross Collection Amount / 1.18 (Net revenue excluding 18% GST)
+                  Net revenue excluding 18% GST
                 </span>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button
@@ -645,9 +645,9 @@ export default function OwnerOverviewPage({
                       </th>
                       <th style={{ padding: "10px 14px" }}>Branch / Region</th>
                       <th style={{ padding: "10px 14px" }}>Gross Collection</th>
-                      <th style={{ padding: "10px 14px" }}>Net Revenue (÷ 1.18)</th>
+                      <th style={{ padding: "10px 14px" }}>Net Revenue</th>
                       <th style={{ padding: "10px 14px", borderRadius: "0 8px 8px 0" }}>
-                        Formula Verification
+                        Calculation Status
                       </th>
                     </tr>
                   </thead>
@@ -714,10 +714,9 @@ export default function OwnerOverviewPage({
                                 padding: "12px 14px",
                                 fontSize: 12,
                                 color: "#64748b",
-                                fontFamily: "monospace",
                               }}
                             >
-                              ₹{gross.toLocaleString("en-IN")} / 1.18 = ₹{net.toLocaleString("en-IN")}
+                              Verified Net (Excl. 18% GST)
                             </td>
                           </tr>
                         );

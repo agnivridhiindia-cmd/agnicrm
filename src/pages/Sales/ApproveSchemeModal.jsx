@@ -224,7 +224,7 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
                 value: INR(netRevenue),
                 color: "#4338ca",
                 bold: false,
-                hint: "= Received ÷ 1.18",
+                hint: "(Excluding 18% GST)",
               }] : []),
             ].map((row, i, arr) => (
               <div key={row.label} style={{

@@ -203,7 +203,7 @@ export default function RequestDetailsModal({ request, onClose, onApprovePayment
               </div>
               <div style={{ background: "#ffffff", padding: "10px", borderRadius: 8, border: "1px solid #dcfce7" }}>
                 <span style={{ fontSize: 11, color: "#64748b", display: "block" }}>
-                  {isPaymentSettlement ? "Payment Mode" : "Quota Base Contribution (Amt / 1.18)"}
+                  {isPaymentSettlement ? "Payment Mode" : "Quota Base Contribution"}
                 </span>
                 <strong style={{ fontSize: 14, color: "#0369a1" }}>
                   {isPaymentSettlement ? (request.paymentMode || "Online Gateway") : `₹${pitchedNum.toLocaleString("en-IN")}`}
