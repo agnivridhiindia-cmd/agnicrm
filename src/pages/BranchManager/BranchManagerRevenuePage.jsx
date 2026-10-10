@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import RevenueSummaryCard from "../../components/RevenueSummaryCard";
 import Icon from "../../components/Icon";
 import { RevenueTrendChart } from "../../components/charts";
-import { revenueSeries } from "./mockBranchManagerData";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 
 export default function BranchManagerRevenuePage({
@@ -47,13 +46,13 @@ export default function BranchManagerRevenuePage({
 
   const revenueTotal = revenueReceived + revenuePending;
 
+  // Real timeline data sourced strictly from database transactions
   const selectedRevenueData = useMemo(() => {
-    const defaultData = revenueSeries[revenueRange] || revenueSeries.monthly;
-    if (revenueTotal === 0) {
-      return defaultData.map((item) => ({ ...item, value: 0 }));
+    if (metrics.chartSeries && Array.isArray(metrics.chartSeries[revenueRange])) {
+      return metrics.chartSeries[revenueRange];
     }
-    return defaultData;
-  }, [revenueRange, revenueTotal]);
+    return [];
+  }, [revenueRange, metrics]);
 
   const totalCollectedPct = revenueTotal > 0 ? Math.round((revenueReceived / revenueTotal) * 100) : 0;
   const totalPendingPct = revenueTotal > 0 ? Math.round((revenuePending / revenueTotal) * 100) : 0;
@@ -137,11 +136,11 @@ export default function BranchManagerRevenuePage({
           <div className="revenue-breakdown">
             <div>
               <span>Average Run Rate</span>
-              <strong>₹{Math.round(revenueTotal / selectedRevenueData.length).toLocaleString("en-IN")}</strong>
+              <strong>₹{selectedRevenueData.length > 0 ? Math.round(revenueTotal / selectedRevenueData.length).toLocaleString("en-IN") : 0}</strong>
             </div>
             <div>
               <span>Cycle Peak</span>
-              <strong>₹{Math.max(...selectedRevenueData.map((item) => item.value)).toLocaleString("en-IN")}</strong>
+              <strong>₹{selectedRevenueData.length > 0 ? Math.max(...selectedRevenueData.map((item) => item.value), 0).toLocaleString("en-IN") : 0}</strong>
             </div>
             <div>
               <span>Data Checkpoints</span>

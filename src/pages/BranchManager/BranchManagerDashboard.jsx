@@ -418,6 +418,8 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             element={
               <BranchManagerReportsPage
                 myBranch={myBranch}
+                clients={clients}
+                employeesList={employeesList}
               />
             }
           />
