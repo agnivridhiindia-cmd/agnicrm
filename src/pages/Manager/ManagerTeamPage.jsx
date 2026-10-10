@@ -176,7 +176,7 @@ export default function ManagerTeamPage({
             </thead>
             <tbody>
               {displayedTeam.map((member) => {
-                const quotaTargetNum = Number(member.targetQuota || getSalesPersonQuota(member.name || member.id, 80000));
+                const quotaTargetNum = Number(member.targetQuota || getSalesPersonQuota(member.name || member.id) || 80000);
                 const achievedNum = getMemberMonthlyAchieved(member);
                 const progressPct = quotaTargetNum > 0 ? Math.min(100, Math.max(0, Math.round((achievedNum / quotaTargetNum) * 100))) : 0;
                 const displayTarget = quotaTargetNum >= 1000 ? `₹${Math.round(quotaTargetNum / 1000)}k` : `₹${quotaTargetNum}`;

@@ -124,7 +124,7 @@ export default function RequestHistory({ receivedRequests = [], sentRequests = [
             <tbody>
               {filtered.map((request) => {
                 const statusClass = (request.status || "Pending").toLowerCase();
-                const clientTitle = selectedType === "Received" ? request.clientName : request.salespersonName;
+                const clientTitle = selectedType === "Received" ? request.clientName : (request.salespersonName || request.clientName);
                 const initials = clientTitle
                   ? clientTitle
                       .split(" ")
@@ -147,7 +147,7 @@ export default function RequestHistory({ receivedRequests = [], sentRequests = [
                     <td>
                       <span className="manager-rep-pill">
                         <Icon name="user" size={12} />
-                        {selectedType === "Received" ? request.salesPerson : request.managerName}
+                        {request.salesPerson || (selectedType === "Received" ? "Sales Executive" : request.managerName)}
                       </span>
                     </td>
                     <td>

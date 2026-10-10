@@ -69,6 +69,8 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
   // Authoritative salesperson display name directly from backend PostgreSQL profile
   const displayName = currentUser?.fullName?.trim() || currentUser?.name?.trim() || authUser?.fullName?.trim() || salesPersonName;
 
+  const effectiveUserQuota = currentUser?.targetQuota ? Number(currentUser.targetQuota) : (authUser?.targetQuota ? Number(authUser.targetQuota) : null);
+
   const {
     clients,
     selectedClient,
@@ -103,7 +105,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
       `✓ Client registration for "${createdClient?.company || createdClient?.name || 'New Client'}" submitted to Sales Manager for approval!`
     );
     setShowRegisterModal(false);
-  }, userEmail);
+  }, userEmail, effectiveUserQuota);
 
   return (
     <main className={`owner-dashboard sales-dashboard ${dark ? "dashboard-dark" : ""}`}>
@@ -137,7 +139,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
                 branch: currentUser?.branch?.name || (typeof currentUser?.branch === "string" ? currentUser.branch : "West Zone (Mumbai)"),
                 designation: currentUser?.designation || getSalesPersonProfile(displayName || currentUser?.id, "Sales Officer"),
                 empId: currentUser?.id ? `EMP-${currentUser.id.slice(0, 6).toUpperCase()}` : "EMP-SLS-2024",
-                quota: `₹${(quotaMetrics?.initialQuotaTarget || currentUser?.targetQuota || getSalesPersonQuota(displayName || currentUser?.id, 80000)).toLocaleString("en-IN")}`,
+                quota: `₹${(quotaMetrics?.initialQuotaTarget || effectiveUserQuota || getSalesPersonQuota(displayName || currentUser?.id) || 80000).toLocaleString("en-IN")}`,
                 achieved: `${quotaMetrics?.achieved || "₹0"} (${quotaMetrics?.progress || "0%"})`,
                 reportingManager: currentUser?.reportingManager?.fullName || "Eli Brooks",
               }}

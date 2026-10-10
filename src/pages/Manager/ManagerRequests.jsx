@@ -141,15 +141,23 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
           String(r.reason || "").toLowerCase().includes("payment request");
         if (isPaymentSettlement) return;
 
-        const clientName = r.client?.companyName || r.client?.name || pendingData?.companyName || pendingData?.name || "Client Account";
-        const contactPerson = r.client?.contactPerson || r.client?.name || pendingData?.contactPerson || pendingData?.name || "N/A";
-        const email = r.client?.email || pendingData?.email || "";
-        const phone = r.client?.phone || pendingData?.phone || "";
-        const scheme = r.client?.serviceName || pendingData?.serviceName || "PMEGP";
+        const isEmployeeReq = r.targetEntityType === "EMPLOYEE" || String(r.requestType).includes("EMPLOYEE");
+        const targetStaffName = r.targetUser?.fullName || (isEmployeeReq ? r.salesPerson?.fullName : null);
+        const clientName = isEmployeeReq
+          ? (targetStaffName ? `Staff: ${targetStaffName}` : "Sales Representative")
+          : (r.client?.companyName || r.client?.name || pendingData?.companyName || pendingData?.name || "Client Account");
+        const contactPerson = r.client?.contactPerson || r.client?.name || pendingData?.contactPerson || pendingData?.name || (targetStaffName || "N/A");
+        const email = r.client?.email || pendingData?.email || r.targetUser?.email || "";
+        const phone = r.client?.phone || pendingData?.phone || r.targetUser?.phone || "";
+        const scheme = r.client?.serviceName || pendingData?.serviceName || (isEmployeeReq ? "Operational Petition" : "PMEGP");
         const pitchedAmount = r.client?.totalPayment || pendingData?.amount || 0;
         const paymentReceived = r.client?.paymentReceived || pendingData?.paymentReceived || 0;
-        const salesPerson = r.requester?.fullName || r.client?.salesPerson?.fullName || "Sales Executive";
-        const salesPersonEmail = r.requester?.email || r.client?.salesPerson?.email || "";
+        const salesPerson = isEmployeeReq
+          ? (targetStaffName || r.requester?.fullName || "Sales Executive")
+          : (r.client?.salesPerson?.fullName || r.requester?.fullName || "Sales Executive");
+        const salesPersonEmail = isEmployeeReq
+          ? (r.targetUser?.email || r.requester?.email || "")
+          : (r.client?.salesPerson?.email || r.requester?.email || "");
 
         list.push({
           id: r.requestCode || r.id,

@@ -13,7 +13,7 @@ import { apiFetch } from "../../../services/apiClient";
 import { isMockClient } from "../../../utils/revenueCalculator";
 import { getSalesPersonQuota } from "../../../utils/salesConfigHelper";
 
-export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
+export function useSalesClients(salesPersonName, onClientAdded, userEmail, userTargetQuota) {
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -211,7 +211,13 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
       return sum + netRec;
     }, 0);
 
-    const initialQuotaTarget = Number(getSalesPersonQuota(salesPersonName, 80000));
+    const resolvedQuota = Number(
+      getSalesPersonQuota(salesPersonName) ||
+      getSalesPersonQuota(userEmail) ||
+      userTargetQuota ||
+      80000
+    );
+    const initialQuotaTarget = resolvedQuota > 0 ? resolvedQuota : 80000;
     const leftNum = Math.max(initialQuotaTarget - totalRealized, 0);
     const progressPct = initialQuotaTarget > 0 ? Math.min(100, Math.round((totalRealized / initialQuotaTarget) * 100)) : 0;
     const incentiveNum = totalRealized > initialQuotaTarget ? (totalRealized - initialQuotaTarget) : 0;
@@ -295,7 +301,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
       dailyAchieved: `₹${dailyAchievedNet.toLocaleString("en-IN")}`,
       dailyAchievedNum: dailyAchievedNet,
     };
-  }, [clients, salesPersonName, configUpdateTrigger]);
+  }, [clients, salesPersonName, configUpdateTrigger, userTargetQuota, userEmail]);
 
   const kpiCards = useMemo(() => [
     { label: "Active clients", value: `${totalActiveClients}`, trend: "+0%", description: "Currently active", accent: "#4e7cff", icon: "clients" },

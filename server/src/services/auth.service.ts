@@ -98,6 +98,8 @@ export async function loginUser({ email, password }: LoginParams) {
       role: user.role,
       phone: user.phone,
       region: user.region,
+      designation: (user as any).designation || null,
+      targetQuota: (user as any).targetQuota ? Number((user as any).targetQuota) : 80000,
       branch: user.branch ? { id: user.branch.id, code: user.branch.code, name: user.branch.name } : null,
       reportingManager: user.reportingManager ? { id: user.reportingManager.id, fullName: user.reportingManager.fullName, email: user.reportingManager.email, role: user.reportingManager.role } : null,
     },

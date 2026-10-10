@@ -28,7 +28,7 @@ export function getSalesPersonProfile(nameOrId, fallback = "Senior Sales Officer
   return fallback;
 }
 
-export function getSalesPersonQuota(nameOrId, fallback = 80000) {
+export function getSalesPersonQuota(nameOrId, fallback = null) {
   if (!nameOrId) return fallback;
   const key = normalizeKey(nameOrId);
   try {

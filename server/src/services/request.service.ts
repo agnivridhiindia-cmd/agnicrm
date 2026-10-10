@@ -85,13 +85,38 @@ export async function getRequestsService(user: AuthenticatedUser) {
     orderBy: { createdAt: "desc" },
   });
 
+  // Enrich employee requests with target employee user info if available
+  const employeeTargetIds = requests
+    .filter((r) => r.targetEntityType === "EMPLOYEE" && r.targetEntityId)
+    .map((r) => r.targetEntityId as string);
+
+  let targetUsersMap = new Map<string, any>();
+  if (employeeTargetIds.length > 0) {
+    const targetUsers = await prisma.user.findMany({
+      where: { id: { in: employeeTargetIds } },
+      select: { id: true, fullName: true, email: true, phone: true, role: true, designation: true, targetQuota: true },
+    });
+    targetUsers.forEach((u) => targetUsersMap.set(u.id, u));
+  }
+
+  const enrichedRequests = requests.map((r) => {
+    const targetUser = r.targetEntityId ? targetUsersMap.get(r.targetEntityId) : null;
+    return {
+      ...r,
+      targetUser: targetUser || null,
+      salesPerson: targetUser
+        ? { fullName: targetUser.fullName, email: targetUser.email, id: targetUser.id }
+        : (r.client?.salesPerson || null),
+    };
+  });
+
   // Filter requests by role-specific governance:
-  let finalRequests = requests;
+  let finalRequests: any[] = enrichedRequests;
 
   if (user.role === "MANAGER" || user.role === "BRANCH_MANAGER" || user.role === "ADMIN" || user.role === "OWNER") {
     // Payment demands and settlement verification are exclusively between the client and their designated salesperson.
     // Managers, Branch Managers, Admins, and Owners should NOT receive payment requests/settlements.
-    finalRequests = requests.filter((r) => {
+    finalRequests = enrichedRequests.filter((r) => {
       const changes = r.requestedChanges as any;
       const isPaymentSettlement =
         changes?.isPaymentSettlement === true ||
@@ -103,7 +128,7 @@ export async function getRequestsService(user: AuthenticatedUser) {
     });
   } else if (user.role === "SALES_PERSON") {
     // For salespeople: verify that any request strictly belongs to this salesperson or their assigned client
-    finalRequests = requests.filter((r) => {
+    finalRequests = enrichedRequests.filter((r) => {
       const isRequester = r.requesterId === user.userId || r.requester?.email?.toLowerCase() === user.email.toLowerCase();
       const isTarget = r.targetEntityId === user.userId;
       const isAssignedSalesPerson =

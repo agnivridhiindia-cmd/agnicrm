@@ -446,7 +446,18 @@ export async function executeWorkflowDecision(
           });
         }
       } else if (String(existingRequest.requestType) === "EDIT_EMPLOYEE") {
-        const targetUserId = (existingRequest as any).targetEntityId;
+        let targetUserId = (existingRequest as any).targetEntityId;
+        if (!targetUserId && existingRequest.reason) {
+          const matchReason = String(existingRequest.reason).match(/for\s+([A-Za-z\s]+?)(?:\.|$)/i);
+          if (matchReason && matchReason[1]) {
+            const foundUser = await tx.user.findFirst({
+              where: { fullName: { equals: matchReason[1].trim(), mode: "insensitive" }, isDeleted: false },
+              select: { id: true },
+            });
+            if (foundUser) targetUserId = foundUser.id;
+          }
+        }
+
         if (targetUserId && existingRequest.requestedChanges) {
           const changes = Array.isArray(existingRequest.requestedChanges)
             ? existingRequest.requestedChanges
@@ -462,7 +473,7 @@ export async function executeWorkflowDecision(
             }
             if (c.field === "Quota" || c.field === "Salesperson Quota" || c.field === "Target Quota") {
               const parsed = parseFloat(String(c.newValue).replace(/[^0-9.]/g, ""));
-              if (!isNaN(parsed)) userUpdates.targetQuota = parsed;
+              if (!isNaN(parsed) && parsed > 0) userUpdates.targetQuota = parsed;
             }
           });
           if (Object.keys(userUpdates).length > 0) {

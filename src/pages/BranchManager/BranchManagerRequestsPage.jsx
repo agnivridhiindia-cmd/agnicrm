@@ -62,7 +62,8 @@ export default function BranchManagerRequestsPage({
                   return !isPaymentSettlement;
                 })
                 .map((r) => {
-                const clientName = r.client?.companyName || r.client?.name || r.requestedChanges?.companyName || r.requestedChanges?.name || "Client Account";
+                  const targetEmployeeName = r.targetUser?.fullName || (r.targetEntityType === "EMPLOYEE" ? r.salesPerson?.fullName : null);
+                  const clientName = r.client?.companyName || r.client?.name || r.requestedChanges?.companyName || r.requestedChanges?.name || (targetEmployeeName ? `Representative: ${targetEmployeeName}` : "Client Account");
                 return {
                   id: r.requestCode || r.id,
                   rawId: r.id,
@@ -72,6 +73,9 @@ export default function BranchManagerRequestsPage({
                   targetName: clientName,
                   targetRole: r.targetEntityType || "Client",
                   department: "Sales",
+                  salesPerson: targetEmployeeName || r.client?.salesPerson?.fullName || r.salesPerson?.fullName || r.salesPerson || "",
+                  salespersonName: targetEmployeeName || r.client?.salesPerson?.fullName || r.salesPerson?.fullName || "",
+                  salespersonId: r.targetEntityId || r.targetUser?.id || r.client?.salesPersonId || "",
                   requestType: r.requestType === "DELETE_CLIENT"
                     ? "Delete Client"
                     : r.requestType === "TRANSFER_CLIENT"
@@ -135,11 +139,31 @@ export default function BranchManagerRequestsPage({
         let approvedQuota = null;
         changes.forEach((c) => {
           if (c.field === "Salesperson Designation" || c.field === "Designation" || c.field === "Role") approvedTitle = c.newValue;
-          if (c.field === "Salesperson Quota" || c.field === "Quota") approvedQuota = c.newValue;
+          if (c.field === "Salesperson Quota" || c.field === "Quota" || c.field === "Target Quota") approvedQuota = c.newValue;
         });
-        const repName = targetReq.salesPerson || targetReq.salespersonName || targetReq.targetRep || targetReq.salespersonId;
-        if (repName && (approvedTitle || approvedQuota)) {
-          saveSalesPersonConfig(repName, { designation: approvedTitle, quota: approvedQuota });
+
+        if (approvedTitle || approvedQuota) {
+          const identifiers = new Set([
+            targetReq.salespersonName,
+            targetReq.salesPerson,
+            targetReq.targetRep,
+            targetReq.salespersonId,
+            targetReq.raw?.targetEntityId,
+            targetReq.raw?.targetUser?.fullName,
+            targetReq.raw?.targetUser?.email,
+            targetReq.raw?.targetUser?.id,
+            targetReq.raw?.client?.salesPerson?.fullName,
+            targetReq.raw?.client?.salesPersonId,
+          ].filter(Boolean));
+
+          const matchReason = String(targetReq.reason || "").match(/for\s+([A-Za-z\s]+?)(?:\.|$)/i);
+          if (matchReason && matchReason[1]) {
+            identifiers.add(matchReason[1].trim());
+          }
+
+          identifiers.forEach((idOrName) => {
+            saveSalesPersonConfig(idOrName, { designation: approvedTitle, quota: approvedQuota });
+          });
         }
       };
 
