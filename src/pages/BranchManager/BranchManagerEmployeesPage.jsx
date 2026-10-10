@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import SimpleModal from "../../components/SimpleModal";
-import { sortByRoleRanking } from "../../utils/branchHelper";
+import { sortByRoleRanking, cleanBranchDisplay } from "../../utils/branchHelper";
 
 export default function BranchManagerEmployeesPage({
   employeesList = [],
@@ -212,7 +212,7 @@ export default function BranchManagerEmployeesPage({
                             <div className="bm-member-details">
                               <strong className="bm-member-name">{employee.name}</strong>
                               <span className="bm-member-branch">
-                                {employee.branch} Branch
+                                {cleanBranchDisplay(employee.branch)}
                               </span>
                             </div>
                           </div>

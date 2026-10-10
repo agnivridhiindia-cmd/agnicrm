@@ -1,5 +1,6 @@
 import React from "react";
 import SimpleModal from "../../components/SimpleModal";
+import { cleanBranchDisplay } from "../../utils/branchHelper";
 
 export default function ManagerEmployeeInfoModal({ member, onClose, managerName }) {
   if (!member) return null;
@@ -26,7 +27,7 @@ export default function ManagerEmployeeInfoModal({ member, onClose, managerName 
       <div className="manager-modal-info-grid">
         <div className="manager-modal-card">
           <span className="manager-modal-card-label">Assigned Branch</span>
-          <span className="manager-modal-card-val">{member.branch} Branch</span>
+          <span className="manager-modal-card-val">{cleanBranchDisplay(member.branch)}</span>
         </div>
         <div className="manager-modal-card">
           <span className="manager-modal-card-label">Branch Region</span>

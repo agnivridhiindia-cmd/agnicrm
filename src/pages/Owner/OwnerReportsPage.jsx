@@ -9,7 +9,7 @@ import {
   generateYearlySeries,
 } from "./mockOwnerData";
 
-import { isBranchMatch } from "../../utils/branchHelper";
+import { isBranchMatch, cleanBranchDisplay } from "../../utils/branchHelper";
 
 export default function OwnerReportsPage({
   employeesList = [],
@@ -162,7 +162,7 @@ export default function OwnerReportsPage({
                         </td>
                         <td>
                           <span className="owner-rep-pill">
-                            {employee.branch} Branch
+                            {cleanBranchDisplay(employee.branch)}
                           </span>
                         </td>
                         <td>

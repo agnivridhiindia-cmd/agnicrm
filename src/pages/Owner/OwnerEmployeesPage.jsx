@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Icon from "../../components/Icon";
 import { employeeRoles, branchOptions, branchToRegionMap } from "./mockOwnerData";
 import { getTrackerState } from "../../utils/schemeTracker";
-import { sortByRoleRanking, isBranchMatch } from "../../utils/branchHelper";
+import { sortByRoleRanking, isBranchMatch, cleanBranchDisplay } from "../../utils/branchHelper";
 import { apiFetch } from "../../services/apiClient";
 import CreateEmployeeModal from "./CreateEmployeeModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
@@ -375,7 +375,7 @@ export default function OwnerEmployeesPage({
                             <div className="owner-member-avatar">{initials}</div>
                             <div className="owner-member-details">
                               <strong className="owner-member-name">{member.name}</strong>
-                              <span className="owner-member-branch">{member.branch} Branch</span>
+                              <span className="owner-member-branch">{cleanBranchDisplay(member.branch)}</span>
                               {(member.isTransferred || (member.originBranch && member.branch && member.originBranch !== member.branch)) && (
                                 <span
                                   style={{
@@ -1092,7 +1092,7 @@ export default function OwnerEmployeesPage({
                           <div className="owner-member-avatar">{initials}</div>
                           <div className="owner-member-details">
                             <strong className="owner-member-name">{employee.name}</strong>
-                            <span className="owner-member-branch">{employee.branch} Branch</span>
+                            <span className="owner-member-branch">{cleanBranchDisplay(employee.branch)}</span>
                             {(employee.isTransferred || (employee.originBranch && employee.branch && employee.originBranch !== employee.branch)) && (
                               <span
                                 style={{

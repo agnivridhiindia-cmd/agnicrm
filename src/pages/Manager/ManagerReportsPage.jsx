@@ -2,8 +2,8 @@ import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import TopPerformerLeaderboard from "../../components/TopPerformerLeaderboard";
 import { PerformanceChart } from "../../components/charts";
-import SimpleModal from "../../components/SimpleModal";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
+import { cleanBranchDisplay } from "../../utils/branchHelper";
 
 export default function ManagerReportsPage({ branchTeam = [], managedRegion = "East Zone", clients = [] }) {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -115,7 +115,7 @@ export default function ManagerReportsPage({ branchTeam = [], managedRegion = "E
                       </td>
                       <td>
                         <span style={{ fontSize: 13, color: "#7a748e" }}>
-                          {employee.branch} Branch • {employee.region || managedRegion}
+                          {cleanBranchDisplay(employee.branch)} • {employee.region || managedRegion}
                         </span>
                       </td>
                       <td>

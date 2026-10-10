@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import ManagerEmployeeInfoModal from "./ManagerEmployeeInfoModal";
 import { calculatePaymentMetricsFromClients, formatCurrency } from "../../utils/paymentHelpers";
-import { normalizeSalesPersonName } from "../../utils/branchHelper";
+import { normalizeSalesPersonName, cleanBranchDisplay } from "../../utils/branchHelper";
 
 export default function ManagerTeamPage({
   branchTeam = [],
@@ -174,7 +174,7 @@ export default function ManagerTeamPage({
                       <div className="manager-member-details">
                         <strong className="manager-member-name" style={{ whiteSpace: "nowrap" }}>{member.name}</strong>
                         <span className="manager-member-branch" style={{ whiteSpace: "nowrap" }}>
-                          {member.branch} Branch • {member.region || managedRegion}
+                          {cleanBranchDisplay(member.branch)} • {member.region || managedRegion}
                         </span>
                       </div>
                     </td>

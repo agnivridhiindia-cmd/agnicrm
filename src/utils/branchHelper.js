@@ -500,3 +500,14 @@ export function repairClientStorageData() {
 export function repairPendingClientCreations() {
   return [];
 }
+
+export function cleanBranchDisplay(rawBranch) {
+  if (!rawBranch) return "Noida Branch";
+  let str = String(typeof rawBranch === "object" ? (rawBranch.name || "") : rawBranch).trim();
+  if (!str) return "Noida Branch";
+  // Remove any redundant/duplicated 'Branch' suffixes like 'Noida Branch Branch'
+  while (/branch\s+branch$/i.test(str)) {
+    str = str.replace(/branch\s+branch$/i, "Branch").trim();
+  }
+  return str.endsWith("Branch") ? str : `${str} Branch`;
+}
