@@ -68,6 +68,7 @@ export default function BranchManagerOverviewPage({
   branchMarketing = [],
 }) {
   const revenueMetrics = useMemo(() => calculateRevenueMetrics(clients, []), [clients]);
+  const netRev = revenueMetrics.totalReceivedNet || 0;
 
   // Helper filter for branch staff members excluding Branch Manager himself
   const isBranchMember = React.useCallback((emp) => {
@@ -155,7 +156,6 @@ export default function BranchManagerOverviewPage({
   }, []);
 
   const dynamicKpiCards = useMemo(() => {
-    const netRev = revenueMetrics.totalReceivedNet || 0;
     return [
       { label: "Total Regional Managers", value: String(salesManagersCount), trend: "Sales Managers", description: "Sales managers in branch", accent: "#9a74e9", linkTo: "Employees" },
       { label: "Total Employees", value: String(totalEmployeesCount), trend: "Live DB", description: "Staff in branch (excl. manager)", accent: "#4e7cff", linkTo: "Employees" },
@@ -163,7 +163,27 @@ export default function BranchManagerOverviewPage({
       { label: "Pending Requests", value: String(pendingCount), trend: pendingCount > 0 ? `${pendingCount} Needs Action` : "All Clear", description: "Awaiting review", accent: "#f2aa38", linkTo: "Requests" },
       { label: "Branch Revenue", value: `₹${netRev.toLocaleString("en-IN")}`, description: "Payments minus 18% GST", accent: "#f97316", linkTo: "Revenue" },
     ];
-  }, [clients, revenueMetrics, pendingCount, salesManagersCount, totalEmployeesCount]);
+  }, [clients, netRev, pendingCount, salesManagersCount, totalEmployeesCount]);
+
+  const branchChartData = useMemo(() => {
+    if (revenueMetrics.chartSeries?.monthly && revenueMetrics.chartSeries.monthly.length > 0) {
+      return revenueMetrics.chartSeries.monthly;
+    }
+    if (netRev > 0) {
+      return [
+        { label: "Q1", value: Math.round(netRev * 0.2) },
+        { label: "Q2", value: Math.round(netRev * 0.25) },
+        { label: "Q3", value: Math.round(netRev * 0.25) },
+        { label: "Q4", value: Math.round(netRev * 0.3) },
+      ];
+    }
+    return [
+      { label: "Q1", value: 0 },
+      { label: "Q2", value: 0 },
+      { label: "Q3", value: 0 },
+      { label: "Q4", value: 0 },
+    ];
+  }, [revenueMetrics, netRev]);
 
   return (
     <section className="dashboard-layout bm-overview-layout">
@@ -193,17 +213,7 @@ export default function BranchManagerOverviewPage({
           </div>
           <div style={{ padding: "10px 14px" }}>
             <RevenueTrendChart
-              data={clients.length > 0 ? [
-                { label: "Q1", value: Math.round(netRev * 0.2) },
-                { label: "Q2", value: Math.round(netRev * 0.25) },
-                { label: "Q3", value: Math.round(netRev * 0.25) },
-                { label: "Q4", value: Math.round(netRev * 0.3) },
-              ] : [
-                { label: "Q1", value: 0 },
-                { label: "Q2", value: 0 },
-                { label: "Q3", value: 0 },
-                { label: "Q4", value: 0 },
-              ]}
+              data={branchChartData}
               color="#6366f1"
               height={220}
             />
