@@ -24,7 +24,7 @@ export async function ensureProductionSeed() {
       logger.info("[AUTO-SEED] Created Noida Branch.");
     }
 
-    // 2. Ensure Owner exists and password is set to password123
+    // 2. Ensure Owner exists (do not overwrite password if already present)
     if (!existingOwner) {
       await prisma.user.create({
         data: {
@@ -38,16 +38,6 @@ export async function ensureProductionSeed() {
         },
       });
       logger.info(`[AUTO-SEED] Owner account created for ${ownerEmail}.`);
-    } else {
-      // Re-verify hash to ensure password123 works on production
-      const isMatch = await bcrypt.compare("password123", existingOwner.passwordHash);
-      if (!isMatch) {
-        await prisma.user.update({
-          where: { id: existingOwner.id },
-          data: { passwordHash: defaultPasswordHash },
-        });
-        logger.info(`[AUTO-SEED] Owner password verified and updated to password123.`);
-      }
     }
 
     // 3. Ensure Service Catalog exists
