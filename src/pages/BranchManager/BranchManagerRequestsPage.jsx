@@ -4,6 +4,7 @@ import BranchManagerCreateRequestModal from "./BranchManagerCreateRequestModal";
 import BranchManagerRequestModal from "./BranchManagerRequestModal";
 import { initialBranchSentRequests, initialManagerReceivedRequests } from "./mockBranchRequests";
 import { apiFetch } from "../../services/apiClient";
+import { saveSalesPersonConfig } from "../../utils/salesConfigHelper";
 
 export default function BranchManagerRequestsPage({
   employeesList = [],
@@ -125,12 +126,30 @@ export default function BranchManagerRequestsPage({
     try {
       const targetReq = receivedRequests.find((r) => r.id === requestId || r.rawId === requestId);
       const targetId = targetReq?.rawId || requestId;
+
+      // Extract any approved salesperson profile or quota changes
+      const applyApprovedConfig = () => {
+        if (!targetReq) return;
+        const changes = targetReq.requestedChanges || [];
+        let approvedTitle = null;
+        let approvedQuota = null;
+        changes.forEach((c) => {
+          if (c.field === "Salesperson Designation" || c.field === "Designation" || c.field === "Role") approvedTitle = c.newValue;
+          if (c.field === "Salesperson Quota" || c.field === "Quota") approvedQuota = c.newValue;
+        });
+        const repName = targetReq.salesPerson || targetReq.salespersonName || targetReq.targetRep || targetReq.salespersonId;
+        if (repName && (approvedTitle || approvedQuota)) {
+          saveSalesPersonConfig(repName, { designation: approvedTitle, quota: approvedQuota });
+        }
+      };
+
       if (targetReq?.rawId) {
         const res = await apiFetch(`/requests/${targetId}/decision`, {
           method: "PATCH",
           body: { decision: "APPROVED", managerRemarks: remarks },
         });
         if (res.ok) {
+          applyApprovedConfig();
           setNotification("✓ Request approved and forwarded according to workflow hierarchy.");
           window.dispatchEvent(new CustomEvent("agni_requests_updated"));
           window.dispatchEvent(new CustomEvent("agni_clients_updated"));
@@ -142,6 +161,7 @@ export default function BranchManagerRequestsPage({
         }
       } else {
         // Fallback for mock/local items
+        applyApprovedConfig();
         setReceivedRequests((prev) =>
           prev.map((r) =>
             r.id === requestId

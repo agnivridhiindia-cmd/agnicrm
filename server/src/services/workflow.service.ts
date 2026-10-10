@@ -315,6 +315,35 @@ export async function executeWorkflowDecision(
               data: updatePayload,
             });
           }
+
+          // If requested changes also specify salesperson profile designation and quota
+          let newDesignation: string | undefined;
+          let newQuota: number | undefined;
+          changes.forEach((c: any) => {
+            if (c.field === "Salesperson Designation" || c.field === "Designation" || c.field === "Representative Role") {
+              newDesignation = String(c.newValue).trim();
+            }
+            if (c.field === "Salesperson Quota" || c.field === "Quota" || c.field === "Target Quota") {
+              const parsed = parseFloat(String(c.newValue).replace(/[^0-9.]/g, ""));
+              if (!isNaN(parsed)) newQuota = parsed;
+            }
+          });
+
+          if (newDesignation !== undefined || newQuota !== undefined) {
+            const clientRec = await tx.client.findUnique({
+              where: { id: targetClientId },
+              select: { salesPersonId: true },
+            });
+            if (clientRec?.salesPersonId) {
+              const repUpdates: any = {};
+              if (newDesignation) repUpdates.designation = newDesignation;
+              if (newQuota !== undefined) repUpdates.targetQuota = newQuota;
+              await tx.user.update({
+                where: { id: clientRec.salesPersonId },
+                data: repUpdates,
+              });
+            }
+          }
         }
       } else if (String(existingRequest.requestType) === "TRANSFER_CLIENT") {
         if (targetClientId && existingRequest.requestedChanges) {
@@ -428,6 +457,13 @@ export async function executeWorkflowDecision(
             if (c.field === "Email") userUpdates.email = c.newValue;
             if (c.field === "Phone") userUpdates.phone = c.newValue;
             if (c.field === "Region") userUpdates.region = c.newValue;
+            if (c.field === "Role" || c.field === "Designation" || c.field === "Salesperson Designation") {
+              userUpdates.designation = c.newValue;
+            }
+            if (c.field === "Quota" || c.field === "Salesperson Quota" || c.field === "Target Quota") {
+              const parsed = parseFloat(String(c.newValue).replace(/[^0-9.]/g, ""));
+              if (!isNaN(parsed)) userUpdates.targetQuota = parsed;
+            }
           });
           if (Object.keys(userUpdates).length > 0) {
             await tx.user.update({

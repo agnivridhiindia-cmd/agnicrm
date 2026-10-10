@@ -1,6 +1,7 @@
 import React from "react";
 import SimpleModal from "../../components/SimpleModal";
 import { cleanBranchDisplay } from "../../utils/branchHelper";
+import { getSalesPersonProfile, getSalesPersonQuota } from "../../utils/salesConfigHelper";
 
 export default function ManagerEmployeeInfoModal({ member, onClose, managerName }) {
   if (!member) return null;
@@ -14,13 +15,17 @@ export default function ManagerEmployeeInfoModal({ member, onClose, managerName 
         .toUpperCase()
     : "SP";
 
+  const displayRole = member.designation || getSalesPersonProfile(member.name || member.id, member.role);
+  const quotaNum = Number(member.targetQuota || getSalesPersonQuota(member.name || member.id, 80000));
+  const displayQuota = member.quota || (quotaNum >= 1000 ? `₹${Math.round(quotaNum / 1000)}k` : `₹${quotaNum}`);
+
   return (
     <SimpleModal onClose={onClose}>
       <div className="manager-modal-profile">
         <div className="manager-modal-avatar">{initials}</div>
         <div>
           <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800 }}>{member.name}</h2>
-          <span className="manager-role-tag">{member.role}</span>
+          <span className="manager-role-tag">{displayRole}</span>
         </div>
       </div>
 
@@ -51,7 +56,7 @@ export default function ManagerEmployeeInfoModal({ member, onClose, managerName 
         </div>
         <div className="manager-modal-card">
           <span className="manager-modal-card-label">Monthly Target Quota</span>
-          <span className="manager-modal-card-val" style={{ color: "#8c5ff8", fontWeight: 800 }}>{member.quota || "₹80k"}</span>
+          <span className="manager-modal-card-val" style={{ color: "#8c5ff8", fontWeight: 800 }}>{displayQuota}</span>
         </div>
         <div className="manager-modal-card">
           <span className="manager-modal-card-label">Monthly Sales Performance</span>

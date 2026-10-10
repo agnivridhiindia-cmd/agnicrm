@@ -7,6 +7,7 @@ import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
 import { apiFetch } from "../../services/apiClient";
 import { useAuth } from "../../context/AuthContext";
+import { getSalesPersonProfile, getSalesPersonQuota } from "../../utils/salesConfigHelper";
 import "./salesdashboard.css";
 
 // Sub-components
@@ -31,20 +32,26 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
 
   React.useEffect(() => {
     let isMounted = true;
-    apiFetch("/auth/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (isMounted && data?.success && data?.user) {
-          setCurrentUser(data.user);
-          if (data.user.fullName || data.user.name) {
-            localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
+    const fetchMe = () => {
+      apiFetch("/auth/me")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (isMounted && data?.success && data?.user) {
+            setCurrentUser(data.user);
+            if (data.user.fullName || data.user.name) {
+              localStorage.setItem("agni_user_name", data.user.fullName || data.user.name);
+            }
+            localStorage.setItem("agni_user", JSON.stringify(data.user));
           }
-          localStorage.setItem("agni_user", JSON.stringify(data.user));
-        }
-      })
-      .catch(() => {});
+        })
+        .catch(() => {});
+    };
+
+    fetchMe();
+    window.addEventListener("agni_sales_config_updated", fetchMe);
     return () => {
       isMounted = false;
+      window.removeEventListener("agni_sales_config_updated", fetchMe);
     };
   }, []);
 
@@ -128,9 +135,9 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
                 email: currentUser?.email || userEmail || "",
                 phone: currentUser?.phone || "+91 98201 54321",
                 branch: currentUser?.branch?.name || (typeof currentUser?.branch === "string" ? currentUser.branch : "West Zone (Mumbai)"),
-                designation: "Senior Sales Officer",
+                designation: currentUser?.designation || getSalesPersonProfile(displayName || currentUser?.id, "Sales Officer"),
                 empId: currentUser?.id ? `EMP-${currentUser.id.slice(0, 6).toUpperCase()}` : "EMP-SLS-2024",
-                quota: "₹80,000",
+                quota: `₹${(quotaMetrics?.initialQuotaTarget || currentUser?.targetQuota || getSalesPersonQuota(displayName || currentUser?.id, 80000)).toLocaleString("en-IN")}`,
                 achieved: `${quotaMetrics?.achieved || "₹0"} (${quotaMetrics?.progress || "0%"})`,
                 reportingManager: currentUser?.reportingManager?.fullName || "Eli Brooks",
               }}

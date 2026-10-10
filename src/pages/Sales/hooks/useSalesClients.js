@@ -11,6 +11,7 @@ import { getTrackerState } from "../../../utils/schemeTracker";
 import { sanitizeClientRecord, mergeSecondaryClients } from "../../../utils/branchHelper";
 import { apiFetch } from "../../../services/apiClient";
 import { isMockClient } from "../../../utils/revenueCalculator";
+import { getSalesPersonQuota } from "../../../utils/salesConfigHelper";
 
 export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
@@ -20,6 +21,19 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
   const [stageFilter, setStageFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [newClient, setNewClient] = useState(initialNewClientState);
+  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      setConfigUpdateTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("agni_sales_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("agni_sales_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     async function fetchSalesClientsFromDB() {
@@ -197,7 +211,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
       return sum + netRec;
     }, 0);
 
-    const initialQuotaTarget = 80000;
+    const initialQuotaTarget = Number(getSalesPersonQuota(salesPersonName, 80000));
     const leftNum = Math.max(initialQuotaTarget - totalRealized, 0);
     const progressPct = initialQuotaTarget > 0 ? Math.min(100, Math.round((totalRealized / initialQuotaTarget) * 100)) : 0;
     const incentiveNum = totalRealized > initialQuotaTarget ? (totalRealized - initialQuotaTarget) : 0;
@@ -272,6 +286,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
     });
 
     return {
+      initialQuotaTarget,
       totalRealized,
       achieved: `₹${totalRealized.toLocaleString("en-IN")}`,
       left: `₹${leftNum.toLocaleString("en-IN")}`,
@@ -280,7 +295,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
       dailyAchieved: `₹${dailyAchievedNet.toLocaleString("en-IN")}`,
       dailyAchievedNum: dailyAchievedNet,
     };
-  }, [clients, salesPersonName]);
+  }, [clients, salesPersonName, configUpdateTrigger]);
 
   const kpiCards = useMemo(() => [
     { label: "Active clients", value: `${totalActiveClients}`, trend: "+0%", description: "Currently active", accent: "#4e7cff", icon: "clients" },
@@ -344,7 +359,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
 
     return {
       months,
-      quotaData: months.map(() => 80000),
+      quotaData: months.map(() => quotaMetrics.initialQuotaTarget || 80000),
       acquiredData,
     };
   }, [clients, selectedYear, quotaMetrics]);

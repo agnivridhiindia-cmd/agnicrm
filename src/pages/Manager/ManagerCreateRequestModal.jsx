@@ -3,6 +3,7 @@ import Modal from "../../components/Modal";
 import Icon from "../../components/Icon";
 import { apiFetch } from "../../services/apiClient";
 import { useAuth } from "../../context/AuthContext";
+import { PROFILE_TITLES, getSalesPersonProfile, getSalesPersonQuota } from "../../utils/salesConfigHelper";
 
 const clientRequestTypes = [
   {
@@ -190,6 +191,7 @@ export default function ManagerCreateRequestModal({
       return;
     }
 
+    const repName = selectedClient.salesRep || selectedClient.owner || selectedClient.assignedSalesPerson || "";
     setClientFormValues({
       name: selectedClient.contactPerson || selectedClient.name || "",
       company: selectedClient.company || selectedClient.companyName || selectedClient.name || "",
@@ -199,13 +201,15 @@ export default function ManagerCreateRequestModal({
       scheme: selectedClient.service || selectedClient.scheme || selectedClient.serviceName || "PMEGP",
       totalPayment: selectedClient.totalPayment || selectedClient.revenue || selectedClient.amount || "",
       businessType: selectedClient.businessType || selectedClient.sector || "Manufacturing & Production",
-      assignedSalesPerson: selectedClient.salesRep || selectedClient.owner || selectedClient.assignedSalesPerson || "",
+      assignedSalesPerson: repName,
+      salesPersonTitle: getSalesPersonProfile(repName, "Senior Sales Officer"),
+      salesPersonQuota: getSalesPersonQuota(repName, 80000),
       gstNumber: selectedClient.gstNumber || "",
       panNumber: selectedClient.panNumber || "",
     });
 
     // Default next rep candidate (first sales rep who isn't the current rep)
-    const currentRep = String(selectedClient.salesRep || selectedClient.owner || "").toLowerCase().trim();
+    const currentRep = String(repName).toLowerCase().trim();
     const otherRep = salesPeople.find((p) => {
       const pName = (typeof p === "string" ? p : p.name || "").toLowerCase().trim();
       return pName && pName !== currentRep;
@@ -218,17 +222,17 @@ export default function ManagerCreateRequestModal({
   // Sync salesperson form when selected salesperson changes
   useEffect(() => {
     if (!selectedSalesperson) {
-      setSalesFormValues({ name: "", role: "", email: "", phone: "", region: "", quota: "" });
+      setSalesFormValues({ name: "", role: "Sales Officer", email: "", phone: "", region: "", quota: "80000" });
       return;
     }
 
     setSalesFormValues({
       name: selectedSalesperson.name || "",
-      role: selectedSalesperson.role || "",
+      role: selectedSalesperson.designation || selectedSalesperson.role || getSalesPersonProfile(selectedSalesperson.name || selectedSalesperson.id, "Sales Officer"),
       email: selectedSalesperson.email || "",
       phone: selectedSalesperson.phone || "",
       region: selectedSalesperson.region || "",
-      quota: selectedSalesperson.quota || "",
+      quota: String(selectedSalesperson.targetQuota || selectedSalesperson.quota || getSalesPersonQuota(selectedSalesperson.name || selectedSalesperson.id, 80000)),
     });
   }, [selectedSalesperson]);
 
@@ -308,6 +312,24 @@ export default function ManagerCreateRequestModal({
         }
         if (clientFormValues.gstNumber && clientFormValues.gstNumber !== (selectedClient.gstNumber || "")) {
           changes.push({ field: "GST Number", oldValue: selectedClient.gstNumber || "—", newValue: clientFormValues.gstNumber });
+        }
+        const repName = selectedClient.salesRep || selectedClient.owner || selectedClient.assignedSalesPerson || "";
+        const initialRepTitle = getSalesPersonProfile(repName, "Senior Sales Officer");
+        const initialRepQuota = getSalesPersonQuota(repName, 80000);
+
+        if (clientFormValues.salesPersonTitle && clientFormValues.salesPersonTitle !== initialRepTitle) {
+          changes.push({
+            field: "Salesperson Designation",
+            oldValue: initialRepTitle,
+            newValue: clientFormValues.salesPersonTitle,
+          });
+        }
+        if (clientFormValues.salesPersonQuota && String(clientFormValues.salesPersonQuota) !== String(initialRepQuota)) {
+          changes.push({
+            field: "Salesperson Quota",
+            oldValue: `₹${Number(initialRepQuota).toLocaleString("en-IN")}`,
+            newValue: `₹${Number(clientFormValues.salesPersonQuota).toLocaleString("en-IN")}`,
+          });
         }
         requestedChanges = changes.length > 0 ? changes : [
           { field: "Client Profile", oldValue: "Current Record", newValue: "Updated Record Details" }
@@ -829,6 +851,60 @@ export default function ManagerCreateRequestModal({
                       </label>
                     </div>
 
+                    {/* Managing Sales Representative Profile & Target Quota Governance */}
+                    <div
+                      style={{
+                        padding: "14px 16px",
+                        borderRadius: 10,
+                        background: "rgba(99, 102, 241, 0.05)",
+                        border: "1px solid rgba(99, 102, 241, 0.18)",
+                        display: "grid",
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                        <strong style={{ fontSize: 13, color: "#4f46e5", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <Icon name="roles" size={14} />
+                          Managing Sales Representative Profile &amp; Quota
+                        </strong>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                          Assigned: <strong>{clientFormValues.assignedSalesPerson || "Sales Rep"}</strong>
+                        </span>
+                      </div>
+
+                      <div className="manager-form-grid-2">
+                        <label className="field-label" style={{ margin: 0 }}>
+                          <span>Representative Profile Title</span>
+                          <select
+                            className="manager-filter-select"
+                            name="salesPersonTitle"
+                            value={clientFormValues.salesPersonTitle || "Senior Sales Officer"}
+                            onChange={handleClientFieldChange}
+                          >
+                            {PROFILE_TITLES.map((title) => (
+                              <option key={title} value={title}>
+                                {title}
+                              </option>
+                            ))}
+                            {!PROFILE_TITLES.includes(clientFormValues.salesPersonTitle) && clientFormValues.salesPersonTitle && (
+                              <option value={clientFormValues.salesPersonTitle}>{clientFormValues.salesPersonTitle}</option>
+                            )}
+                          </select>
+                        </label>
+
+                        <label className="field-label" style={{ margin: 0 }}>
+                          <span>Monthly Target Quota (₹)</span>
+                          <input
+                            type="number"
+                            name="salesPersonQuota"
+                            value={clientFormValues.salesPersonQuota || 80000}
+                            onChange={handleClientFieldChange}
+                            placeholder="e.g. 80000"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
                     <label className="field-label" style={{ margin: 0 }}>
                       <span>Justification & Reason for Client Edit *</span>
                       <textarea
@@ -1130,8 +1206,22 @@ export default function ManagerCreateRequestModal({
                           </label>
 
                           <label className="field-label" style={{ margin: 0 }}>
-                            <span>Designation / Role</span>
-                            <input name="role" value={salesFormValues.role} onChange={handleSalesFieldChange} />
+                            <span>Designation / Role Title</span>
+                            <select
+                              className="manager-filter-select"
+                              name="role"
+                              value={salesFormValues.role || "Sales Officer"}
+                              onChange={handleSalesFieldChange}
+                            >
+                              {PROFILE_TITLES.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                              {!PROFILE_TITLES.includes(salesFormValues.role) && salesFormValues.role && (
+                                <option value={salesFormValues.role}>{salesFormValues.role}</option>
+                              )}
+                            </select>
                           </label>
 
                           <label className="field-label" style={{ margin: 0 }}>

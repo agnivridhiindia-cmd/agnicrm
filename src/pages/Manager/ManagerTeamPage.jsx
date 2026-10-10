@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Icon from "../../components/Icon";
 import ManagerEmployeeInfoModal from "./ManagerEmployeeInfoModal";
 import { calculatePaymentMetricsFromClients, formatCurrency } from "../../utils/paymentHelpers";
 import { normalizeSalesPersonName, cleanBranchDisplay } from "../../utils/branchHelper";
+import { getSalesPersonProfile, getSalesPersonQuota } from "../../utils/salesConfigHelper";
 
 export default function ManagerTeamPage({
   branchTeam = [],
@@ -15,6 +16,19 @@ export default function ManagerTeamPage({
   const [selectedMember, setSelectedMember] = useState(null);
   const [filterRole, setFilterRole] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleConfigUpdate = () => {
+      setConfigUpdateTrigger((prev) => prev + 1);
+    };
+    window.addEventListener("agni_sales_config_updated", handleConfigUpdate);
+    window.addEventListener("storage", handleConfigUpdate);
+    return () => {
+      window.removeEventListener("agni_sales_config_updated", handleConfigUpdate);
+      window.removeEventListener("storage", handleConfigUpdate);
+    };
+  }, []);
 
   const roles = Array.from(new Set(branchTeam.map((m) => m.role))).filter(Boolean);
 
@@ -162,11 +176,12 @@ export default function ManagerTeamPage({
             </thead>
             <tbody>
               {displayedTeam.map((member) => {
-                const quotaTargetNum = 80000; // ₹80k monthly target for every salesperson
+                const quotaTargetNum = Number(member.targetQuota || getSalesPersonQuota(member.name || member.id, 80000));
                 const achievedNum = getMemberMonthlyAchieved(member);
-                const progressPct = Math.min(100, Math.max(0, Math.round((achievedNum / quotaTargetNum) * 100)));
-                const displayTarget = "₹80k";
+                const progressPct = quotaTargetNum > 0 ? Math.min(100, Math.max(0, Math.round((achievedNum / quotaTargetNum) * 100))) : 0;
+                const displayTarget = quotaTargetNum >= 1000 ? `₹${Math.round(quotaTargetNum / 1000)}k` : `₹${quotaTargetNum}`;
                 const displayAchieved = achievedNum > 0 ? (achievedNum >= 1000 ? `₹${Math.round(achievedNum / 1000)}k` : `₹${achievedNum}`) : "₹0";
+                const displayRole = member.designation || getSalesPersonProfile(member.name || member.id, member.role);
 
                 return (
                   <tr key={member.id}>
@@ -179,7 +194,7 @@ export default function ManagerTeamPage({
                       </div>
                     </td>
                     <td>
-                      <span className="manager-role-tag">{member.role}</span>
+                      <span className="manager-role-tag">{displayRole}</span>
                     </td>
                     <td>
                       <div className="manager-quota-cell">

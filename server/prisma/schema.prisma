@@ -121,6 +121,8 @@ model User {
   fullName           String
   phone              String?
   role               Role
+  designation        String?   // e.g. "Sales Officer", "Team Leader", "Senior Sales Officer"
+  targetQuota        Decimal?  @db.Decimal(14, 2) // e.g. 80000.00
   region             String?
   status             String    @default("Active")
   isDeleted          Boolean   @default(false)
