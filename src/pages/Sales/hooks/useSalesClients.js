@@ -216,7 +216,6 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail) {
     { label: "Quota achieved", value: quotaMetrics.achieved, trend: "+0%", description: "Realized (excl. 18% GST)", accent: "#10b981", icon: "currency" },
     { label: "Quota left", value: quotaMetrics.left, trend: "Remaining gap", description: "To reach target", accent: "#f43f5e", icon: "wallet" },
     { label: "Quota progress", value: quotaMetrics.progress, trend: "+0%", description: "Towards target", accent: "#9a74e9", icon: "revenue" },
-    { label: "Incentive", value: quotaMetrics.incentive, trend: "+0%", description: "Earned this month", accent: "#f2aa38", icon: "incentive" },
   ], [totalActiveClients, totalClosedDeals, quotaMetrics]);
 
   const monthlyQuotaChartData = useMemo(() => {
