@@ -173,6 +173,12 @@ export const revenueSeries = {
     { label: 'Apr', value: 98000 },
     { label: 'May', value: 108000 },
     { label: 'Jun', value: 121000 },
+    { label: 'Jul', value: 128000 },
+    { label: 'Aug', value: 135000 },
+    { label: 'Sep', value: 142000 },
+    { label: 'Oct', value: 151000 },
+    { label: 'Nov', value: 160000 },
+    { label: 'Dec', value: 175000 },
   ],
   yearly: [
     { label: '2021', value: 480000 },

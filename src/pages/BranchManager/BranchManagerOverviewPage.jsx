@@ -215,7 +215,7 @@ export default function BranchManagerOverviewPage({
             <RevenueTrendChart
               data={branchChartData}
               color="#6366f1"
-              height={220}
+              height={135}
             />
           </div>
         </div>

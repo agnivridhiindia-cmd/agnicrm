@@ -483,44 +483,23 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     weeklyChartSeries.push({ label, value: weekNet });
   }
 
-  // 3. Monthly Chart Series
+  // 3. Monthly Chart Series (All 12 calendar months)
   const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const currYear = now.getFullYear();
-  const currMonth = now.getMonth();
-  const hasOlderInYear = transactions.some((t) => {
-    const td = new Date(t.timestamp);
-    return td.getFullYear() === currYear && td.getMonth() < currMonth - 5;
+  const targetYear = transactions.some((t) => new Date(t.timestamp).getFullYear() === currYear)
+    ? currYear
+    : (transactions.length > 0 ? new Date(Math.max(...transactions.map((t) => t.timestamp))).getFullYear() : currYear);
+
+  const monthlyChartSeries = shortMonths.map((label, m) => {
+    const mNet = transactions
+      .filter((t) => {
+        const td = new Date(t.timestamp);
+        return td.getFullYear() === targetYear && td.getMonth() === m;
+      })
+      .reduce((sum, t) => sum + t.net, 0);
+
+    return { label, value: mNet };
   });
-
-  const monthlyChartSeries = [];
-  if (hasOlderInYear) {
-    for (let m = 0; m <= currMonth; m++) {
-      const label = shortMonths[m];
-      const mNet = transactions
-        .filter((t) => {
-          const td = new Date(t.timestamp);
-          return td.getFullYear() === currYear && td.getMonth() === m;
-        })
-        .reduce((sum, t) => sum + t.net, 0);
-      monthlyChartSeries.push({ label, value: mNet });
-    }
-  } else {
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(currYear, currMonth - i, 1);
-      const targetYr = d.getFullYear();
-      const targetMo = d.getMonth();
-      const label = shortMonths[targetMo];
-
-      const mNet = transactions
-        .filter((t) => {
-          const td = new Date(t.timestamp);
-          return td.getFullYear() === targetYr && td.getMonth() === targetMo;
-        })
-        .reduce((sum, t) => sum + t.net, 0);
-
-      monthlyChartSeries.push({ label, value: mNet });
-    }
-  }
 
   // 4. Yearly Chart Series (Past 4 years ending current year)
   const yearlyChartSeries = [];

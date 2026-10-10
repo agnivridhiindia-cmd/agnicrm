@@ -2120,7 +2120,7 @@ form {
 .dashboard-chart {
   width: 100%;
   height: auto;
-  min-height: 220px;
+  max-height: 160px;
 }
 
 .dashboard-split {
@@ -3293,7 +3293,8 @@ form {
 
 .dashboard-chart {
   width: 100%;
-  min-height: 220px;
+  height: auto;
+  max-height: 160px;
 }
 
 .dashboard-dark.owner-dashboard,
