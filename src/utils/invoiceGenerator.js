@@ -633,7 +633,7 @@ export function generateInvoiceHTML(invoice = {}) {
         <div class="card-meta-list">
           <div><strong>GSTIN:</strong> 09ABCCA3869R1ZU</div>
           <div><strong>PAN:</strong> ABCCA3869R</div>
-          <div><strong>Email:</strong> akash@agnivridhiindia.com</div>
+          <div><strong>Email:</strong> agnivridhiindia@gmail.com</div>
           <div><strong>Phone:</strong> +91 92895 55190</div>
         </div>
       </div>

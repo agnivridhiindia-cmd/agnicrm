@@ -156,15 +156,6 @@ After running `npm run seed`, all demo accounts are ready for testing with the d
 | Role | Branch / Region | Email | Name |
 | :--- | :--- | :--- | :--- |
 | **Owner** | Pan-India | `agnivridhiindia@gmail.com` | Rahul Singh |
-| **Branch Manager** | West Zone (Mumbai) | `akash@agnivridhiindia.com` | Akash Singh |
-| **Branch Manager** | North Zone (Delhi) | `rajesh.bm@agni.com` | Rajesh Khanna |
-| **Branch Manager** | South Zone (Bengaluru) | `suresh.bm@agni.com` | Suresh Reddy |
-| **Branch Manager** | East Zone (Kolkata) | `subhash.bm@agni.com` | Subhash Banerjee |
-| **Sales Manager** | West Zone (Mumbai) | `eli@agni.com` | Eli Brooks |
-| **Sales Executive** | West Zone (Mumbai) | `mia@agni.com` | Mia Rose |
-| **IT Lead** | West Zone (Mumbai) | `noah@agni.com` | Noah Kim |
-| **Marketing Lead**| West Zone (Mumbai) | `daniel@agni.com` | Daniel Cruz |
-| **Admin Lead** | West Zone (Mumbai) | `admin@agni.com` | Vikramaditya Roy |
 
 ---
 

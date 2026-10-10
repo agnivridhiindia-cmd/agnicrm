@@ -157,8 +157,8 @@ export default function ITDashboard({ onSignOut, userEmail }) {
             />
             <UserProfileMenu
               user={{
-                name: itLeadName || "Aakash Varma",
-                email: userEmail || authUser?.email || "aakash.it@agnicrm.com",
+                name: itLeadName || "IT Administrator",
+                email: userEmail || authUser?.email || "it.admin@agnicrm.com",
                 phone: authUser?.phone || "+91 98205 77889",
                 branch: "Enterprise HQ (Mumbai)",
                 designation: "Lead Enterprise Solutions Architect",
