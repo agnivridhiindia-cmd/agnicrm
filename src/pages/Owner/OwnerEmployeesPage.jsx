@@ -211,6 +211,27 @@ export default function OwnerEmployeesPage({
   );
   const uniqueBranchesCount = validBranches.size;
 
+  const branchFilterList = useMemo(() => {
+    const branchesFromStaff = Array.from(validBranches).filter(Boolean);
+    const cleanNames = branchesFromStaff.map((b) => cleanBranchDisplay(b));
+    const unique = Array.from(new Set(cleanNames));
+    if (unique.length === 0) unique.push("Noida Branch");
+    return [
+      { value: "", label: "All branches" },
+      ...unique.map((b) => ({ value: b, label: b })),
+    ];
+  }, [validBranches]);
+
+  const ROLE_DISPLAY_NAMES = {
+    "All roles": "All roles",
+    "branch manager": "Branch Manager",
+    "manager": "Sales Manager",
+    "sales": "Sales Person",
+    "admin": "Admin",
+    "IT": "IT Lead",
+    "market": "Marketing",
+  };
+
   const filteredEmployees = useMemo(() => {
     const matched = staffEmployeesList.filter((employee) => {
       const sLower = searchTerm.toLowerCase().trim();
@@ -990,64 +1011,101 @@ export default function OwnerEmployeesPage({
         <div className="owner-toolbar-filters">
           <div className="owner-search-box">
             <span className="owner-search-icon">
-              <Icon name="search" size={14} />
+              <Icon name="search" size={15} />
             </span>
             <input
               type="text"
-              placeholder="Search by employee name, branch, email, phone, role..."
+              placeholder="Search by name, branch, email, phone, role..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setEmployeesPage(1);
+              }}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                className="owner-search-clear-btn"
+                onClick={() => {
+                  setSearchTerm("");
+                  setEmployeesPage(1);
+                }}
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          <label className="field-label" style={{ margin: 0 }}>
-            <span>Filter by Role:</span>
-            <select
-              className="owner-filter-select"
-              value={selectedRole}
-              onChange={(event) => {
-                if (setSelectedRole) setSelectedRole(event.target.value);
-                setEmployeesPage(1);
-              }}
-            >
-              {employeeRoles.map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="owner-filter-control-group">
+            <label className="owner-filter-inline-label" htmlFor="owner-role-filter">
+              <Icon name="roles" size={13} />
+              <span>Role:</span>
+            </label>
+            <div className="owner-select-wrapper">
+              <select
+                id="owner-role-filter"
+                className="owner-filter-select"
+                value={selectedRole}
+                onChange={(event) => {
+                  if (setSelectedRole) setSelectedRole(event.target.value);
+                  setEmployeesPage(1);
+                }}
+              >
+                {employeeRoles.map((role) => (
+                  <option key={role} value={role}>
+                    {ROLE_DISPLAY_NAMES[role] || role}
+                  </option>
+                ))}
+              </select>
+              <span className="owner-select-chevron">▾</span>
+            </div>
+          </div>
 
-          <label className="field-label" style={{ margin: 0 }}>
-            <span>Branch:</span>
-            <select
-              className="owner-filter-select"
-              value={selectedBranch}
-              onChange={(event) => {
-                setSelectedBranch(event.target.value);
-                setEmployeesPage(1);
-              }}
-            >
-              {branchOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="owner-filter-control-group">
+            <label className="owner-filter-inline-label" htmlFor="owner-branch-filter">
+              <Icon name="branches" size={13} />
+              <span>Branch:</span>
+            </label>
+            <div className="owner-select-wrapper">
+              <select
+                id="owner-branch-filter"
+                className="owner-filter-select"
+                value={selectedBranch}
+                onChange={(event) => {
+                  setSelectedBranch(event.target.value);
+                  setEmployeesPage(1);
+                }}
+              >
+                {branchFilterList.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <span className="owner-select-chevron">▾</span>
+            </div>
+          </div>
 
           {(searchTerm || (selectedRole && selectedRole !== "All roles") || selectedBranch) && (
             <button
               type="button"
-              className="owner-btn-secondary"
+              className="owner-btn-reset-filters"
               onClick={handleResetFilters}
+              title="Reset all active filters"
             >
-              Reset Filters
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>Reset</span>
             </button>
           )}
         </div>
 
         <div className="owner-count-badge">
+          <span className="owner-count-dot"></span>
           <span>Showing</span>
           <strong>{filteredEmployees.length}</strong>
           <span>of {employeesList.length} employees</span>
