@@ -11,7 +11,6 @@ import BranchManagerOverviewPage from "./BranchManagerOverviewPage";
 import BranchManagerClientsPage from "./BranchManagerClientsPage";
 import BranchManagerEmployeesPage from "./BranchManagerEmployeesPage";
 import BranchManagerRevenuePage from "./BranchManagerRevenuePage";
-import BranchManagerReportsPage from "./BranchManagerReportsPage";
 import BranchManagerAdminPage from "./BranchManagerAdminPage";
 import BranchManagerITPage from "./BranchManagerITPage";
 import BranchManagerMarketingPage from "./BranchManagerMarketingPage";
@@ -29,7 +28,6 @@ const navItems = [
   { icon: "team", label: "Employees" },
   { icon: "requests", label: "Requests" },
   { icon: "revenue", label: "Revenue" },
-  { icon: "reports", label: "Reports" },
   { icon: "settings", label: "Admin" },
   { icon: "overview", label: "IT" },
   { icon: "leads", label: "Marketing" },
@@ -50,7 +48,6 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
     team: "Employees",
     requests: "Requests",
     revenue: "Revenue",
-    reports: "Reports",
     admin: "Admin",
     settings: "Admin",
     it: "IT",
@@ -410,16 +407,6 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
               <BranchManagerRevenuePage
                 myBranch={myBranch}
                 clients={clients}
-              />
-            }
-          />
-          <Route
-            path="reports"
-            element={
-              <BranchManagerReportsPage
-                myBranch={myBranch}
-                clients={clients}
-                employeesList={employeesList}
               />
             }
           />
