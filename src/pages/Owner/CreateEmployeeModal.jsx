@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Icon from "../../components/Icon";
 import { apiFetch } from "../../services/apiClient";
+import { useAuth } from "../../context/AuthContext";
 
 const ROLE_OPTIONS = [
   { value: "BRANCH_MANAGER", label: "Branch Manager" },
@@ -33,6 +34,8 @@ const INITIAL_FORM = {
 };
 
 export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
+  const { user: authUser, userName: authName } = useAuth() || {};
+  const [ownerInfo, setOwnerInfo] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [branches, setBranches] = useState([]);
   const [managers, setManagers] = useState([]);
@@ -46,7 +49,7 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
   const [branchCreating, setBranchCreating] = useState(false);
   const [branchMessage, setBranchMessage] = useState("");
 
-  // Fetch branches on mount
+  // Fetch branches and managers on mount
   useEffect(() => {
     async function loadBranches() {
       setBranchesLoading(true);
@@ -54,8 +57,14 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
         const res = await apiFetch("/employees/branches");
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.branches)) {
+          if (data.success && Array.isArray(data.branches) && data.branches.length > 0) {
             setBranches(data.branches);
+            const primary = data.branches[0];
+            setForm((prev) => ({
+              ...prev,
+              branchId: prev.branchId || primary.id,
+              region: prev.region || primary.region || "",
+            }));
           }
         }
       } catch (err) {
@@ -83,9 +92,35 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
       }
     }
 
+    async function loadOwner() {
+      try {
+        const res = await apiFetch("/auth/users?role=OWNER");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.users) && data.users.length > 0) {
+            setOwnerInfo(data.users[0]);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load owner:", err);
+      }
+    }
+
     loadBranches();
     loadManagers();
+    loadOwner();
   }, []);
+
+  const resolvedOwner = useMemo(() => {
+    const ownerName = ownerInfo?.fullName || ownerInfo?.name || authUser?.fullName || authUser?.name || authName || "Rahul Singh";
+    const ownerId = ownerInfo?.id || authUser?.id || "__OWNER__";
+    return {
+      id: ownerId,
+      name: ownerName,
+      fullName: `${ownerName} (Owner)`,
+      role: "Owner",
+    };
+  }, [ownerInfo, authUser, authName]);
 
   // Auto-fill region when branch is selected
   useEffect(() => {
@@ -104,11 +139,13 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
   // - IT / Marketing / Admin -> Branch Manager (BRANCH_MANAGER) of that branch
   useEffect(() => {
     if (form.role === "BRANCH_MANAGER") {
-      setForm((prev) =>
-        prev.reportingManagerId !== "__OWNER__"
-          ? { ...prev, reportingManagerId: "__OWNER__" }
-          : prev
-      );
+      const primary = branches[0];
+      setForm((prev) => ({
+        ...prev,
+        reportingManagerId: resolvedOwner.id,
+        branchId: primary ? primary.id : prev.branchId,
+        region: primary ? (primary.region || "") : prev.region,
+      }));
       return;
     }
 
@@ -118,9 +155,8 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
     const targetRole = form.role === "SALES_PERSON" ? "MANAGER" : "BRANCH_MANAGER";
 
     if (!form.branchId) {
-      // If no branch is selected yet, clear reporting manager
       setForm((prev) =>
-        prev.reportingManagerId === "__OWNER__"
+        prev.reportingManagerId === resolvedOwner.id || prev.reportingManagerId === "__OWNER__"
           ? { ...prev, reportingManagerId: "" }
           : prev
       );
@@ -140,12 +176,12 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
       );
     } else {
       setForm((prev) =>
-        prev.reportingManagerId !== "" && prev.reportingManagerId !== "__OWNER__"
+        prev.reportingManagerId !== "" && prev.reportingManagerId !== resolvedOwner.id && prev.reportingManagerId !== "__OWNER__"
           ? { ...prev, reportingManagerId: "" }
           : prev
       );
     }
-  }, [form.role, form.branchId, managers]);
+  }, [form.role, form.branchId, managers, branches, resolvedOwner.id]);
 
   // Filter eligible managers for current role:
   // - Sales Person: only Sales Managers (MANAGER)
@@ -153,7 +189,7 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
   // - Branch Manager: Owner only
   const eligibleManagers = useMemo(() => {
     if (form.role === "BRANCH_MANAGER") {
-      return [{ id: "__OWNER__", name: "Devika Shah", fullName: "Devika Shah (Owner)", role: "Owner" }];
+      return [resolvedOwner];
     }
 
     const targetRole = form.role === "SALES_PERSON" ? "MANAGER" : "BRANCH_MANAGER";
@@ -169,14 +205,14 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
     }
 
     return filtered;
-  }, [form.role, form.branchId, managers]);
+  }, [form.role, form.branchId, managers, resolvedOwner]);
 
   const selectedManagerObj = useMemo(() => {
-    if (form.role === "BRANCH_MANAGER" || form.reportingManagerId === "__OWNER__") {
-      return { name: "Devika Shah", fullName: "Devika Shah", role: "Owner" };
+    if (form.role === "BRANCH_MANAGER" || form.reportingManagerId === "__OWNER__" || (resolvedOwner.id && form.reportingManagerId === resolvedOwner.id)) {
+      return resolvedOwner;
     }
     return managers.find((m) => m.id === form.reportingManagerId) || null;
-  }, [form.role, form.reportingManagerId, managers]);
+  }, [form.role, form.reportingManagerId, resolvedOwner, managers]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -256,10 +292,10 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
     setError("");
 
     try {
-      let targetBranchId = form.branchId || undefined;
+      let targetBranchId = form.branchId || (branches[0] ? branches[0].id : undefined);
 
-      // If user is on "make a branch" mode and typed a branch name, create it and link
-      if (branchMode === "make" && newBranch.name.trim()) {
+      // If user is on "make a branch" mode and typed a branch name, create it and link (only if not BRANCH_MANAGER)
+      if (form.role !== "BRANCH_MANAGER" && branchMode === "make" && newBranch.name.trim()) {
         const bRes = await apiFetch("/employees/branches", {
           method: "POST",
           body: {
@@ -281,11 +317,11 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
         phone: form.phone.trim() || undefined,
         role: form.role,
         branchId: targetBranchId,
-        region: form.region.trim() || undefined,
+        region: form.region.trim() || (branches[0]?.region || undefined),
         reportingManagerId:
-          form.reportingManagerId && form.reportingManagerId !== "__OWNER__"
-            ? form.reportingManagerId
-            : undefined,
+          form.role === "BRANCH_MANAGER"
+            ? (resolvedOwner.id !== "__OWNER__" ? resolvedOwner.id : undefined)
+            : (form.reportingManagerId && form.reportingManagerId !== "__OWNER__" ? form.reportingManagerId : undefined),
       };
 
       const res = await apiFetch("/employees", {
@@ -520,243 +556,31 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
               )}
             </div>
 
-            {/* Branch Section: Choose a Branch vs Make a Branch */}
+            {/* Branch Section: Single Operating Branch (Noida Branch) */}
             <div className="cem-field cem-field-wide">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label className="cem-label" style={{ margin: 0 }}>
-                  Branch Allocation <span className="cem-required">*</span>
-                </label>
-                {branchMessage && (
-                  <span style={{ fontSize: 11.5, color: "#10b981", fontWeight: 700 }}>
-                    {branchMessage}
-                  </span>
-                )}
+              <label className="cem-label" htmlFor="cem-single-branch">
+                Branch Assignment <span className="cem-auto-tag">Single Operating Branch</span>
+              </label>
+              <div className="cem-input-wrap">
+                <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
+                <input
+                  id="cem-single-branch"
+                  className="cem-input"
+                  type="text"
+                  value={
+                    selectedBranch
+                      ? `${selectedBranch.name} (${selectedBranch.city || selectedBranch.region})`
+                      : branches[0]
+                      ? `${branches[0].name} (${branches[0].city || branches[0].region})`
+                      : "Noida Branch (Noida, Uttar Pradesh)"
+                  }
+                  readOnly
+                  style={{ background: dark ? "rgba(255,255,255,0.04)" : "#f8fafc", cursor: "default" }}
+                />
               </div>
-
-              {/* Segmented Control */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  background: dark ? "rgba(0,0,0,0.25)" : "#e2e8f0",
-                  padding: 3,
-                  borderRadius: 10,
-                  gap: 4,
-                  marginBottom: 10,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setBranchMode("choose")}
-                  style={{
-                    padding: "7px 12px",
-                    borderRadius: 7,
-                    border: "none",
-                    fontWeight: branchMode === "choose" ? 700 : 500,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    background: branchMode === "choose" ? (dark ? "#334155" : "#ffffff") : "transparent",
-                    color: branchMode === "choose" ? (dark ? "#ffffff" : "#0f172a") : "#64748b",
-                    boxShadow: branchMode === "choose" ? "0 2px 5px rgba(0,0,0,0.06)" : "none",
-                  }}
-                >
-                  <Icon name="branches" size={13} />
-                  <span>Choose a Branch</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setBranchMode("make")}
-                  style={{
-                    padding: "7px 12px",
-                    borderRadius: 7,
-                    border: "none",
-                    fontWeight: branchMode === "make" ? 700 : 500,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 6,
-                    background: branchMode === "make" ? (dark ? "#334155" : "#ffffff") : "transparent",
-                    color: branchMode === "make" ? (dark ? "#ffffff" : "#0f172a") : "#64748b",
-                    boxShadow: branchMode === "make" ? "0 2px 5px rgba(0,0,0,0.06)" : "none",
-                  }}
-                >
-                  <Icon name="plus" size={13} />
-                  <span>Make a Branch</span>
-                </button>
-              </div>
-
-              {/* Mode 1: Choose from existing branches */}
-              {branchMode === "choose" && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <div className="cem-field">
-                    <label className="cem-label" htmlFor="cem-branchId">
-                      Select Existing Branch
-                    </label>
-                    <div className="cem-input-wrap">
-                      <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
-                      <select
-                        id="cem-branchId"
-                        className="cem-select"
-                        name="branchId"
-                        value={form.branchId}
-                        onChange={handleChange}
-                        disabled={branchesLoading}
-                      >
-                        <option value="">
-                          {branchesLoading ? "Loading branches..." : "— Select a branch —"}
-                        </option>
-                        {branches.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name} ({b.city})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {selectedBranch && (
-                      <p className="cem-field-hint">
-                        Region: <strong>{selectedBranch.region}</strong>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="cem-field">
-                    <label className="cem-label" htmlFor="cem-region">
-                      Region
-                    </label>
-                    <div className="cem-input-wrap">
-                      <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
-                      <input
-                        id="cem-region"
-                        className="cem-input"
-                        type="text"
-                        name="region"
-                        value={form.region}
-                        onChange={handleChange}
-                        placeholder="e.g. West Zone"
-                        readOnly={!!form.branchId}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Mode 2: Make a branch then choose */}
-              {branchMode === "make" && (
-                <div
-                  style={{
-                    background: dark ? "rgba(255,255,255,0.03)" : "#f8fafc",
-                    border: dark ? "1px solid rgba(255,255,255,0.08)" : "1px solid #e2e8f0",
-                    borderRadius: 12,
-                    padding: "14px 16px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#6366f1" }}>
-                      ✦ Make a new branch and choose it for this employee:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setBranchMode("choose")}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#64748b",
-                        fontSize: 11.5,
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                      }}
-                    >
-                      ← Back to choose branch
-                    </button>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 10 }}>
-                    <div className="cem-field">
-                      <label className="cem-label" htmlFor="new-branch-name">
-                        Branch Name <span className="cem-required">*</span>
-                      </label>
-                      <div className="cem-input-wrap">
-                        <span className="cem-input-icon"><Icon name="branches" size={14} /></span>
-                        <input
-                          id="new-branch-name"
-                          className="cem-input"
-                          type="text"
-                          name="name"
-                          value={newBranch.name}
-                          onChange={handleNewBranchChange}
-                          placeholder="e.g. Delhi Branch (North Zone)"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="cem-field">
-                      <label className="cem-label" htmlFor="new-branch-city">
-                        City
-                      </label>
-                      <div className="cem-input-wrap">
-                        <span className="cem-input-icon"><Icon name="mapPin" size={14} /></span>
-                        <input
-                          id="new-branch-city"
-                          className="cem-input"
-                          type="text"
-                          name="city"
-                          value={newBranch.city}
-                          onChange={handleNewBranchChange}
-                          placeholder="e.g. New Delhi"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="cem-field">
-                      <label className="cem-label" htmlFor="new-branch-region">
-                        Region
-                      </label>
-                      <div className="cem-input-wrap">
-                        <span className="cem-input-icon"><Icon name="globe" size={14} /></span>
-                        <input
-                          id="new-branch-region"
-                          className="cem-input"
-                          type="text"
-                          name="region"
-                          value={newBranch.region}
-                          onChange={handleNewBranchChange}
-                          placeholder="e.g. North Zone"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      onClick={handleCreateBranchQuick}
-                      disabled={branchCreating || !newBranch.name.trim()}
-                      className="owner-btn-primary"
-                      style={{
-                        padding: "7px 16px",
-                        fontSize: 12,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        opacity: !newBranch.name.trim() ? 0.6 : 1,
-                      }}
-                    >
-                      <Icon name="check" size={13} />
-                      <span>{branchCreating ? "Creating..." : "✓ Make & Choose This Branch"}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+              <p className="cem-field-hint cem-hint-success">
+                ✓ Operating under the single company branch ({selectedBranch?.name || branches[0]?.name || "Noida Branch"}).
+              </p>
             </div>
 
             <div className="cem-field">
@@ -775,10 +599,10 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
                     id="cem-reportingManagerId"
                     className="cem-select"
                     name="reportingManagerId"
-                    value="__OWNER__"
+                    value={resolvedOwner.id}
                     disabled
                   >
-                    <option value="__OWNER__">Devika Shah (Owner)</option>
+                    <option value={resolvedOwner.id}>{resolvedOwner.fullName}</option>
                   </select>
                 ) : (
                   <select
@@ -806,7 +630,7 @@ export default function CreateEmployeeModal({ onClose, onCreated, dark }) {
               </div>
               {form.role === "BRANCH_MANAGER" ? (
                 <p className="cem-field-hint cem-hint-success">
-                  ✓ Branch Managers report directly to the Company Owner (Devika Shah).
+                  ✓ Branch Managers report directly to the Company Owner ({resolvedOwner.name}).
                 </p>
               ) : selectedManagerObj ? (
                 <p className="cem-field-hint cem-hint-success">

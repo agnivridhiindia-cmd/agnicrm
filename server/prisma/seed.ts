@@ -24,49 +24,20 @@ async function main() {
 
   console.log("🧹 Cleared all old database records.");
 
-  // 2. Create 4 Standard Branches
-  await prisma.branch.createMany({
-    data: [
-      {
-        code: "BR-01",
-        name: "West Zone (Mumbai)",
-        city: "Mumbai, Maharashtra",
-        region: "West Zone",
-        targetRevenue: 4500000,
-        achievedRevenue: 0,
-        status: "Active",
-      },
-      {
-        code: "BR-02",
-        name: "North Zone (Delhi)",
-        city: "New Delhi, NCR",
-        region: "North Zone",
-        targetRevenue: 3800000,
-        achievedRevenue: 0,
-        status: "Active",
-      },
-      {
-        code: "BR-03",
-        name: "South Zone (Bengaluru)",
-        city: "Bengaluru, Karnataka",
-        region: "South Zone",
-        targetRevenue: 4200000,
-        achievedRevenue: 0,
-        status: "Active",
-      },
-      {
-        code: "BR-04",
-        name: "East Zone (Kolkata)",
-        city: "Kolkata, West Bengal",
-        region: "East Zone",
-        targetRevenue: 2500000,
-        achievedRevenue: 0,
-        status: "Active",
-      },
-    ],
+  // 2. Create Single Operating Branch (Noida Branch)
+  await prisma.branch.create({
+    data: {
+      code: "NOIDA-01",
+      name: "Noida Branch",
+      city: "Noida, Uttar Pradesh",
+      region: "Noida",
+      targetRevenue: 5000000,
+      achievedRevenue: 0,
+      status: "Active",
+    },
   });
 
-  console.log("🏢 Created 4 Regional Branches.");
+  console.log("🏢 Created Noida Branch.");
 
   const defaultPasswordHash = await bcrypt.hash("password123", 10);
 

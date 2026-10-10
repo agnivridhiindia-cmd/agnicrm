@@ -155,8 +155,8 @@ After running `npm run seed`, all demo accounts are ready for testing with the d
 
 | Role | Branch / Region | Email | Name |
 | :--- | :--- | :--- | :--- |
-| **Owner** | Pan-India | `owner@agni.com` | Devika Shah |
-| **Branch Manager** | West Zone (Mumbai) | `ariana@agni.com` | Ariana Lee |
+| **Owner** | Pan-India | `agnivridhiindia@gmail.com` | Rahul Singh |
+| **Branch Manager** | West Zone (Mumbai) | `akash@agnivridhiindia.com` | Akash Singh |
 | **Branch Manager** | North Zone (Delhi) | `rajesh.bm@agni.com` | Rajesh Khanna |
 | **Branch Manager** | South Zone (Bengaluru) | `suresh.bm@agni.com` | Suresh Reddy |
 | **Branch Manager** | East Zone (Kolkata) | `subhash.bm@agni.com` | Subhash Banerjee |

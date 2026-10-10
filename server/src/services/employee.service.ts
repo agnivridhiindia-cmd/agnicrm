@@ -51,6 +51,29 @@ export async function createEmployeeService(data: CreateEmployeeParams) {
   // 4. Hash the default password
   const passwordHash = await bcrypt.hash(DEFAULT_EMPLOYEE_PASSWORD, 10);
 
+  // 4b. Dynamically look up Owner and Primary Branch for Branch Manager
+  const dbOwner = await prisma.user.findFirst({
+    where: { role: "OWNER", isDeleted: false },
+    select: { id: true, fullName: true },
+  });
+
+  let effectiveReportingManagerId = data.reportingManagerId || null;
+  let effectiveBranchId = data.branchId || null;
+  let effectiveRegion = data.region?.trim() || null;
+
+  if (data.role === "BRANCH_MANAGER") {
+    if (!effectiveReportingManagerId && dbOwner) {
+      effectiveReportingManagerId = dbOwner.id;
+    }
+    if (!effectiveBranchId) {
+      const primaryBranch = await prisma.branch.findFirst({ where: { status: "Active" } });
+      if (primaryBranch) {
+        effectiveBranchId = primaryBranch.id;
+        if (!effectiveRegion) effectiveRegion = primaryBranch.region;
+      }
+    }
+  }
+
   // 5. Create the employee/user record
   const user = await prisma.user.create({
     data: {
@@ -59,9 +82,9 @@ export async function createEmployeeService(data: CreateEmployeeParams) {
       phone: data.phone?.trim() || null,
       role: data.role,
       passwordHash,
-      branchId: data.branchId || null,
-      region: data.region?.trim() || null,
-      reportingManagerId: data.reportingManagerId || null,
+      branchId: effectiveBranchId,
+      region: effectiveRegion,
+      reportingManagerId: effectiveReportingManagerId,
       status: "Active",
       isDeleted: false,
     },
@@ -70,6 +93,8 @@ export async function createEmployeeService(data: CreateEmployeeParams) {
       reportingManager: true,
     },
   });
+
+  const ownerLabel = dbOwner ? `${dbOwner.fullName} (Owner)` : "Owner";
 
   return {
     success: true,
@@ -86,7 +111,7 @@ export async function createEmployeeService(data: CreateEmployeeParams) {
       reportingManager: user.reportingManager
         ? user.reportingManager.fullName
         : user.role === "BRANCH_MANAGER"
-        ? "Devika Shah (Owner)"
+        ? ownerLabel
         : null,
       status: user.status,
       createdAt: user.createdAt,

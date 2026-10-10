@@ -209,7 +209,7 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
     whereClause.branchId = String(branchId);
   }
 
-  const [users, allBranches, allUsers] = await Promise.all([
+  const [users, allBranches, allUsers, dbOwner] = await Promise.all([
     prisma.user.findMany({
       where: whereClause,
       include: {
@@ -224,6 +224,10 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
     }),
     prisma.branch.findMany(),
     prisma.user.findMany({ select: { id: true, fullName: true, email: true } }),
+    prisma.user.findFirst({
+      where: { role: "OWNER", isDeleted: false },
+      select: { id: true, fullName: true, email: true },
+    }),
   ]);
 
   const branchMap = new Map(allBranches.map((b) => [b.id, b]));
@@ -239,7 +243,7 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
     const reportingManagerName = u.reportingManager
       ? u.reportingManager.fullName
       : u.role === "BRANCH_MANAGER"
-      ? "Devika Shah (Owner)"
+      ? (dbOwner?.fullName ? `${dbOwner.fullName} (Owner)` : "Owner")
       : null;
 
     const originBranchName = u.originBranchId

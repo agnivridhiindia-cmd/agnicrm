@@ -68,6 +68,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
   };
 
   const [dark, setDark] = useState(false);
+  const [ownerName, setOwnerName] = useState("Owner");
 
   // States - ONLY PostgreSQL database is the single source of truth
   const [clients, setClients] = useState([]);
@@ -160,7 +161,20 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
       }
     }
 
+    async function fetchOwnerFromDB() {
+      try {
+        const response = await apiFetch("/auth/users?role=OWNER");
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.users) && resData.users.length > 0 && isMounted) {
+            setOwnerName(resData.users[0].fullName || resData.users[0].name || "Owner");
+          }
+        }
+      } catch (err) {}
+    }
+
     fetchBranchUsersFromDB();
+    fetchOwnerFromDB();
     window.addEventListener("agni_users_updated", fetchBranchUsersFromDB);
     return () => {
       isMounted = false;
@@ -278,7 +292,9 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 empId: "EMP-BM-1002",
                 quota: "₹1,20,00,000",
                 achieved: "₹94,80,000 (79%)",
-                reportingManager: "Yashvardhan Trivedi (Owner)",
+                reportingManager: authUser?.reportingManager?.fullName
+                  ? `${authUser.reportingManager.fullName} (Owner)`
+                  : `${ownerName} (Owner)`,
               }}
               role="Branch Manager"
               roleBadge="Branch Manager"

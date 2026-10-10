@@ -1,6 +1,7 @@
 import React from "react";
 import SimpleModal from "../../components/SimpleModal";
 import Icon from "../../components/Icon";
+import { useAuth } from "../../context/AuthContext";
 
 export default function OwnerEmployeeInfoModal({
   selectedEmployeeInfo,
@@ -9,6 +10,9 @@ export default function OwnerEmployeeInfoModal({
   onOpenClientsUnder,
   onEditEmployee,
 }) {
+  const { userName: authOwnerName } = useAuth() || {};
+  const fallbackOwner = authOwnerName ? `${authOwnerName} (Owner)` : "Owner";
+
   if (!selectedEmployeeInfo) return null;
 
   const initials = selectedEmployeeInfo.name
@@ -98,7 +102,7 @@ export default function OwnerEmployeeInfoModal({
         <div className="owner-modal-card">
           <span className="owner-modal-card-label">Current Reporting Manager</span>
           <span className="owner-modal-card-val">
-            {selectedEmployeeInfo.reportingManager || selectedEmployeeInfo.branchManager || "Devika Shah (Owner)"}
+            {selectedEmployeeInfo.reportingManager || selectedEmployeeInfo.branchManager || fallbackOwner}
           </span>
         </div>
 

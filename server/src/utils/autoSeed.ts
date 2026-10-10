@@ -17,14 +17,11 @@ export async function ensureProductionSeed() {
     if (branchCount === 0) {
       await prisma.branch.createMany({
         data: [
-          { code: "BR-01", name: "West Zone (Mumbai)", city: "Mumbai, Maharashtra", region: "West Zone", targetRevenue: 4500000, status: "Active" },
-          { code: "BR-02", name: "North Zone (Delhi)", city: "New Delhi, NCR", region: "North Zone", targetRevenue: 3800000, status: "Active" },
-          { code: "BR-03", name: "South Zone (Bengaluru)", city: "Bengaluru, Karnataka", region: "South Zone", targetRevenue: 4200000, status: "Active" },
-          { code: "BR-04", name: "East Zone (Kolkata)", city: "Kolkata, West Bengal", region: "East Zone", targetRevenue: 2500000, status: "Active" },
+          { code: "NOIDA-01", name: "Noida Branch", city: "Noida, Uttar Pradesh", region: "Noida", targetRevenue: 5000000, status: "Active" },
         ],
         skipDuplicates: true,
       });
-      logger.info("[AUTO-SEED] Created 4 regional branches.");
+      logger.info("[AUTO-SEED] Created Noida Branch.");
     }
 
     // 2. Ensure Owner exists and password is set to password123

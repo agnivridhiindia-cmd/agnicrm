@@ -1,9 +1,8 @@
 import React from "react";
-import { BranchRevenueChart } from "../../components/charts";
-import { branchRevenueData } from "./mockBranchManagerData";
+import { RevenueTrendChart } from "../../components/charts";
 
 export default function BranchManagerReportsPage({
-  myBranch = "East",
+  myBranch = "West Zone",
 }) {
   const performanceMetrics = [
     { label: "Quarterly Target", value: "₹4,500,000", achieved: "₹4,120,000 Realized", rate: "91.5%", isPositive: true },
@@ -47,14 +46,27 @@ export default function BranchManagerReportsPage({
       <div className="analytics-card bm-analytics-card">
         <div className="panel-header bm-panel-header-gap">
           <div>
-            <p className="eyebrow bm-panel-eyebrow">Cross-Territorial Analysis</p>
-            <h2 className="bm-header-title">Branch Revenue Comparison Chart</h2>
+            <p className="eyebrow bm-panel-eyebrow">Performance Trajectory</p>
+            <h2 className="bm-header-title">Branch Revenue Trend & Growth Analysis</h2>
             <p className="bm-header-subtitle">
-              Comparative billing volume and target settlement distribution across operational regional zones.
+              Cumulative billing volume and target milestone settlement trajectory for the operational branch.
             </p>
           </div>
         </div>
-        <BranchRevenueChart data={branchRevenueData} />
+        <div style={{ padding: "12px 16px" }}>
+          <RevenueTrendChart
+            data={[
+              { label: "Jan", value: 320000 },
+              { label: "Feb", value: 410000 },
+              { label: "Mar", value: 390000 },
+              { label: "Apr", value: 520000 },
+              { label: "May", value: 680000 },
+              { label: "Jun", value: 750000 },
+            ]}
+            color="#9a74e9"
+            height={220}
+          />
+        </div>
       </div>
     </section>
   );

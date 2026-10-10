@@ -17,7 +17,6 @@ export default function BranchManagerClientsPage({
   const [editClientValues, setEditClientValues] = useState(null);
   const [deleteTargetClient, setDeleteTargetClient] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRegionFilter, setSelectedRegionFilter] = useState("all");
   const [notification, setNotification] = useState("");
 
   // Deleted Archive State
@@ -76,15 +75,8 @@ export default function BranchManagerClientsPage({
     }
   };
 
-  const regions = useMemo(() => {
-    return Array.from(new Set(clients.map((c) => c.region || c.branch))).filter(Boolean);
-  }, [clients]);
-
   const filteredClients = useMemo(() => {
     return clients.filter((client) => {
-      if (selectedRegionFilter !== "all") {
-        if (client.region !== selectedRegionFilter && client.branch !== selectedRegionFilter) return false;
-      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = client.name?.toLowerCase().includes(q);
@@ -343,19 +335,6 @@ export default function BranchManagerClientsPage({
                   placeholder="Search by client, company, rep, manager, email..."
                 />
               </div>
-
-              <select
-                className="bm-filter-select"
-                value={selectedRegionFilter}
-                onChange={(e) => setSelectedRegionFilter(e.target.value)}
-              >
-                <option value="all">All Regions &amp; Branches</option>
-                {regions.map((reg) => (
-                  <option key={reg} value={reg}>
-                    {reg}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className="bm-count-badge">

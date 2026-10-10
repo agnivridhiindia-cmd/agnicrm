@@ -39,14 +39,6 @@ const staffActionTypes = [
     accent: "#4e7cff",
   },
   {
-    type: "Transfer Staff",
-    title: "Transfer Staff Member",
-    desc: "Reassign team member to another branch, zone, or manager.",
-    icon: "team",
-    badge: "Inter-Branch Transfer",
-    accent: "#9a74e9",
-  },
-  {
     type: "Delete Staff",
     title: "Delete / Offboard Staff",
     desc: "Submit account deactivation petition and portfolio reallocation to Owner.",
@@ -313,30 +305,17 @@ export default function BranchManagerCreateRequestModal({
           requestedChanges.push({ field: "Client Profile", oldValue: "Current Record", newValue: "Updated Commercial Terms" });
         }
       } else if (selectedType === "Transfer Client") {
-        if (clientTransferMode === "rep") {
-          if (!targetRepName) return;
-          requestedChanges.push({
-            field: "Assigned Sales Representative",
-            oldValue: selectedClient.salesRep || selectedClient.owner || "Current Representative",
-            newValue: targetRepName,
-          });
-          requestedChanges.push({
-            field: "Transfer Governance Scope",
-            oldValue: "Branch Portfolio Reallocation",
-            newValue: `Effective: ${effectiveDate}`,
-          });
-        } else {
-          requestedChanges.push({
-            field: "Branch Reallocation",
-            oldValue: `${selectedClient.branch || selectedClient.region || "Current"} Branch`,
-            newValue: `${clientDestinationBranch} Regional Branch`,
-          });
-          requestedChanges.push({
-            field: "Receiving Branch Lead",
-            oldValue: "Current Branch Manager",
-            newValue: `${clientReceivingManager} (${clientDestinationBranch} BM)`,
-          });
-        }
+        if (!targetRepName) return;
+        requestedChanges.push({
+          field: "Assigned Sales Representative",
+          oldValue: selectedClient.salesRep || selectedClient.owner || "Current Representative",
+          newValue: targetRepName,
+        });
+        requestedChanges.push({
+          field: "Transfer Governance Scope",
+          oldValue: "Branch Portfolio Reallocation",
+          newValue: `Effective: ${effectiveDate}`,
+        });
       } else if (selectedType === "Delete Client") {
         requestedChanges.push({ field: "Commercial Status", oldValue: "Active Client", newValue: "Deactivated / Marked for Archival" });
         requestedChanges.push({ field: "Offboarding Category", oldValue: "—", newValue: deletionCategory });
@@ -356,8 +335,8 @@ export default function BranchManagerCreateRequestModal({
         department: "Client Accounts",
         requestCategory: "Client Account",
         requestType: selectedType,
-        destinationBranch: clientTransferMode === "branch" ? clientDestinationBranch : null,
-        receivingManager: clientTransferMode === "branch" ? clientReceivingManager : targetRepName,
+        destinationBranch: null,
+        receivingManager: targetRepName,
         requestedChanges,
         reason: reason.trim() || `Submitted ${selectedType} petition for ${clientTitle} to Owner.`,
         priority,
@@ -700,83 +679,31 @@ export default function BranchManagerCreateRequestModal({
                 {/* --- B. TRANSFER CLIENT FIELDS --- */}
                 {selectedClient && selectedType === "Transfer Client" && (
                   <div style={{ display: "grid", gap: 14 }}>
-                    <div>
-                      <span className="field-label" style={{ margin: "0 0 6px", display: "block" }}>
-                        Transfer Destination Category
-                      </span>
-                      <div className="bm-target-segmented">
-                        <button
-                          type="button"
-                          className={`bm-target-btn ${clientTransferMode === "rep" ? "active" : ""}`}
-                          onClick={() => setClientTransferMode("rep")}
+                    <div className="bm-modal-fields-grid">
+                      <label className="field-label">
+                        <span>Current Assigned Representative</span>
+                        <input
+                          disabled
+                          value={selectedClient.salesRep || selectedClient.owner || "Unassigned"}
+                          style={{ opacity: 0.7 }}
+                        />
+                      </label>
+                      <label className="field-label">
+                        <span>New Assigned Sales Representative *</span>
+                        <select
+                          value={targetRepName}
+                          onChange={(e) => setTargetRepName(e.target.value)}
+                          required
                         >
-                          <Icon name="user" size={14} />
-                          <span>Reassign Sales Representative</span>
-                        </button>
-                        <button
-                          type="button"
-                          className={`bm-target-btn ${clientTransferMode === "branch" ? "active" : ""}`}
-                          onClick={() => setClientTransferMode("branch")}
-                        >
-                          <Icon name="branches" size={14} />
-                          <span>Inter-Branch Territory Transfer</span>
-                        </button>
-                      </div>
+                          <option value="">Select receiving representative...</option>
+                          {employeesList.map((emp) => (
+                            <option key={emp.name || emp.id} value={emp.name}>
+                              {emp.name} ({emp.role || "Sales Lead"})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
-
-                    {clientTransferMode === "rep" ? (
-                      <div className="bm-modal-fields-grid">
-                        <label className="field-label">
-                          <span>Current Assigned Representative</span>
-                          <input
-                            disabled
-                            value={selectedClient.salesRep || selectedClient.owner || "Unassigned"}
-                            style={{ opacity: 0.7 }}
-                          />
-                        </label>
-                        <label className="field-label">
-                          <span>New Assigned Sales Representative *</span>
-                          <select
-                            value={targetRepName}
-                            onChange={(e) => setTargetRepName(e.target.value)}
-                            required
-                          >
-                            <option value="">Select receiving representative...</option>
-                            {employeesList.map((emp) => (
-                              <option key={emp.name || emp.id} value={emp.name}>
-                                {emp.name} ({emp.role || "Sales Lead"})
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                    ) : (
-                      <div className="bm-modal-fields-grid">
-                        <label className="field-label">
-                          <span>Target Destination Branch</span>
-                          <select
-                            value={clientDestinationBranch}
-                            onChange={(e) => setClientDestinationBranch(e.target.value)}
-                          >
-                            {availableBranches.map((b) => (
-                              <option key={b} value={b}>
-                                {b} Regional Branch
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="field-label">
-                          <span>Receiving Branch Manager</span>
-                          <input
-                            type="text"
-                            value={clientReceivingManager}
-                            onChange={(e) => setClientReceivingManager(e.target.value)}
-                            placeholder="e.g. Arun Patel"
-                            required
-                          />
-                        </label>
-                      </div>
-                    )}
 
                     <div className="bm-modal-fields-grid">
                       <label className="field-label">
