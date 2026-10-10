@@ -89,7 +89,7 @@ export default function BranchManagerClientsPage({
       }
       return true;
     });
-  }, [clients, selectedRegionFilter, searchQuery]);
+  }, [clients, searchQuery]);
 
   const filteredDeletedClients = useMemo(() => {
     if (!archiveSearchQuery.trim()) return deletedClients;
