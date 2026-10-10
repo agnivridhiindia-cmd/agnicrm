@@ -347,7 +347,7 @@ export default function UserProfileMenu({
                       </span>
                     </div>
                     <span className="upm-modal-subtitle">
-                      {user.designation || role} • Emp ID: {user.empId || (storedUser?.id ? `EMP-${storedUser.id.slice(0, 6).toUpperCase()}` : "EMP-SLS-2024")}
+                      {user.designation || role}
                     </span>
                   </div>
                 </div>
@@ -571,18 +571,7 @@ export default function UserProfileMenu({
                 )}
               </div>
 
-              {/* Security Clearance */}
-              <div className="upm-security-strip">
-                <div className="upm-security-status">
-                  <Icon name="checkCircle" size={17} style={{ color: "#34d399", flexShrink: 0 }} />
-                  <span>
-                    Two-Factor Authentication: <strong>Enabled (Hardware &amp; SMS)</strong>
-                  </span>
-                </div>
-                <span className="upm-session-ip-badge">
-                  Session IP: 192.168.1.104
-                </span>
-              </div>
+
 
               {/* Footer Buttons */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 22, paddingTop: 16, borderTop: "1px solid rgba(255, 255, 255, 0.08)" }}>
