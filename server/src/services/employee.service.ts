@@ -72,6 +72,24 @@ export async function createEmployeeService(data: CreateEmployeeParams) {
         if (!effectiveRegion) effectiveRegion = primaryBranch.region;
       }
     }
+  } else if (data.role === "MANAGER" || data.role === "IT" || data.role === "MARKETING" || data.role === "ADMIN") {
+    // Sales Manager and departmental leads report to Branch Manager of their branch
+    if (!effectiveBranchId) {
+      const primaryBranch = await prisma.branch.findFirst({ where: { status: "Active" } });
+      if (primaryBranch) {
+        effectiveBranchId = primaryBranch.id;
+        if (!effectiveRegion) effectiveRegion = primaryBranch.region;
+      }
+    }
+    if (!effectiveReportingManagerId && effectiveBranchId) {
+      const branchManager = await prisma.user.findFirst({
+        where: { role: "BRANCH_MANAGER", branchId: effectiveBranchId, isDeleted: false },
+        select: { id: true },
+      });
+      if (branchManager) {
+        effectiveReportingManagerId = branchManager.id;
+      }
+    }
   }
 
   // 5. Create the employee/user record

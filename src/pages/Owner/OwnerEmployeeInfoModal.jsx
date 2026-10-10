@@ -87,14 +87,21 @@ export default function OwnerEmployeeInfoModal({
         <div className="owner-modal-card">
           <span className="owner-modal-card-label">Current Branch Territory</span>
           <span className="owner-modal-card-val" style={{ color: "#4f46e5", fontWeight: 700 }}>
-            {selectedEmployeeInfo.branch} Branch
+            {selectedEmployeeInfo.branch
+              ? selectedEmployeeInfo.branch.endsWith("Branch")
+                ? selectedEmployeeInfo.branch
+                : `${selectedEmployeeInfo.branch} Branch`
+              : "Noida Branch"}
           </span>
         </div>
 
         <div className="owner-modal-card">
           <span className="owner-modal-card-label">Origin Branch (Started At)</span>
           <span className="owner-modal-card-val" style={{ color: "#0f766e", fontWeight: 700 }}>
-            {selectedEmployeeInfo.originBranch || selectedEmployeeInfo.branch || "Original Branch"} Branch
+            {(() => {
+              const orig = selectedEmployeeInfo.originBranch || selectedEmployeeInfo.branch || "Noida Branch";
+              return orig.endsWith("Branch") ? orig : `${orig} Branch`;
+            })()}
           </span>
         </div>
 
@@ -102,14 +109,26 @@ export default function OwnerEmployeeInfoModal({
         <div className="owner-modal-card">
           <span className="owner-modal-card-label">Current Reporting Manager</span>
           <span className="owner-modal-card-val">
-            {selectedEmployeeInfo.reportingManager || selectedEmployeeInfo.branchManager || fallbackOwner}
+            {selectedEmployeeInfo.reportingManager ||
+              selectedEmployeeInfo.branchManager ||
+              ((selectedEmployeeInfo.role === "Sales Manager" ||
+                selectedEmployeeInfo.rawRole === "MANAGER" ||
+                selectedEmployeeInfo.role === "MANAGER")
+                ? "Branch Manager"
+                : fallbackOwner)}
           </span>
         </div>
 
         <div className="owner-modal-card">
           <span className="owner-modal-card-label">Initial Manager (Started Under)</span>
           <span className="owner-modal-card-val">
-            {selectedEmployeeInfo.initialManager || selectedEmployeeInfo.reportingManager || "Foundational Manager"}
+            {selectedEmployeeInfo.initialManager ||
+              selectedEmployeeInfo.reportingManager ||
+              ((selectedEmployeeInfo.role === "Sales Manager" ||
+                selectedEmployeeInfo.rawRole === "MANAGER" ||
+                selectedEmployeeInfo.role === "MANAGER")
+                ? "Branch Manager"
+                : "Foundational Manager")}
           </span>
         </div>
 

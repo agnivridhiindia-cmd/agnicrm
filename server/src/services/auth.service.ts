@@ -223,7 +223,7 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
       orderBy: { fullName: "asc" },
     }),
     prisma.branch.findMany(),
-    prisma.user.findMany({ select: { id: true, fullName: true, email: true } }),
+    prisma.user.findMany({ select: { id: true, fullName: true, email: true, role: true, branchId: true } }),
     prisma.user.findFirst({
       where: { role: "OWNER", isDeleted: false },
       select: { id: true, fullName: true, email: true },
@@ -233,6 +233,13 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
   const branchMap = new Map(allBranches.map((b) => [b.id, b]));
   const userMap = new Map(allUsers.map((u) => [u.id, u]));
 
+  const branchManagerMap = new Map<string, { id: string; fullName: string }>();
+  for (const au of allUsers) {
+    if (au.role === "BRANCH_MANAGER" && au.branchId) {
+      branchManagerMap.set(au.branchId, au);
+    }
+  }
+
   const formattedUsers = users.map((u) => {
     let roleLabel: string = u.role;
     if (u.role === "SALES_PERSON") roleLabel = "Sales Person";
@@ -240,11 +247,20 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
     else if (u.role === "MANAGER") roleLabel = "Sales Manager";
     else if (u.role === "ADMIN") roleLabel = "Admin Lead";
 
-    const reportingManagerName = u.reportingManager
-      ? u.reportingManager.fullName
-      : u.role === "BRANCH_MANAGER"
-      ? (dbOwner?.fullName ? `${dbOwner.fullName} (Owner)` : "Owner")
-      : null;
+    let reportingManagerName = u.reportingManager ? u.reportingManager.fullName : null;
+    if (u.role === "BRANCH_MANAGER") {
+      reportingManagerName = dbOwner?.fullName ? `${dbOwner.fullName} (Owner)` : "Owner";
+    } else if (u.role === "MANAGER" || u.role === "IT" || u.role === "MARKETING" || u.role === "ADMIN") {
+      // Sales Manager and branch leads report to Branch Manager
+      if (!reportingManagerName || (u.reportingManager && u.reportingManager.role === "OWNER")) {
+        const bm = u.branchId ? branchManagerMap.get(u.branchId) : null;
+        if (bm) {
+          reportingManagerName = bm.fullName;
+        } else if (!reportingManagerName) {
+          reportingManagerName = "Branch Manager";
+        }
+      }
+    }
 
     const originBranchName = u.originBranchId
       ? branchMap.get(u.originBranchId)?.name || "Origin Branch"
@@ -252,6 +268,8 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
 
     const initialManagerName = u.initialManagerId
       ? userMap.get(u.initialManagerId)?.fullName || null
+      : u.role === "MANAGER"
+      ? (u.branchId ? branchManagerMap.get(u.branchId)?.fullName : null) || reportingManagerName
       : null;
 
     const enrichedLogs = (u.employeeTransferLogs || []).map((log) => ({
