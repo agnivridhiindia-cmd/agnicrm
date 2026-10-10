@@ -2,7 +2,6 @@ import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import RevenueSummaryCard from "../../components/RevenueSummaryCard";
 import { RevenueTrendChart } from "../../components/charts";
-import { revenueSeries } from "./mockOwnerData";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 
 export default function OwnerRevenuePage({
@@ -60,19 +59,13 @@ export default function OwnerRevenuePage({
 
   const revenueTotal = revenueReceived + revenuePending;
 
+  // Selected chart checkpoints dynamically sourced from real database transactions only
   const selectedRevenueData = useMemo(() => {
-    const baseSeries = revenueSeries[activeRange] || revenueSeries.monthly;
-    if (revenueReceived === 0) {
-      return baseSeries.map((pt) => ({ ...pt, value: 0 }));
+    if (metrics.chartSeries && Array.isArray(metrics.chartSeries[activeRange])) {
+      return metrics.chartSeries[activeRange];
     }
-
-    const baseTotal = baseSeries.reduce((sum, pt) => sum + pt.value, 0) || 1;
-    const scaleRatio = revenueReceived / baseTotal;
-    return baseSeries.map((pt) => ({
-      label: pt.label,
-      value: Math.round(pt.value * scaleRatio),
-    }));
-  }, [activeRange, revenueReceived]);
+    return [];
+  }, [activeRange, metrics]);
 
   const averageRunRate = selectedRevenueData.length > 0
     ? Math.round(revenueReceived / selectedRevenueData.length)
@@ -125,23 +118,31 @@ export default function OwnerRevenuePage({
       {/* Toolbar Filter */}
       <div className="analytics-card owner-toolbar-card">
         <div className="owner-toolbar-filters">
-          <label className="field-label" style={{ margin: 0 }}>
-            <span>Time Horizon:</span>
-            <select
-              className="owner-filter-select"
-              value={activeRange}
-              onChange={(event) => handleRangeChange(event.target.value)}
-            >
-              <option value="daily">Daily Collection</option>
-              <option value="weekly">Weekly Cycle</option>
-              <option value="monthly">Monthly Cycle</option>
-              <option value="yearly">Yearly Aggregate</option>
-              <option value="allTime">All-Time Cumulative</option>
-            </select>
-          </label>
+          <div className="owner-filter-control-group">
+            <label className="owner-filter-inline-label" htmlFor="owner-revenue-horizon-filter">
+              <Icon name="calendarWeek" size={13} />
+              <span>Time Horizon:</span>
+            </label>
+            <div className="owner-select-wrapper">
+              <select
+                id="owner-revenue-horizon-filter"
+                className="owner-filter-select"
+                value={activeRange}
+                onChange={(event) => handleRangeChange(event.target.value)}
+              >
+                <option value="daily">Daily Collection</option>
+                <option value="weekly">Weekly Cycle</option>
+                <option value="monthly">Monthly Cycle</option>
+                <option value="yearly">Yearly Aggregate</option>
+                <option value="allTime">All-Time Cumulative</option>
+              </select>
+              <span className="owner-select-chevron">▾</span>
+            </div>
+          </div>
         </div>
 
         <div className="owner-count-badge">
+          <span className="owner-count-dot"></span>
           <span>Active Cycle:</span>
           <strong>{activeRange.toUpperCase()}</strong>
         </div>

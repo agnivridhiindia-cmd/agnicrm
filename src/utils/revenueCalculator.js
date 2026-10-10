@@ -165,6 +165,7 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
 
   const receivedClientsList = [];
   const pendingClientsList = [];
+  const transactions = [];
 
   const processCollection = (amountGross, dateInput, spName, branchName, clientOrInvName) => {
     if (isMockClient(clientOrInvName)) return;
@@ -189,6 +190,12 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
 
     br.totalNet += net;
     overallReceivedNetTotal += net;
+
+    transactions.push({
+      net,
+      gross,
+      timestamp: timestamp !== null ? timestamp : endOfToday,
+    });
 
     if (cName) {
       receivedClientsList.push({
@@ -445,6 +452,90 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     }
   }
 
+  // 1. Daily Chart Series (Past 7 days ending today)
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dailyChartSeries = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime();
+    const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+    const label = dayNames[d.getDay()];
+
+    const dayNet = transactions
+      .filter((t) => t.timestamp >= startOfDay && t.timestamp <= endOfDay)
+      .reduce((sum, t) => sum + t.net, 0);
+
+    dailyChartSeries.push({ label, value: dayNet });
+  }
+
+  // 2. Weekly Chart Series (Past 4 weeks ending today)
+  const weeklyChartSeries = [];
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  for (let i = 3; i >= 0; i--) {
+    const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i * 7, 23, 59, 59, 999).getTime();
+    const weekStart = weekEnd - weekMs + 1;
+    const label = `W${4 - i}`;
+
+    const weekNet = transactions
+      .filter((t) => t.timestamp >= weekStart && t.timestamp <= weekEnd)
+      .reduce((sum, t) => sum + t.net, 0);
+
+    weeklyChartSeries.push({ label, value: weekNet });
+  }
+
+  // 3. Monthly Chart Series
+  const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const currYear = now.getFullYear();
+  const currMonth = now.getMonth();
+  const hasOlderInYear = transactions.some((t) => {
+    const td = new Date(t.timestamp);
+    return td.getFullYear() === currYear && td.getMonth() < currMonth - 5;
+  });
+
+  const monthlyChartSeries = [];
+  if (hasOlderInYear) {
+    for (let m = 0; m <= currMonth; m++) {
+      const label = shortMonths[m];
+      const mNet = transactions
+        .filter((t) => {
+          const td = new Date(t.timestamp);
+          return td.getFullYear() === currYear && td.getMonth() === m;
+        })
+        .reduce((sum, t) => sum + t.net, 0);
+      monthlyChartSeries.push({ label, value: mNet });
+    }
+  } else {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currYear, currMonth - i, 1);
+      const targetYr = d.getFullYear();
+      const targetMo = d.getMonth();
+      const label = shortMonths[targetMo];
+
+      const mNet = transactions
+        .filter((t) => {
+          const td = new Date(t.timestamp);
+          return td.getFullYear() === targetYr && td.getMonth() === targetMo;
+        })
+        .reduce((sum, t) => sum + t.net, 0);
+
+      monthlyChartSeries.push({ label, value: mNet });
+    }
+  }
+
+  // 4. Yearly Chart Series (Past 4 years ending current year)
+  const yearlyChartSeries = [];
+  for (let i = 3; i >= 0; i--) {
+    const yr = currYear - i;
+    const label = String(yr);
+    const yrNet = transactions
+      .filter((t) => new Date(t.timestamp).getFullYear() === yr)
+      .reduce((sum, t) => sum + t.net, 0);
+    yearlyChartSeries.push({ label, value: yrNet });
+  }
+
+  // 5. All-Time Chart Series
+  const allTimeChartSeries = [...yearlyChartSeries];
+
   return {
     dailyNet: dailyNetTotal,
     weeklyNet: weeklyNetTotal,
@@ -452,6 +543,14 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     yearlyNet: resolvedYearlyNet,
     totalReceivedNet: overallReceivedNetTotal,
     sparklineData,
+
+    chartSeries: {
+      daily: dailyChartSeries,
+      weekly: weeklyChartSeries,
+      monthly: monthlyChartSeries,
+      yearly: yearlyChartSeries,
+      allTime: allTimeChartSeries,
+    },
     
     dailyPendingNet,
     weeklyPendingNet,
