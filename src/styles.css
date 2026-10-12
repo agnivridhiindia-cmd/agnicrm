@@ -2123,6 +2123,74 @@ form {
   max-height: 160px;
 }
 
+/* 12-Month Revenue Bar Chart Text & Element High-Contrast Styles */
+.monthly-bar-val {
+  fill: #1e1b4b !important;
+  font-weight: 800 !important;
+  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.8));
+}
+
+.monthly-bar-label {
+  fill: #475569 !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease;
+}
+
+.monthly-bar-label.hovered {
+  fill: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.monthly-bar-label.current {
+  fill: #6366f1 !important;
+  font-weight: 800 !important;
+}
+
+.monthly-bar-baseline {
+  stroke: #94a3b8 !important;
+  stroke-opacity: 0.45 !important;
+}
+
+.monthly-bar-track {
+  fill: rgba(99, 102, 241, 0.06) !important;
+}
+
+.monthly-bar-slot-hover {
+  fill: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Dark Theme Overrides for Monthly Bar Chart */
+.dashboard-dark .monthly-bar-val {
+  fill: #ffffff !important;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+}
+
+.dashboard-dark .monthly-bar-label {
+  fill: #94a3b8 !important;
+}
+
+.dashboard-dark .monthly-bar-label.hovered {
+  fill: #f8fafc !important;
+}
+
+.dashboard-dark .monthly-bar-label.current {
+  fill: #a78bfa !important;
+  font-weight: 800 !important;
+}
+
+.dashboard-dark .monthly-bar-baseline {
+  stroke: #475569 !important;
+  stroke-opacity: 0.5 !important;
+}
+
+.dashboard-dark .monthly-bar-track {
+  fill: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dashboard-dark .monthly-bar-slot-hover {
+  fill: rgba(255, 255, 255, 0.08) !important;
+}
+
 .dashboard-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 344px;

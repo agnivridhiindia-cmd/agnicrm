@@ -4,7 +4,6 @@ export const navItems = [
   { icon: "clients", label: "Clients" },
   { icon: "overview", label: "Requests" },
   { icon: "revenue", label: "Revenue" },
-  { icon: "reports", label: "Reports" },
 ];
 
 export const kpiCards = [

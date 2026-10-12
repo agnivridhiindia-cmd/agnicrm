@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Icon from "../../components/Icon";
 import RevenueSummaryCard from "../../components/RevenueSummaryCard";
-import { RevenueTrendChart } from "../../components/charts";
-import { revenueSeries } from "./mockManagerData";
+import { MonthlyRevenueBarChart } from "../../components/charts";
+import { apiFetch } from "../../services/apiClient";
 import {
   calculatePaymentMetricsFromClients,
   formatCurrency,
@@ -22,25 +22,106 @@ export default function ManagerRevenuePage({
 }) {
   const [revenueRange, setRevenueRange] = useState("monthly");
   const [revenueSalesPersonFilter, setRevenueSalesPersonFilter] = useState("all");
+  const [dbClients, setDbClients] = useState(clients);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchClients() {
+      try {
+        const res = await apiFetch("/clients");
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && isMounted) {
+            setDbClients(json.data);
+          }
+        }
+      } catch (err) {
+        console.warn("Error fetching clients for ManagerRevenuePage:", err);
+      }
+    }
+    fetchClients();
+    const handleUpdate = () => fetchClients();
+    window.addEventListener("agni_clients_updated", handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("agni_clients_updated", handleUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Array.isArray(clients) && clients.length > 0) {
+      setDbClients(clients);
+    }
+  }, [clients]);
+
+  const activeClients = useMemo(() => {
+    return Array.isArray(dbClients) && dbClients.length > 0 ? dbClients : clients;
+  }, [dbClients, clients]);
 
   // Dynamic payment metrics directly calculated from live client records & salesperson sales
   const liveMetrics = useMemo(() => {
-    return calculatePaymentMetricsFromClients(clients, branchTeam, revenueSalesPersonFilter);
-  }, [clients, branchTeam, revenueSalesPersonFilter]);
+    return calculatePaymentMetricsFromClients(activeClients, branchTeam, revenueSalesPersonFilter);
+  }, [activeClients, branchTeam, revenueSalesPersonFilter]);
 
-  const selectedRevenueData = useMemo(() => {
-    const rawData = revenueSeries[revenueRange] || revenueSeries.monthly;
-    if (revenueSalesPersonFilter === "all") {
-      return rawData;
-    }
-    const selectedId = String(revenueSalesPersonFilter);
-    const memberIndex = branchTeam.findIndex((m) => String(m.id) === selectedId || m.name === selectedId);
-    const factor = memberIndex >= 0 ? 0.45 + ((memberIndex % 3) * 0.15) : 0.5;
-    return rawData.map((item) => ({
-      ...item,
-      value: Math.round(item.value * factor),
+  // 12-Month revenue bar chart series strictly calculated from PostgreSQL database
+  const twelveMonthData = useMemo(() => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlyTotals = new Array(12).fill(0);
+    const today = new Date();
+    const currYear = today.getFullYear();
+
+    const clientList = Array.isArray(activeClients) ? activeClients : [];
+
+    clientList.forEach((c) => {
+      if (!c) return;
+
+      // Filter by salesperson if selected
+      if (revenueSalesPersonFilter !== "all") {
+        const repName = (c.salesRep || c.assignedSalesPerson || c.salesPerson || c.owner || "").toLowerCase();
+        if (repName !== revenueSalesPersonFilter.toLowerCase()) {
+          return;
+        }
+      }
+
+      // Check detailed payment transactions from PostgreSQL
+      const subPayments = Array.isArray(c.payments) && c.payments.length > 0
+        ? c.payments
+        : (Array.isArray(c.paymentsHistory) && c.paymentsHistory.length > 0
+          ? c.paymentsHistory
+          : (Array.isArray(c.invoices) && c.invoices.some((inv) => Array.isArray(inv.payments) && inv.payments.length > 0)
+            ? c.invoices.flatMap((inv) => inv.payments || [])
+            : null));
+
+      if (subPayments && subPayments.length > 0) {
+        subPayments.forEach((p) => {
+          if (!p) return;
+          const st = (p.status || "").toLowerCase();
+          if (st === "failed" || st === "cancelled") return;
+          const amt = parseRevenueValue(p.amount || p.paidAmount || 0);
+          if (amt <= 0) return;
+          const dt = parseDate(p.paymentDate || p.date || p.createdAt || c.updatedAt);
+          if (dt.getFullYear() === currYear) {
+            monthlyTotals[dt.getMonth()] += parseNetRevenue(amt);
+          }
+        });
+      } else {
+        const rec = parseRevenueValue(c.paymentReceived || (c.paymentStatus === "Paid" ? c.totalPayment || c.amount : 0));
+        if (rec > 0) {
+          const dtStr = c.lastPaymentDate || c.paymentDate || c.createdAt || c.startDate || c.updatedAt;
+          const dt = parseDate(dtStr);
+          if (dt.getFullYear() === currYear) {
+            monthlyTotals[dt.getMonth()] += parseNetRevenue(rec);
+          }
+        }
+      }
+    });
+
+    return months.map((label, idx) => ({
+      label,
+      value: monthlyTotals[idx],
     }));
-  }, [revenueRange, revenueSalesPersonFilter, branchTeam]);
+  }, [activeClients, revenueSalesPersonFilter]);
+
 
   const { revenueReceived, revenuePending, revenueTotal } = useMemo(() => {
     let rec = 0;
@@ -48,8 +129,8 @@ export default function ManagerRevenuePage({
     let tot = 0;
     const today = new Date();
 
-    if (Array.isArray(clients)) {
-      clients.forEach(c => {
+    if (Array.isArray(activeClients)) {
+      activeClients.forEach(c => {
         // Apply Salesperson Filter
         if (revenueSalesPersonFilter !== "all") {
           const repName = (c.salesRep || c.assignedSalesPerson || c.owner || "").toLowerCase();
@@ -96,7 +177,7 @@ export default function ManagerRevenuePage({
       revenuePending: netPend,
       revenueTotal: netRec + netPend
     };
-  }, [clients, revenueRange, revenueSalesPersonFilter]);
+  }, [activeClients, revenueRange, revenueSalesPersonFilter]);
 
   const totalCollectedPct = revenueTotal > 0 ? Math.round((revenueReceived / revenueTotal) * 100) : 0;
   const totalPendingPct = revenueTotal > 0 ? Math.round((revenuePending / revenueTotal) * 100) : 0;
@@ -217,12 +298,12 @@ export default function ManagerRevenuePage({
         <div className="revenue-chart-panel">
           <div className="revenue-chip">
             <Icon name="arrowUp" size={14} />
-            <span>Team Pipeline Trend</span>
+            <span>12-Month Revenue Breakdown</span>
           </div>
-          <RevenueTrendChart
-            data={selectedRevenueData}
-            color="#8c5ff8"
-            gradientId="managerRevGrad"
+          <MonthlyRevenueBarChart
+            data={twelveMonthData}
+            barColor="#8c5ff8"
+            gradientId="managerMonthlyBarGrad"
           />
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import RevenueSummaryCard from "../../components/RevenueSummaryCard";
 import Icon from "../../components/Icon";
-import { RevenueTrendChart } from "../../components/charts";
+import { MonthlyRevenueBarChart } from "../../components/charts";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 
 export default function BranchManagerRevenuePage({
@@ -152,12 +152,13 @@ export default function BranchManagerRevenuePage({
         <div className="revenue-chart-panel">
           <div className="revenue-chip">
             <Icon name="arrowUp" size={14} />
-            <span>Branch Pipeline Trend</span>
+            <span>12-Month Revenue Breakdown</span>
           </div>
-          <RevenueTrendChart
-            data={selectedRevenueData}
-            color="#8c5ff8"
-            gradientId="bmRevGrad"
+          <MonthlyRevenueBarChart
+            data={metrics.chartSeries?.monthly || selectedRevenueData}
+            barColor="#8c5ff8"
+            gradientId="bmRevenueBarGrad"
+            height={150}
           />
         </div>
       </div>

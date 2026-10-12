@@ -712,7 +712,6 @@ export default function BranchManagerRequestsPage({
                   <th>Action Type</th>
                   <th>Date</th>
                   <th>Status</th>
-                  <th>Decided Date</th>
                   <th className="bm-req-text-right">Action</th>
                 </tr>
               </thead>
@@ -734,7 +733,6 @@ export default function BranchManagerRequestsPage({
                     <td><strong>{item.requestType}</strong></td>
                     <td>{item.createdAt}</td>
                     <td>{statusBadge(item.status)}</td>
-                    <td>{item.decisionDate || "Pending Review"}</td>
                     <td className="bm-req-text-right">
                       <button
                         type="button"
@@ -752,7 +750,7 @@ export default function BranchManagerRequestsPage({
                 ))}
                 {historyList.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="sales-empty-cell">
+                    <td colSpan={7} className="sales-empty-cell">
                       No historical request records found matching filters.
                     </td>
                   </tr>

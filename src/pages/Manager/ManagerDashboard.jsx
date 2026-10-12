@@ -12,7 +12,6 @@ import ManagerTeamPage from "./ManagerTeamPage";
 import ManagerClientsPage from "./ManagerClientsPage";
 import ManagerRequestsPage from "./ManagerRequestsPage";
 import ManagerRevenuePage from "./ManagerRevenuePage";
-import ManagerReportsPage from "./ManagerReportsPage";
 import "./manager.css";
 
 import { getManagerBranchDetails, normalizeSalesPersonName, sanitizeClientRecord, mergeSecondaryClients, syncTeamHierarchyFromDB } from "../../utils/branchHelper";
@@ -44,9 +43,6 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
       request: "Requests",
       revenue: "Revenue",
       revenues: "Revenue",
-      reports: "Reports",
-      report: "Reports",
-      analytics: "Reports",
     }),
     []
   );
@@ -500,18 +496,6 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                 clients={branchClients}
               />
             }
-          />
-          <Route
-            path="reports"
-            element={<ManagerReportsPage branchTeam={branchTeam} clients={branchClients} />}
-          />
-          <Route
-            path="report"
-            element={<ManagerReportsPage branchTeam={branchTeam} clients={branchClients} />}
-          />
-          <Route
-            path="analytics"
-            element={<ManagerReportsPage branchTeam={branchTeam} clients={branchClients} />}
           />
           <Route
             path="*"
