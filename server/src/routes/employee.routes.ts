@@ -9,6 +9,7 @@ import {
   getDeletedEmployees,
   restoreEmployee,
   getTeamHierarchy,
+  updateEmployee,
 } from "../controllers/employee.controller";
 
 const router = Router();
@@ -58,6 +59,13 @@ router.post(
   "/:id/restore",
   authorizeRoles(Role.OWNER, Role.ADMIN),
   restoreEmployee
+);
+
+// PATCH /api/v1/employees/:id — update employee details, designation, quota, credentials (Owner/Admin only)
+router.patch(
+  "/:id",
+  authorizeRoles(Role.OWNER, Role.ADMIN),
+  updateEmployee
 );
 
 export default router;

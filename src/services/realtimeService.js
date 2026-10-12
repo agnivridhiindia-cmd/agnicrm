@@ -3,6 +3,7 @@
 // and updates salesperson, manager, and admin screens immediately without background polling loops.
 
 import { API_BASE_URL } from "./apiClient";
+import { saveSalesPersonConfig } from "../utils/salesConfigHelper";
 
 let eventSourceInstance = null;
 let reconnectTimer = null;
@@ -121,6 +122,25 @@ export function initRealtimeService() {
         else if (data.type === "CLIENT_UPDATED" || data.type === "CLIENT_CREATED" || data.type === "CLIENT_DELETED") {
           window.dispatchEvent(new CustomEvent("agni_clients_updated", { detail: data.payload }));
           window.dispatchEvent(new CustomEvent("agni_pending_updated", { detail: data.payload }));
+        }
+
+        // Handle Real-time Employee & Staff Profile / Quota Updates
+        else if (data.type === "EMPLOYEE_UPDATED" || data.type === "EMPLOYEE_CREATED" || data.type === "EMPLOYEE_DELETED") {
+          const payload = data.payload || {};
+          if (payload.fullName || payload.name || payload.id || payload.email) {
+            const targets = [payload.fullName, payload.name, payload.id, payload.email].filter(Boolean);
+            if (payload.designation !== undefined || payload.targetQuota !== undefined) {
+              targets.forEach((key) => {
+                saveSalesPersonConfig(key, {
+                  designation: payload.designation,
+                  quota: payload.targetQuota,
+                });
+              });
+            }
+          }
+          window.dispatchEvent(new CustomEvent("agni_employees_updated", { detail: data.payload }));
+          window.dispatchEvent(new CustomEvent("agni_users_updated", { detail: data.payload }));
+          window.dispatchEvent(new CustomEvent("agni_sales_config_updated", { detail: data.payload }));
         }
       } catch (err) {
         console.warn("[SSE] Error handling incoming SSE payload:", err);

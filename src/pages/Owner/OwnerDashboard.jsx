@@ -12,7 +12,7 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import ActivityTracker from "../../components/ActivityTracker";
 import { getTrackerState, getCanonicalSchemeName } from "../../utils/schemeTracker";
 import { sanitizeClientRecord, normalizeSalesPersonName, sortByRoleRanking, mergeSecondaryClients } from "../../utils/branchHelper";
-import { getSalesPersonProfile } from "../../utils/salesConfigHelper";
+import { getSalesPersonProfile, getSalesPersonQuota, saveSalesPersonConfig } from "../../utils/salesConfigHelper";
 import { apiFetch } from "../../services/apiClient";
 import { isMockClient } from "../../utils/revenueCalculator";
 import { ACTIVITY_STAGES } from "../Admin/mockAdminData";
@@ -241,13 +241,17 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 if (!u) return;
                 const emailKey = (u.email || "").toLowerCase().trim();
                 const displayRole = u.designation || getSalesPersonProfile(u.fullName || u.name || u.id, u.role || u.rawRole);
+                const quotaVal = u.targetQuota ? Number(u.targetQuota) : (getSalesPersonQuota(u.fullName || u.name || u.id) || 80000);
                 dedupeMap.set(emailKey, {
                   ...u,
                   id: u.id,
                   name: u.fullName || u.name,
+                  fullName: u.fullName || u.name,
                   role: displayRole || u.role || u.rawRole,
                   designation: u.designation || displayRole,
                   rawRole: u.rawRole || u.role,
+                  targetQuota: quotaVal,
+                  quota: `₹${quotaVal.toLocaleString("en-IN")}`,
                   branch: u.branch ? (typeof u.branch === "string" ? u.branch : u.branch.name) : "West Zone (Mumbai)",
                 });
               });
@@ -270,10 +274,12 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
     fetchDBOwnerEmployees();
     window.addEventListener("agni_sales_config_updated", fetchDBOwnerEmployees);
     window.addEventListener("agni_employees_updated", fetchDBOwnerEmployees);
+    window.addEventListener("agni_users_updated", fetchDBOwnerEmployees);
     window.addEventListener("storage", fetchDBOwnerEmployees);
     return () => {
       window.removeEventListener("agni_sales_config_updated", fetchDBOwnerEmployees);
       window.removeEventListener("agni_employees_updated", fetchDBOwnerEmployees);
+      window.removeEventListener("agni_users_updated", fetchDBOwnerEmployees);
       window.removeEventListener("storage", fetchDBOwnerEmployees);
     };
   }, []);
@@ -521,14 +527,16 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
   };
 
   const handleOpenEditEmployee = (employee) => {
+    const rawQuota = employee.targetQuota || getSalesPersonQuota(employee.name || employee.fullName || employee.id) || 80000;
     setEditModal({
       type: "employee",
       item: employee,
       values: {
-        name: employee.name,
+        name: employee.name || employee.fullName,
         email: employee.email,
         phone: employee.phone,
-        role: employee.role,
+        role: employee.designation || employee.role,
+        targetQuota: Number(rawQuota) || 80000,
       },
     });
   };
@@ -713,15 +721,74 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       // Broadcast update event across all dashboards
       window.dispatchEvent(new Event("agni_clients_updated"));
       window.dispatchEvent(new Event("storage"));
-      return;
     } else if (editModal.type === "employee") {
+      const empId = editModal.item.id;
+      const parsedQuota = parseFloat(String(editModal.values.targetQuota ?? editModal.values.quota ?? 80000).replace(/[^0-9.]/g, "")) || 80000;
+      const updatedEmp = {
+        ...editModal.item,
+        ...editModal.values,
+        name: editModal.values.name || editModal.item.name,
+        fullName: editModal.values.name || editModal.item.name,
+        email: editModal.values.email || editModal.item.email,
+        phone: editModal.values.phone || editModal.item.phone,
+        role: editModal.values.role || editModal.item.role,
+        designation: editModal.values.role || editModal.item.designation || editModal.item.role,
+        targetQuota: parsedQuota,
+        quota: `₹${parsedQuota.toLocaleString("en-IN")}`,
+      };
+
       setEmployeesList((prev) =>
-        prev.map((item) =>
-          item.id === editModal.item.id ? { ...item, ...editModal.values } : item
-        )
+        sortByRoleRanking(prev.map((item) => (item.id === empId ? updatedEmp : item)))
       );
-      showToast(`Saved updates for employee "${editModal.values.name || editModal.item.name}"`);
+      showToast(`✓ Saved updates for employee "${updatedEmp.name}"`);
       setEditModal(null);
+
+      // Save to localStorage for immediate synchronous UI reflections across components
+      const empName = updatedEmp.name;
+      saveSalesPersonConfig(empName, {
+        designation: updatedEmp.designation,
+        quota: parsedQuota,
+      });
+      if (empId) {
+        saveSalesPersonConfig(empId, {
+          designation: updatedEmp.designation,
+          quota: parsedQuota,
+        });
+      }
+      if (updatedEmp.email) {
+        saveSalesPersonConfig(updatedEmp.email, {
+          designation: updatedEmp.designation,
+          quota: parsedQuota,
+        });
+      }
+
+      // Persist to PostgreSQL database via API
+      try {
+        const res = await apiFetch(`/employees/${empId}`, {
+          method: "PATCH",
+          body: {
+            fullName: updatedEmp.name,
+            email: updatedEmp.email,
+            phone: updatedEmp.phone,
+            role: editModal.values.role,
+            designation: editModal.values.role,
+            targetQuota: parsedQuota,
+          },
+        });
+        const resData = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.warn("Could not save employee edit to DB:", resData.message);
+        }
+      } catch (err) {
+        console.warn("Could not save employee edit to DB:", err);
+      }
+
+      // Broadcast update event across all dashboards
+      window.dispatchEvent(new Event("agni_employees_updated"));
+      window.dispatchEvent(new Event("agni_users_updated"));
+      window.dispatchEvent(new Event("agni_sales_config_updated"));
+      window.dispatchEvent(new Event("storage"));
+      return;
     }
   };
 

@@ -13,12 +13,49 @@ export default function AdminTeamPage({
   const [clientSearch, setClientSearch] = useState("");
   const [statusTab, setStatusTab] = useState("All");
 
-  // Filter ONLY sales persons belonging to the selected branch (excluding Sales Managers)
+  // Filter ONLY sales persons belonging to the selected branch (treating Team Leaders as sales persons)
   const branchSalesPersons = useMemo(() => {
     return teamMembers.filter((m) => {
-      const isBranch = !m.branch || m.branch === selectedBranch;
+      if (!m) return false;
+      const isBranch =
+        !m.branch ||
+        m.branch === selectedBranch ||
+        (selectedBranch && String(m.branch).toLowerCase().trim() === String(selectedBranch).toLowerCase().trim()) ||
+        (m.branch && selectedBranch && (String(m.branch).toLowerCase().includes(String(selectedBranch).toLowerCase()) || String(selectedBranch).toLowerCase().includes(String(m.branch).toLowerCase())));
+
       const roleLower = (m.role || "").toLowerCase();
-      const isSalesPerson = roleLower.includes("sales") && !roleLower.includes("manager");
+      const rawLower = (m.rawRole || "").toLowerCase();
+      const desigLower = (m.designation || "").toLowerCase();
+
+      // Exclude Managers, IT, Admin, Marketing, Client
+      if (
+        roleLower.includes("manager") ||
+        rawLower.includes("manager") ||
+        roleLower.includes("admin") ||
+        rawLower.includes("admin") ||
+        roleLower.includes("it") ||
+        rawLower.includes("it") ||
+        roleLower.includes("tech") ||
+        roleLower.includes("market") ||
+        rawLower.includes("market") ||
+        roleLower.includes("client") ||
+        rawLower.includes("client")
+      ) {
+        return false;
+      }
+
+      // Treat Team Leader as normal sales person
+      const isSalesPerson =
+        rawLower === "sales_person" ||
+        roleLower.includes("sales") ||
+        roleLower.includes("leader") ||
+        desigLower.includes("leader") ||
+        roleLower.includes("officer") ||
+        desigLower.includes("officer") ||
+        roleLower.includes("executive") ||
+        roleLower.includes("representative") ||
+        desigLower.includes("sales");
+
       return isBranch && isSalesPerson;
     });
   }, [teamMembers, selectedBranch]);

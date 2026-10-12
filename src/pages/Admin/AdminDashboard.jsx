@@ -170,6 +170,16 @@ export default function AdminDashboard({ onSignOut, userEmail }) {
     }
 
     fetchDatabaseTeam();
+    window.addEventListener("agni_employees_updated", fetchDatabaseTeam);
+    window.addEventListener("agni_users_updated", fetchDatabaseTeam);
+    window.addEventListener("agni_sales_config_updated", fetchDatabaseTeam);
+    window.addEventListener("storage", fetchDatabaseTeam);
+    return () => {
+      window.removeEventListener("agni_employees_updated", fetchDatabaseTeam);
+      window.removeEventListener("agni_users_updated", fetchDatabaseTeam);
+      window.removeEventListener("agni_sales_config_updated", fetchDatabaseTeam);
+      window.removeEventListener("storage", fetchDatabaseTeam);
+    };
   }, []);
 
 

@@ -182,9 +182,9 @@ const updateClientSchema = z.object({
   name: z.string().optional(),
   companyName: z.string().optional(),
   contactPerson: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.string().optional(),
   phone: z.string().optional(),
-  serviceType: z.nativeEnum(ServiceType).optional(),
+  serviceType: z.any().optional(),
   serviceName: z.string().optional(),
   totalPayment: z.number().optional(),
   paymentReceived: z.number().optional(),
@@ -198,7 +198,7 @@ export async function updateClient(req: AuthenticatedRequest, res: Response, nex
   try {
     const clientId = req.params.id as string;
     const data = updateClientSchema.parse(req.body);
-    const result = await updateClientService(clientId, data);
+    const result = await updateClientService(clientId, data, req.user);
     return res.status(result.statusCode).json(result);
   } catch (error) {
     next(error);

@@ -23,9 +23,13 @@ export default function ManagerTeamPage({
       setConfigUpdateTrigger((prev) => prev + 1);
     };
     window.addEventListener("agni_sales_config_updated", handleConfigUpdate);
+    window.addEventListener("agni_employees_updated", handleConfigUpdate);
+    window.addEventListener("agni_users_updated", handleConfigUpdate);
     window.addEventListener("storage", handleConfigUpdate);
     return () => {
       window.removeEventListener("agni_sales_config_updated", handleConfigUpdate);
+      window.removeEventListener("agni_employees_updated", handleConfigUpdate);
+      window.removeEventListener("agni_users_updated", handleConfigUpdate);
       window.removeEventListener("storage", handleConfigUpdate);
     };
   }, []);

@@ -17,6 +17,8 @@ const FIELD_LABELS = {
   branchManager: "Branch Manager",
   status: "Account Status",
   address: "Registered Address",
+  targetQuota: "Monthly Target Quota (₹)",
+  quota: "Monthly Target Quota (₹)",
 };
 
 export default function EditForm({ values = {}, onChange }) {
@@ -30,7 +32,7 @@ export default function EditForm({ values = {}, onChange }) {
   return (
     <div className="edit-form-grid">
       {Object.entries(values).map(([field, value]) => {
-        const isNumeric = typeof value === "number" || field.toLowerCase().includes("payment") || field.toLowerCase().includes("amount");
+        const isNumeric = typeof value === "number" || field.toLowerCase().includes("payment") || field.toLowerCase().includes("amount") || field.toLowerCase().includes("quota");
         return (
           <label key={field} className="edit-form-field">
             <span className="edit-form-label-text">{formatLabel(field)}</span>

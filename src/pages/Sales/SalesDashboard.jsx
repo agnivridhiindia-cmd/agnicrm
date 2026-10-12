@@ -49,9 +49,15 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
 
     fetchMe();
     window.addEventListener("agni_sales_config_updated", fetchMe);
+    window.addEventListener("agni_employees_updated", fetchMe);
+    window.addEventListener("agni_users_updated", fetchMe);
+    window.addEventListener("storage", fetchMe);
     return () => {
       isMounted = false;
       window.removeEventListener("agni_sales_config_updated", fetchMe);
+      window.removeEventListener("agni_employees_updated", fetchMe);
+      window.removeEventListener("agni_users_updated", fetchMe);
+      window.removeEventListener("storage", fetchMe);
     };
   }, []);
 

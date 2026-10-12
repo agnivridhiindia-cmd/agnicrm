@@ -10,6 +10,7 @@ import {
   getDeletedEmployeesService,
   restoreEmployeeService,
   getTeamHierarchyService,
+  updateEmployeeService,
 } from "../services/employee.service";
 
 const createEmployeeSchema = z.object({
@@ -125,3 +126,33 @@ export async function getTeamHierarchy(
     next(error);
   }
 }
+
+const updateEmployeeSchema = z.object({
+  fullName: z.string().optional(),
+  name: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  role: z.string().optional(),
+  designation: z.string().optional(),
+  targetQuota: z.union([z.number(), z.string()]).optional(),
+  quota: z.union([z.number(), z.string()]).optional(),
+  branchId: z.string().optional(),
+  region: z.string().optional(),
+  status: z.string().optional(),
+});
+
+export async function updateEmployee(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const employeeId = String(req.params.id);
+    const data = updateEmployeeSchema.parse(req.body);
+    const result = await updateEmployeeService(employeeId, data, req.user);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+

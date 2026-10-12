@@ -62,7 +62,7 @@ export interface UpdateClientInput {
   contactPerson?: string;
   email?: string;
   phone?: string;
-  serviceType?: ServiceType;
+  serviceType?: ServiceType | string | any;
   serviceName?: string;
   totalPayment?: number;
   paymentReceived?: number;
@@ -87,6 +87,8 @@ const USERS_CACHE_TTL_MS = 60000; // 1 minute user name map cache
 
 export function invalidateClientCache() {
   clientsCache.clear();
+  cachedUsers = null;
+  cachedBranches = null;
 }
 
 export async function getClientsService(user: AuthenticatedUser, query?: { deletedOnly?: boolean; includeDeleted?: boolean }) {
@@ -749,14 +751,54 @@ export async function updateClientStatusService(clientId: string, data: UpdateCl
   };
 }
 
-export async function updateClientService(clientId: string, data: UpdateClientInput) {
+export async function updateClientService(clientId: string, data: UpdateClientInput, user?: AuthenticatedUser) {
+  let existingClient = await prisma.client.findFirst({
+    where: { id: clientId, isDeleted: false },
+  });
+
+  if (!existingClient) {
+    existingClient = await prisma.client.findFirst({
+      where: {
+        OR: [
+          { email: clientId },
+          { name: { equals: clientId, mode: "insensitive" } },
+          { companyName: { equals: clientId, mode: "insensitive" } },
+        ],
+        isDeleted: false,
+      },
+    });
+  }
+
+  if (!existingClient) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: `Client "${clientId}" not found.`,
+    };
+  }
+
   const updateData: any = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.companyName !== undefined) updateData.companyName = data.companyName;
   if (data.contactPerson !== undefined) updateData.contactPerson = data.contactPerson;
-  if (data.email !== undefined) updateData.email = data.email;
+  if (data.email !== undefined && data.email.trim()) updateData.email = data.email.trim();
   if (data.phone !== undefined) updateData.phone = data.phone;
-  if (data.serviceType !== undefined) updateData.serviceType = data.serviceType;
+  
+  if (data.serviceType !== undefined) {
+    const stStr = String(data.serviceType).toUpperCase();
+    if (stStr.includes("CONSULT") || stStr.includes("SUBSIDY")) {
+      updateData.serviceType = ServiceType.CONSULTANCY;
+    } else if (stStr.includes("CERT")) {
+      updateData.serviceType = ServiceType.CERTIFICATE;
+    } else if (stStr.includes("IT")) {
+      updateData.serviceType = ServiceType.IT;
+    } else if (stStr.includes("MARKET")) {
+      updateData.serviceType = ServiceType.MARKETING;
+    } else if (Object.values(ServiceType).includes(data.serviceType as ServiceType)) {
+      updateData.serviceType = data.serviceType as ServiceType;
+    }
+  }
+
   if (data.serviceName !== undefined) updateData.serviceName = data.serviceName;
   if (data.totalPayment !== undefined) updateData.totalPayment = data.totalPayment;
   if (data.paymentReceived !== undefined) updateData.paymentReceived = data.paymentReceived;
@@ -766,7 +808,7 @@ export async function updateClientService(clientId: string, data: UpdateClientIn
   if (data.adminNotes !== undefined) updateData.adminNotes = data.adminNotes;
 
   const updatedClient = await prisma.client.update({
-    where: { id: clientId },
+    where: { id: existingClient.id },
     data: updateData,
   });
 
@@ -776,15 +818,45 @@ export async function updateClientService(clientId: string, data: UpdateClientIn
   if (data.applicationStatus !== undefined) schemeUpdate.applicationStatus = data.applicationStatus;
   if (data.progressPercent !== undefined) schemeUpdate.progressPercent = data.progressPercent;
   if (data.serviceName !== undefined) schemeUpdate.serviceName = data.serviceName;
-  if (data.serviceType !== undefined) schemeUpdate.serviceType = data.serviceType;
+  if (updateData.serviceType !== undefined) schemeUpdate.serviceType = updateData.serviceType;
   if (data.totalPayment !== undefined) schemeUpdate.pitchedAmount = data.totalPayment;
   if (data.paymentReceived !== undefined) schemeUpdate.receivedAmount = data.paymentReceived;
 
   if (Object.keys(schemeUpdate).length > 0) {
     await prisma.clientScheme.updateMany({
-      where: { clientId: clientId, isDeleted: false },
+      where: { clientId: existingClient.id, isDeleted: false },
       data: schemeUpdate,
     });
+  }
+
+  // Calculate field differences for audit log
+  const changes: Record<string, { previousValue: any; newValue: any }> = {};
+  for (const key of Object.keys(updateData)) {
+    const prevVal = (existingClient as any)[key];
+    const newVal = (updateData as any)[key];
+    if (JSON.stringify(prevVal) !== JSON.stringify(newVal)) {
+      changes[key] = { previousValue: prevVal, newValue: newVal };
+    }
+  }
+
+  // Write audit record to owner_change_logs table in PostgreSQL
+  if (Object.keys(changes).length > 0) {
+    try {
+      await (prisma as any).ownerChangeLog.create({
+        data: {
+          entityType: "CLIENT",
+          entityId: existingClient.id,
+          entityName: updatedClient.name || existingClient.name || "Client",
+          changedBy: user?.role === "OWNER" ? "Owner" : (user?.email || "Owner"),
+          changedByEmail: user?.email || "owner@crm.com",
+          changes,
+          snapshotBefore: existingClient as any,
+          snapshotAfter: updatedClient as any,
+        },
+      });
+    } catch (logErr) {
+      console.warn("Failed to create ownerChangeLog for client:", logErr);
+    }
   }
 
   invalidateClientCache();

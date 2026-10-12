@@ -555,3 +555,22 @@ model DeletedEmployee {
   @@index([deletedAt])
   @@map("deleted_employees")
 }
+
+model OwnerChangeLog {
+  id             String    @id @default(uuid())
+  entityType     String    // "CLIENT" | "EMPLOYEE"
+  entityId       String
+  entityName     String?
+  changedBy      String?   @default("Owner")
+  changedByEmail String?
+  changes        Json      // Record of modified fields: { [field]: { previousValue, newValue } }
+  snapshotBefore Json?     // Full snapshot before modification
+  snapshotAfter  Json?     // Full snapshot after modification
+  createdAt      DateTime  @default(now())
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("owner_change_logs")
+}
+

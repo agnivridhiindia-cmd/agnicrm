@@ -70,8 +70,11 @@ export default function BranchManagerOverviewPage({
     const branchSalesTeam = list.filter(isBranchMember);
     const smList = branchSalesTeam.filter((emp) => {
       const r = (emp.role || "").toLowerCase();
+      const desig = (emp.designation || "").toLowerCase();
       const raw = (emp.rawRole || "").toUpperCase();
-      return (raw === "MANAGER" || r.includes("manager") || r.includes("lead")) && !r.includes("branch");
+      if (r.includes("branch") || desig.includes("branch") || raw === "BRANCH_MANAGER") return false;
+      if (r.includes("leader") || desig.includes("leader") || raw === "SALES_PERSON") return false;
+      return raw === "MANAGER" || r.includes("manager") || desig.includes("manager");
     });
     return smList.length;
   }, [employeesList, isBranchMember]);

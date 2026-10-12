@@ -111,7 +111,10 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 fullName: u.fullName || u.name,
                 email: u.email,
                 phone: u.phone || "N/A",
-                role: u.role || "Sales Representative",
+                role: u.designation || u.role || "Sales Representative",
+                designation: u.designation || u.role || "Sales Representative",
+                targetQuota: u.targetQuota,
+                quota: u.quota,
                 rawRole: u.rawRole || u.role,
                 branch: bName,
                 region: bRegion || (bName.includes("North") ? "North Zone" : bName.includes("West") ? "West Zone" : bName.includes("South") ? "South Zone" : bName.includes("East") ? "East Zone" : managedRegion),
@@ -124,8 +127,14 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
 
             // 1. Sales Team (Managers and Sales Persons) - ONLY from PostgreSQL
             const salesUsers = mappedUsers.filter((u) => {
-              const r = (u.rawRole || u.role || "").toUpperCase();
-              return r === "MANAGER" || r === "SALES_PERSON" || (r.includes("SALES") && !r.includes("ADMIN") && !r.includes("IT") && !r.includes("MARKETING"));
+              const raw = (u.rawRole || "").toUpperCase();
+              const r = (u.role || "").toUpperCase();
+              const desig = (u.designation || "").toUpperCase();
+              if (raw === "BRANCH_MANAGER" || r.includes("BRANCH") || desig.includes("BRANCH")) return false;
+              if (raw === "ADMIN" || r.includes("ADMIN")) return false;
+              if (raw === "IT" || r.includes("TECH") || r.includes("SYSTEM")) return false;
+              if (raw === "MARKETING" || r.includes("MARKET")) return false;
+              return raw === "MANAGER" || raw === "SALES_PERSON" || r.includes("SALES") || r.includes("LEADER") || desig.includes("LEADER") || r.includes("OFFICER") || desig.includes("OFFICER");
             });
 
             // 2. Branch Admins - ONLY from PostgreSQL
@@ -173,9 +182,15 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
     fetchBranchUsersFromDB();
     fetchOwnerFromDB();
     window.addEventListener("agni_users_updated", fetchBranchUsersFromDB);
+    window.addEventListener("agni_employees_updated", fetchBranchUsersFromDB);
+    window.addEventListener("agni_sales_config_updated", fetchBranchUsersFromDB);
+    window.addEventListener("storage", fetchBranchUsersFromDB);
     return () => {
       isMounted = false;
       window.removeEventListener("agni_users_updated", fetchBranchUsersFromDB);
+      window.removeEventListener("agni_employees_updated", fetchBranchUsersFromDB);
+      window.removeEventListener("agni_sales_config_updated", fetchBranchUsersFromDB);
+      window.removeEventListener("storage", fetchBranchUsersFromDB);
     };
   }, [managedRegion, branchManagerName]);
 

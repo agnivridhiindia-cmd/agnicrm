@@ -233,7 +233,10 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
               id: u.id,
               name: u.fullName || u.name,
               fullName: u.fullName || u.name,
-              role: u.role || "Sales Executive",
+              role: u.designation || u.role || "Sales Executive",
+              designation: u.designation || u.role || "Sales Executive",
+              targetQuota: u.targetQuota,
+              quota: u.quota,
               email: u.email,
               phone: u.phone || "",
               branch: u.branch ? (typeof u.branch === "string" ? u.branch : u.branch.name) : (u.region || "West Zone (Mumbai)"),
@@ -247,7 +250,17 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
       }
     }
     fetchDBUsers();
-    return () => { isMounted = false; };
+    window.addEventListener("agni_employees_updated", fetchDBUsers);
+    window.addEventListener("agni_users_updated", fetchDBUsers);
+    window.addEventListener("agni_sales_config_updated", fetchDBUsers);
+    window.addEventListener("storage", fetchDBUsers);
+    return () => {
+      isMounted = false;
+      window.removeEventListener("agni_employees_updated", fetchDBUsers);
+      window.removeEventListener("agni_users_updated", fetchDBUsers);
+      window.removeEventListener("agni_sales_config_updated", fetchDBUsers);
+      window.removeEventListener("storage", fetchDBUsers);
+    };
   }, []);
 
   // Dynamically resolve ALL sales persons belonging to this manager's branch

@@ -1,6 +1,10 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../config/prisma";
 import { Role } from "@prisma/client";
+import { AuthenticatedUser } from "../middlewares/auth.middleware";
+import { invalidateUsersCache } from "./auth.service";
+import { invalidateClientCache } from "./client.service";
+import { broadcastSseEvent } from "./sse.service";
 
 export interface CreateEmployeeParams {
   fullName: string;
@@ -466,10 +470,192 @@ export async function getTeamHierarchyService() {
     };
   });
 
+    return {
+      success: true,
+      statusCode: 200,
+      hierarchy,
+      data: hierarchy,
+    };
+  }
+
+export interface UpdateEmployeeParams {
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  designation?: string;
+  targetQuota?: number | string;
+  quota?: number | string;
+  branchId?: string;
+  region?: string;
+  status?: string;
+}
+
+export async function updateEmployeeService(
+  employeeId: string,
+  data: UpdateEmployeeParams,
+  user?: AuthenticatedUser
+) {
+  // Find employee by id, or fallback to email / fullName
+  let existingUser = await prisma.user.findFirst({
+    where: { id: employeeId, isDeleted: false },
+    include: { branch: true },
+  });
+
+  if (!existingUser) {
+    existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: employeeId },
+          { fullName: { equals: employeeId, mode: "insensitive" } },
+        ],
+        isDeleted: false,
+      },
+      include: { branch: true },
+    });
+  }
+
+  if (!existingUser) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: `Employee "${employeeId}" not found.`,
+    };
+  }
+
+  const updateData: any = {};
+
+  const newName = (data.fullName || data.name)?.trim();
+  if (newName) updateData.fullName = newName;
+
+  if (data.email) {
+    const trimmedEmail = data.email.toLowerCase().trim();
+    if (trimmedEmail !== existingUser.email) {
+      const duplicate = await prisma.user.findFirst({
+        where: { email: trimmedEmail, id: { not: existingUser.id }, isDeleted: false },
+      });
+      if (duplicate) {
+        return {
+          success: false,
+          statusCode: 409,
+          message: `Email "${trimmedEmail}" is already registered to another active user.`,
+        };
+      }
+      updateData.email = trimmedEmail;
+    }
+  }
+
+  if (data.phone !== undefined) {
+    updateData.phone = data.phone?.trim() || null;
+  }
+
+  if (data.status !== undefined) {
+    updateData.status = data.status;
+  }
+
+  if (data.branchId !== undefined) {
+    updateData.branchId = data.branchId;
+  }
+
+  if (data.region !== undefined) {
+    updateData.region = data.region;
+  }
+
+  // Handle Target Quota
+  const rawQuota = data.targetQuota !== undefined ? data.targetQuota : data.quota;
+  if (rawQuota !== undefined && rawQuota !== null) {
+    const parsedQuota = parseFloat(String(rawQuota).replace(/[^0-9.]/g, ""));
+    if (!isNaN(parsedQuota)) {
+      updateData.targetQuota = parsedQuota;
+    }
+  }
+
+  // Handle Role and Designation
+  const rawRole = (data.role || data.designation)?.trim();
+  if (rawRole) {
+    const upper = rawRole.toUpperCase();
+    if (["OWNER", "ADMIN", "BRANCH_MANAGER", "MANAGER", "SALES_PERSON", "IT", "MARKETING"].includes(upper)) {
+      updateData.role = upper as Role;
+      if (data.designation) {
+        updateData.designation = data.designation.trim();
+      }
+    } else {
+      updateData.designation = rawRole;
+      if (upper.includes("BRANCH") && upper.includes("MANAGER")) {
+        updateData.role = Role.BRANCH_MANAGER;
+      } else if (upper.includes("SALES") && upper.includes("MANAGER")) {
+        updateData.role = Role.MANAGER;
+      } else if (upper.includes("ADMIN")) {
+        updateData.role = Role.ADMIN;
+      } else if (upper.includes("IT")) {
+        updateData.role = Role.IT;
+      } else if (upper.includes("MARKETING")) {
+        updateData.role = Role.MARKETING;
+      } else {
+        updateData.role = Role.SALES_PERSON;
+      }
+    }
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: existingUser.id },
+    data: updateData,
+    include: { branch: true },
+  });
+
+  // Calculate field differences for audit log
+  const changes: Record<string, { previousValue: any; newValue: any }> = {};
+  for (const key of Object.keys(updateData)) {
+    const prevVal = (existingUser as any)[key];
+    const newVal = (updateData as any)[key];
+    if (String(prevVal) !== String(newVal)) {
+      changes[key] = { previousValue: prevVal, newValue: newVal };
+    }
+  }
+
+  // Write audit record to owner_change_logs table in PostgreSQL
+  if (Object.keys(changes).length > 0) {
+    try {
+      await (prisma as any).ownerChangeLog.create({
+        data: {
+          entityType: "EMPLOYEE",
+          entityId: updatedUser.id,
+          entityName: updatedUser.fullName,
+          changedBy: user?.role === "OWNER" ? "Owner" : (user?.email || "Owner"),
+          changedByEmail: user?.email || "owner@crm.com",
+          changes,
+          snapshotBefore: existingUser as any,
+          snapshotAfter: updatedUser as any,
+        },
+      });
+    } catch (logErr) {
+      console.warn("Failed to create ownerChangeLog for employee:", logErr);
+    }
+  }
+
+  // Invalidate users cache so subsequent fetches get fresh data
+  invalidateUsersCache();
+  invalidateClientCache();
+
+  // Broadcast real-time SSE event to all connected dashboards
+  broadcastSseEvent({
+    type: "EMPLOYEE_UPDATED",
+    payload: {
+      id: updatedUser.id,
+      fullName: updatedUser.fullName,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      designation: (updatedUser as any).designation,
+      targetQuota: (updatedUser as any).targetQuota ? Number((updatedUser as any).targetQuota) : null,
+    },
+  });
+
   return {
     success: true,
     statusCode: 200,
-    hierarchy,
-    data: hierarchy,
+    message: `Employee "${updatedUser.fullName}" updated successfully.`,
+    data: updatedUser,
   };
 }
+
