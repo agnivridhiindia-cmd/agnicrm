@@ -246,7 +246,7 @@ export async function getUsersService({ role, branchId }: GetUsersQuery) {
 
   const formattedUsers = users.map((u) => {
     let roleLabel: string = u.role;
-    if (u.role === "SALES_PERSON") roleLabel = "Sales Person";
+    if (u.role === "SALES_PERSON") roleLabel = (u as any).designation || "Sales Person";
     else if (u.role === "BRANCH_MANAGER") roleLabel = "Branch Manager";
     else if (u.role === "MANAGER") roleLabel = "Sales Manager";
     else if (u.role === "ADMIN") roleLabel = "Admin Lead";

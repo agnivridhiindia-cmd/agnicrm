@@ -10,6 +10,7 @@ import {
 } from "./mockOwnerData";
 
 import { isBranchMatch, cleanBranchDisplay } from "../../utils/branchHelper";
+import { getSalesPersonProfile } from "../../utils/salesConfigHelper";
 
 export default function OwnerReportsPage({
   employeesList = [],
@@ -36,12 +37,13 @@ export default function OwnerReportsPage({
   };
 
   const filteredEmployees = employeesList.filter((employee) => {
-    const empRole = (employee.role || employee.rawRole || "").toLowerCase();
+    const empRole = (employee.role || employee.rawRole || employee.designation || "").toLowerCase();
     const fltRole = (reportRoleFilter || "").toLowerCase();
     const roleOk =
       !fltRole ||
       empRole.includes(fltRole) ||
-      fltRole.includes(empRole);
+      fltRole.includes(empRole) ||
+      (fltRole === "sales" && (empRole.includes("leader") || empRole.includes("officer") || empRole.includes("sales")));
     const branchOk = isBranchMatch(employee.branch, reportBranchFilter);
     return roleOk && branchOk;
   });
@@ -167,7 +169,7 @@ export default function OwnerReportsPage({
                         </td>
                         <td>
                           <span className="owner-role-tag">
-                            {employee.role}
+                            {employee.designation || getSalesPersonProfile(employee.name || employee.id, employee.role)}
                           </span>
                         </td>
                         <td>₹{lastMonth.toLocaleString()}</td>

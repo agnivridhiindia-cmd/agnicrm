@@ -2,6 +2,7 @@ import { Role, RequestType, RequestStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { createActiveClientCore, invalidateClientCache } from "./client.service";
+import { invalidateUsersCache } from "./auth.service";
 import { broadcastSseEvent } from "./sse.service";
 import { sendWelcomeEmail } from "./email.service";
 
@@ -678,6 +679,7 @@ export async function executeWorkflowDecision(
   // Invalidate cache and broadcast real-time event to all connected reps, managers, and admins
   if (result.statusCode === 200) {
     invalidateClientCache();
+    invalidateUsersCache();
 
     const clientName =
       existingRequest.client?.name ||

@@ -2,6 +2,7 @@ import React from "react";
 import SimpleModal from "../../components/SimpleModal";
 import Icon from "../../components/Icon";
 import { useAuth } from "../../context/AuthContext";
+import { getSalesPersonProfile } from "../../utils/salesConfigHelper";
 
 export default function OwnerEmployeeInfoModal({
   selectedEmployeeInfo,
@@ -36,6 +37,13 @@ export default function OwnerEmployeeInfoModal({
     ? selectedEmployeeInfo.transferLogs
     : [];
 
+  const effectiveRole =
+    selectedEmployeeInfo.designation ||
+    getSalesPersonProfile(
+      selectedEmployeeInfo.name || selectedEmployeeInfo.id,
+      selectedEmployeeInfo.role
+    );
+
   return (
     <SimpleModal onClose={onClose}>
       <div className="owner-modal-profile">
@@ -43,7 +51,7 @@ export default function OwnerEmployeeInfoModal({
         <div>
           <h2 className="owner-header-title">{selectedEmployeeInfo.name}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <span className="owner-role-tag">{selectedEmployeeInfo.role}</span>
+            <span className="owner-role-tag">{effectiveRole}</span>
             {isTransferred && (
               <span
                 style={{
@@ -80,7 +88,7 @@ export default function OwnerEmployeeInfoModal({
         </div>
         <div className="owner-modal-card">
           <span className="owner-modal-card-label">Designation / Role</span>
-          <span className="owner-modal-card-val">{selectedEmployeeInfo.role}</span>
+          <span className="owner-modal-card-val">{effectiveRole}</span>
         </div>
 
         {/* Current Branch vs Origin Branch */}
@@ -228,7 +236,19 @@ export default function OwnerEmployeeInfoModal({
             Team Under
           </button>
         )}
-        {['sales', 'it', 'admin', 'market'].includes((selectedEmployeeInfo.role || '').toLowerCase()) && onOpenClientsUnder && (
+        {(() => {
+          const r = (selectedEmployeeInfo.role || selectedEmployeeInfo.rawRole || effectiveRole || "").toLowerCase();
+          const raw = (selectedEmployeeInfo.rawRole || "").toLowerCase();
+          return (
+            r.includes("sales") ||
+            r.includes("leader") ||
+            r.includes("officer") ||
+            r.includes("it") ||
+            r.includes("admin") ||
+            r.includes("market") ||
+            raw === "sales_person"
+          ) && onOpenClientsUnder;
+        })() && (
           <button
             className="owner-btn-primary"
             type="button"

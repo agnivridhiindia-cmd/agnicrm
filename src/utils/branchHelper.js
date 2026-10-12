@@ -448,9 +448,23 @@ const ROLE_RANKING = {
 export function sortByRoleRanking(users = []) {
   if (!Array.isArray(users)) return [];
   return [...users].sort((a, b) => {
-    const rankA = ROLE_RANKING[a.role?.toUpperCase()] || 99;
-    const rankB = ROLE_RANKING[b.role?.toUpperCase()] || 99;
-    return rankA - rankB;
+    const getRank = (u) => {
+      if (!u) return 99;
+      const raw = (u.rawRole || "").toUpperCase();
+      if (ROLE_RANKING[raw]) return ROLE_RANKING[raw];
+      const role = (u.role || "").toUpperCase();
+      if (ROLE_RANKING[role]) return ROLE_RANKING[role];
+      if (role.includes("OWNER")) return 1;
+      if (role.includes("ADMIN")) return 2;
+      if (role.includes("BRANCH")) return 3;
+      if (role.includes("MANAGER")) return 4;
+      if (role.includes("SALES") || role.includes("LEADER") || role.includes("OFFICER")) return 5;
+      if (role.includes("IT")) return 6;
+      if (role.includes("MARKET")) return 7;
+      if (role.includes("CLIENT")) return 8;
+      return 99;
+    };
+    return getRank(a) - getRank(b);
   });
 }
 

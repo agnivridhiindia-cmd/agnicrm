@@ -33,8 +33,20 @@ export default function OwnerOverviewPage({
     }).length;
 
     const salesPersonsCount = (employeesList || []).filter((e) => {
-      const r = (e.role || e.rawRole || "").toLowerCase();
-      return r === "sales person" || r === "sales" || r === "sales_person" || r === "salesperson" || r === "sr";
+      const r = (e.role || "").toLowerCase();
+      const raw = (e.rawRole || "").toLowerCase();
+      return (
+        r === "sales person" ||
+        r === "sales" ||
+        r === "sales_person" ||
+        r === "salesperson" ||
+        r === "sr" ||
+        raw === "sales_person" ||
+        raw === "salesperson" ||
+        r.includes("leader") ||
+        r.includes("officer") ||
+        r.includes("sales")
+      );
     }).length;
 
     return [

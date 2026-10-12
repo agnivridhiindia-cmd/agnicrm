@@ -3,6 +3,7 @@ import Icon from "../../components/Icon";
 import { employeeRoles, branchOptions, branchToRegionMap } from "./mockOwnerData";
 import { getTrackerState } from "../../utils/schemeTracker";
 import { sortByRoleRanking, isBranchMatch, cleanBranchDisplay } from "../../utils/branchHelper";
+import { getSalesPersonProfile } from "../../utils/salesConfigHelper";
 import { apiFetch } from "../../services/apiClient";
 import CreateEmployeeModal from "./CreateEmployeeModal";
 import DeleteConfirmModal from "./DeleteConfirmModal";
@@ -400,14 +401,15 @@ export default function OwnerEmployeesPage({
       const emailMatch = (employee.email || "").toLowerCase().includes(sLower);
       const phoneMatch = (employee.phone || "").toLowerCase().includes(sLower);
       const branchMatch = (employee.branch || "").toLowerCase().includes(sLower);
-      const roleMatch = (employee.role || "").toLowerCase().includes(sLower);
+      const roleMatch = (employee.role || "").toLowerCase().includes(sLower) || (employee.designation || "").toLowerCase().includes(sLower);
 
       const searchOk = !sLower || nameMatch || emailMatch || phoneMatch || branchMatch || roleMatch;
       const empRole = (employee.role || "").toLowerCase();
       const empRaw = (employee.rawRole || "").toLowerCase();
+      const empDesig = (employee.designation || "").toLowerCase();
       const selRole = (selectedRole || "").toLowerCase();
 
-      let roleOk = selectedRole === "All roles" || !selectedRole || empRole === selRole || empRaw === selRole;
+      let roleOk = selectedRole === "All roles" || !selectedRole || empRole === selRole || empRaw === selRole || empDesig === selRole;
       if (!roleOk) {
         if (selRole === "admin") {
           roleOk = empRole.includes("admin") || empRaw.includes("admin");
@@ -420,7 +422,7 @@ export default function OwnerEmployeesPage({
         } else if (selRole === "branch manager" || selRole === "branch_manager" || selRole === "bm") {
           roleOk = empRole.includes("branch") || empRaw.includes("branch") || empRole === "bm";
         } else if (selRole === "sales" || selRole === "sales person" || selRole === "salesperson" || selRole === "sales_person") {
-          roleOk = empRole.includes("sales") || empRaw.includes("sales") || empRole === "sr";
+          roleOk = empRole.includes("sales") || empRaw.includes("sales") || empRole === "sr" || empRole.includes("leader") || empRole.includes("officer") || empDesig.includes("sales") || empDesig.includes("leader") || empDesig.includes("officer");
         }
       }
       const branchOk = isBranchMatch(employee.branch, selectedBranch);
@@ -578,13 +580,15 @@ export default function OwnerEmployeesPage({
                           </div>
                         </td>
                         <td>
-                          <span className="owner-role-tag">{member.role}</span>
+                          <span className="owner-role-tag">
+                            {member.designation || getSalesPersonProfile(member.name || member.id, member.role)}
+                          </span>
                         </td>
                         <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                           <div className="owner-actions-cell">
                             {(() => {
-                              const r = (member.role || member.rawRole || "").toLowerCase();
-                              return r.includes("sales") || r.includes("it") || r.includes("admin") || r.includes("market");
+                              const r = (member.rawRole || member.role || "").toLowerCase();
+                              return r.includes("sales") || r.includes("it") || r.includes("admin") || r.includes("market") || r.includes("leader") || r.includes("officer");
                             })() && (
                               <button
                                 className="owner-btn-primary"
@@ -1302,7 +1306,7 @@ export default function OwnerEmployeesPage({
                       </td>
                       <td>
                         <span className="owner-role-tag">
-                          {employee.role}
+                          {employee.designation || getSalesPersonProfile(employee.name || employee.id, employee.role)}
                         </span>
                       </td>
                       <td>
@@ -1314,7 +1318,7 @@ export default function OwnerEmployeesPage({
                       <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                         <div className="owner-actions-cell">
                           {(() => {
-                            const r = (employee.role || employee.rawRole || "").toLowerCase();
+                            const r = (employee.rawRole || employee.role || "").toLowerCase();
                             return r.includes("manager") || r.includes("branch") || r.includes("admin");
                           })() && (
                             <button
@@ -1329,8 +1333,8 @@ export default function OwnerEmployeesPage({
                             </button>
                           )}
                           {(() => {
-                            const r = (employee.role || employee.rawRole || "").toLowerCase();
-                            return r.includes("sales") || r.includes("it") || r.includes("admin") || r.includes("market");
+                            const r = (employee.rawRole || employee.role || "").toLowerCase();
+                            return r.includes("sales") || r.includes("it") || r.includes("admin") || r.includes("market") || r.includes("leader") || r.includes("officer");
                           })() && (
                             <button
                               className="owner-btn-primary"

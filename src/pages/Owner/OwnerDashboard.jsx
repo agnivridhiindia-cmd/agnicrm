@@ -12,6 +12,7 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import ActivityTracker from "../../components/ActivityTracker";
 import { getTrackerState, getCanonicalSchemeName } from "../../utils/schemeTracker";
 import { sanitizeClientRecord, normalizeSalesPersonName, sortByRoleRanking, mergeSecondaryClients } from "../../utils/branchHelper";
+import { getSalesPersonProfile } from "../../utils/salesConfigHelper";
 import { apiFetch } from "../../services/apiClient";
 import { isMockClient } from "../../utils/revenueCalculator";
 import { ACTIVITY_STAGES } from "../Admin/mockAdminData";
@@ -239,11 +240,13 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
               resData.users.forEach((u) => {
                 if (!u) return;
                 const emailKey = (u.email || "").toLowerCase().trim();
+                const displayRole = u.designation || getSalesPersonProfile(u.fullName || u.name || u.id, u.role || u.rawRole);
                 dedupeMap.set(emailKey, {
                   ...u,
                   id: u.id,
                   name: u.fullName || u.name,
-                  role: u.role || u.rawRole,
+                  role: displayRole || u.role || u.rawRole,
+                  designation: u.designation || displayRole,
                   rawRole: u.rawRole || u.role,
                   branch: u.branch ? (typeof u.branch === "string" ? u.branch : u.branch.name) : "West Zone (Mumbai)",
                 });
@@ -265,6 +268,14 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       }
     }
     fetchDBOwnerEmployees();
+    window.addEventListener("agni_sales_config_updated", fetchDBOwnerEmployees);
+    window.addEventListener("agni_employees_updated", fetchDBOwnerEmployees);
+    window.addEventListener("storage", fetchDBOwnerEmployees);
+    return () => {
+      window.removeEventListener("agni_sales_config_updated", fetchDBOwnerEmployees);
+      window.removeEventListener("agni_employees_updated", fetchDBOwnerEmployees);
+      window.removeEventListener("storage", fetchDBOwnerEmployees);
+    };
   }, []);
 
   const [invoices, setInvoices] = useState(() => initialInvoices || []);
