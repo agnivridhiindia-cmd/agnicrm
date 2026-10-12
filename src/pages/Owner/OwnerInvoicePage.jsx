@@ -96,9 +96,6 @@ export default function OwnerInvoicePage({
         <div className="owner-kpi-tile blue">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Total Invoiced</span>
-            <div className="owner-kpi-tile-icon blue">
-              <Icon name="invoice" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value">₹{totalInvoicedAmount.toLocaleString()}</strong>
@@ -108,9 +105,6 @@ export default function OwnerInvoicePage({
         <div className="owner-kpi-tile green">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Collected / Paid</span>
-            <div className="owner-kpi-tile-icon green">
-              <Icon name="checkCircle" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#10b981" }}>
@@ -122,9 +116,6 @@ export default function OwnerInvoicePage({
         <div className="owner-kpi-tile amber">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Pending / Overdue</span>
-            <div className="owner-kpi-tile-icon amber">
-              <Icon name="overview" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#f59e0b" }}>

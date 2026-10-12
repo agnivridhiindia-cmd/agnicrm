@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import Icon from "../../components/Icon";
 import RevenueSummaryCard from "../../components/RevenueSummaryCard";
-import { RevenueTrendChart } from "../../components/charts";
+import { MonthlyRevenueBarChart } from "../../components/charts";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
 
 export default function OwnerRevenuePage({
@@ -182,9 +182,14 @@ export default function OwnerRevenuePage({
         <div className="revenue-chart-panel">
           <div className="revenue-chip">
             <Icon name="arrowUp" size={14} />
-            <span>Revenue Trend</span>
+            <span>12-Month Revenue Breakdown</span>
           </div>
-          <RevenueTrendChart data={selectedRevenueData} />
+          <MonthlyRevenueBarChart
+            data={metrics.chartSeries?.monthly || selectedRevenueData}
+            barColor="#8c5ff8"
+            gradientId="ownerRevenueBarGrad"
+            height={150}
+          />
         </div>
       </div>
 

@@ -89,39 +89,27 @@ export default function BranchManagerMarketingPage({
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Marketing Team</span>
-            <div className="bm-kpi-tile-icon pink">
-              <Icon name="arrowUp" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">{filteredTeam.length}</strong>
-            <span className="bm-kpi-tile-sub">Active Specialists</span>
           </div>
         </div>
 
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Campaign Reach</span>
-            <div className="bm-kpi-tile-icon green">
-              <Icon name="checkCircle" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">+24.6%</strong>
-            <span className="bm-kpi-tile-sub">Lead Inflow Growth MoM</span>
           </div>
         </div>
 
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Territory Coverage</span>
-            <div className="bm-kpi-tile-icon blue">
-              <Icon name="building" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">{managedRegion}</strong>
-            <span className="bm-kpi-tile-sub">Active Campaign Territory</span>
           </div>
         </div>
       </div>

@@ -243,9 +243,6 @@ export default function OwnerClientsPage({
             <div className="owner-kpi-tile blue">
               <div className="owner-kpi-tile-top">
                 <span className="owner-kpi-tile-label">Total Accounts</span>
-                <div className="owner-kpi-tile-icon blue">
-                  <Icon name="clients" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">{totalClients}</strong>
@@ -255,9 +252,6 @@ export default function OwnerClientsPage({
             <div className="owner-kpi-tile green">
               <div className="owner-kpi-tile-top">
                 <span className="owner-kpi-tile-label">Fully Settled</span>
-                <div className="owner-kpi-tile-icon green">
-                  <Icon name="checkCircle" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">{fullyPaidCount}</strong>
@@ -267,9 +261,6 @@ export default function OwnerClientsPage({
             <div className="owner-kpi-tile amber">
               <div className="owner-kpi-tile-top">
                 <span className="owner-kpi-tile-label">In Pipeline</span>
-                <div className="owner-kpi-tile-icon amber">
-                  <Icon name="clock" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">{activePipelineCount}</strong>
@@ -279,9 +270,6 @@ export default function OwnerClientsPage({
             <div className="owner-kpi-tile purple">
               <div className="owner-kpi-tile-top">
                 <span className="owner-kpi-tile-label">Portfolio Value</span>
-                <div className="owner-kpi-tile-icon purple">
-                  <Icon name="revenue" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="owner-kpi-tile-value">₹{totalPortfolioValue.toLocaleString()}</strong>

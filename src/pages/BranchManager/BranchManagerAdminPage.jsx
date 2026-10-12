@@ -90,39 +90,27 @@ export default function BranchManagerAdminPage({
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Branch Admins</span>
-            <div className="bm-kpi-tile-icon amber">
-              <Icon name="roles" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">{filteredTeam.length}</strong>
-            <span className="bm-kpi-tile-sub">Active Administrators</span>
           </div>
         </div>
 
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Compliance Score</span>
-            <div className="bm-kpi-tile-icon green">
-              <Icon name="checkCircle" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">100%</strong>
-            <span className="bm-kpi-tile-sub">Audit & Regulatory Pass</span>
           </div>
         </div>
 
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Admin Hubs</span>
-            <div className="bm-kpi-tile-icon blue">
-              <Icon name="building" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">{managedRegion}</strong>
-            <span className="bm-kpi-tile-sub">Designated Admin Territory</span>
           </div>
         </div>
       </div>

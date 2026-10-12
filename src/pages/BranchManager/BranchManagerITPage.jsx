@@ -89,39 +89,27 @@ export default function BranchManagerITPage({
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">IT Engineers</span>
-            <div className="bm-kpi-tile-icon">
-              <Icon name="settings" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">{filteredTeam.length}</strong>
-            <span className="bm-kpi-tile-sub">Active IT Personnel</span>
           </div>
         </div>
 
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Systems Health</span>
-            <div className="bm-kpi-tile-icon green">
-              <Icon name="checkCircle" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">99.9%</strong>
-            <span className="bm-kpi-tile-sub">Branch Infrastructure Uptime</span>
           </div>
         </div>
 
         <div className="analytics-card bm-kpi-tile">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Coverage Node</span>
-            <div className="bm-kpi-tile-icon blue">
-              <Icon name="building" size={16} />
-            </div>
           </div>
           <div>
             <strong className="bm-kpi-tile-value">{managedRegion}</strong>
-            <span className="bm-kpi-tile-sub">Designated IT Territory</span>
           </div>
         </div>
       </div>

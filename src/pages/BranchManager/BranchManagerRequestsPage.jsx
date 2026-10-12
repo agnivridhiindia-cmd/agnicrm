@@ -378,7 +378,6 @@ export default function BranchManagerRequestsPage({
         <div className="analytics-card bm-kpi-tile bm-req-kpi-owner">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Pending Owner Decisions</span>
-            <Icon name="clock" size={16} />
           </div>
           <h2 className="bm-kpi-tile-value bm-req-kpi-val bm-req-kpi-val-purple">
             {pendingSentCount}
@@ -389,7 +388,6 @@ export default function BranchManagerRequestsPage({
         <div className="analytics-card bm-kpi-tile bm-req-kpi-manager">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Manager Requests to Review</span>
-            <Icon name="alert" size={16} />
           </div>
           <h2 className="bm-kpi-tile-value bm-req-kpi-val bm-req-kpi-val-amber">
             {pendingReceivedCount}
@@ -400,7 +398,6 @@ export default function BranchManagerRequestsPage({
         <div className="analytics-card bm-kpi-tile bm-req-kpi-approved">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Approved Governance Actions</span>
-            <Icon name="checkCircle" size={16} />
           </div>
           <h2 className="bm-kpi-tile-value bm-req-kpi-val bm-req-kpi-val-green">
             {sentRequests.filter((r) => r.status === "Approved").length + receivedRequests.filter((r) => r.status === "Approved").length}
@@ -411,7 +408,6 @@ export default function BranchManagerRequestsPage({
         <div className="analytics-card bm-kpi-tile bm-req-kpi-teams">
           <div className="bm-kpi-tile-top">
             <span className="bm-kpi-tile-label">Total Governed Teams</span>
-            <Icon name="team" size={16} />
           </div>
           <h2 className="bm-kpi-tile-value bm-req-kpi-val bm-req-kpi-val-blue">
             4 Depts

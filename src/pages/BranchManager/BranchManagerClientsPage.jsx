@@ -285,9 +285,6 @@ export default function BranchManagerClientsPage({
             <div className="analytics-card bm-kpi-tile">
               <div className="bm-kpi-tile-top">
                 <span className="bm-kpi-tile-label">Total Accounts</span>
-                <div className="bm-kpi-tile-icon">
-                  <Icon name="clients" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="bm-kpi-tile-value">{stats.total}</strong>
@@ -297,9 +294,6 @@ export default function BranchManagerClientsPage({
             <div className="analytics-card bm-kpi-tile">
               <div className="bm-kpi-tile-top">
                 <span className="bm-kpi-tile-label">Handling Reps</span>
-                <div className="bm-kpi-tile-icon" style={{ background: "rgba(59, 130, 246, 0.12)", color: "#3b82f6" }}>
-                  <Icon name="team" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="bm-kpi-tile-value" style={{ color: "#3b82f6" }}>{stats.uniqueReps}</strong>
@@ -309,9 +303,6 @@ export default function BranchManagerClientsPage({
             <div className="analytics-card bm-kpi-tile">
               <div className="bm-kpi-tile-top">
                 <span className="bm-kpi-tile-label">Contract Book</span>
-                <div className="bm-kpi-tile-icon" style={{ background: "rgba(16, 185, 129, 0.12)", color: "#10b981" }}>
-                  <Icon name="revenue" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="bm-kpi-tile-value" style={{ color: "#10b981" }}>

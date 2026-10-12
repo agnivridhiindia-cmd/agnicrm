@@ -271,39 +271,27 @@ export default function BranchManagerEmployeesPage({
             <div className="analytics-card bm-kpi-tile">
               <div className="bm-kpi-tile-top">
                 <span className="bm-kpi-tile-label">Total Managers</span>
-                <div className="bm-kpi-tile-icon">
-                  <Icon name="team" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="bm-kpi-tile-value">{managers.length}</strong>
-                <span className="bm-kpi-tile-sub">Active Regional Leads</span>
               </div>
             </div>
 
             <div className="analytics-card bm-kpi-tile">
               <div className="bm-kpi-tile-top">
                 <span className="bm-kpi-tile-label">Total Staff</span>
-                <div className="bm-kpi-tile-icon blue">
-                  <Icon name="users" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="bm-kpi-tile-value">{branchEmployees.length}</strong>
-                <span className="bm-kpi-tile-sub">Employees at Branch</span>
               </div>
             </div>
 
             <div className="analytics-card bm-kpi-tile">
               <div className="bm-kpi-tile-top">
                 <span className="bm-kpi-tile-label">Territory Nodes</span>
-                <div className="bm-kpi-tile-icon green">
-                  <Icon name="building" size={16} />
-                </div>
               </div>
               <div>
                 <strong className="bm-kpi-tile-value">{managedRegion}</strong>
-                <span className="bm-kpi-tile-sub">Designated Territory</span>
               </div>
             </div>
           </div>

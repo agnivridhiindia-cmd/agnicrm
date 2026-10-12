@@ -118,7 +118,9 @@
   border-radius: 18px;
   display: flex;
   flex-direction: column;
-  justifyContent: space-between;
+  justify-content: space-between;
+  min-height: 128px;
+  box-sizing: border-box;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0.08) 50%, rgba(255, 255, 255, 0.90) 100%);
   border: 1px solid rgba(99, 102, 241, 0.30);
   box-shadow: 0 10px 28px rgba(99, 102, 241, 0.12), inset 0 1px 1px #ffffff;
@@ -177,6 +179,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 34px;
 }
 
 .owner-kpi-tile-label {
@@ -1928,12 +1931,13 @@
   flex-direction: column !important;
   min-height: 100% !important;
   padding: 22px 20px !important;
-  justify-content: space-between !important;
   border-radius: 20px !important;
+  box-sizing: border-box !important;
 }
 
 .owner-activity-header {
   margin-bottom: 14px !important;
+  flex-shrink: 0 !important;
 }
 
 .owner-activity-eyebrow {
@@ -1953,24 +1957,46 @@
 }
 
 .owner-activity-list {
-  flex: 1 !important;
+  flex: 1 1 0% !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: space-between !important;
-  gap: 10px !important;
-  overflow: hidden !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-right: 4px !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(140, 95, 248, 0.3) transparent !important;
+}
+
+.owner-activity-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.owner-activity-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.owner-activity-list::-webkit-scrollbar-thumb {
+  background: rgba(140, 95, 248, 0.3);
+  border-radius: 99px;
+}
+
+.owner-activity-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 95, 248, 0.5);
 }
 
 .owner-activity-row {
-  padding: 13px 14px !important;
-  border-radius: 14px !important;
+  padding: 8px 14px !important;
+  border-radius: 12px !important;
   background: rgba(140, 95, 248, 0.05) !important;
   border: 1px solid rgba(140, 95, 248, 0.1) !important;
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
-  flex: 1 1 0% !important;
-  min-height: 56px !important;
+  flex-shrink: 0 !important;
+  height: 54px !important;
+  box-sizing: border-box !important;
   transition: all 0.2s ease !important;
 }
 
@@ -1980,8 +2006,8 @@
 }
 
 .owner-activity-mark {
-  width: 9px !important;
-  height: 9px !important;
+  width: 8px !important;
+  height: 8px !important;
   border-radius: 50% !important;
   flex-shrink: 0 !important;
 }
@@ -1989,28 +2015,40 @@
 .owner-activity-content {
   flex: 1 !important;
   min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 2px !important;
 }
 
 .owner-activity-title {
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   font-weight: 700 !important;
-  display: block !important;
-  margin-bottom: 2px !important;
+  line-height: 1.25 !important;
+  margin: 0 !important;
   color: #1e1b4b !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .owner-activity-detail {
-  color: #7a748e !important;
-  font-size: 11.5px !important;
-  display: block !important;
-  line-height: 1.3 !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .owner-activity-time {
   font-size: 11px !important;
-  color: #7a748e !important;
+  color: #8c5ff8 !important;
+  font-weight: 600 !important;
   white-space: nowrap !important;
-  margin-left: 6px !important;
+  margin-left: 8px !important;
+  flex-shrink: 0 !important;
 }
 
 /* Dark mode support */
@@ -2032,5 +2070,5 @@
 }
 
 .dashboard-dark .owner-activity-time {
-  color: #94a3b8 !important;
+  color: #a78bfa !important;
 }

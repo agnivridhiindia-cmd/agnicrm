@@ -11,9 +11,6 @@ export default function RevenueSummaryCard({ card }) {
   return (
     <div className={`revenue-summary-card ${card.accentClass || ''}`}>
       <div className="revenue-summary-card__top">
-        <div className={`revenue-summary-icon ${card.accentClass || ''}`}>
-          <Icon name={card.icon || 'wallet'} size={18} />
-        </div>
         <span className={`revenue-summary-pill ${card.accentClass || ''}`}>
           <span className="revenue-summary-dot" />
           {statusLabel}

@@ -319,41 +319,29 @@ export default function OwnerEmployeesPage({
           <div className="owner-kpi-tile blue">
             <div className="owner-kpi-tile-top">
               <span className="owner-kpi-tile-label">Team Size</span>
-              <div className="owner-kpi-tile-icon blue">
-                <Icon name="team" size={16} />
-              </div>
             </div>
             <div>
               <strong className="owner-kpi-tile-value">{team.length}</strong>
-              <span className="owner-kpi-tile-sub">Subordinate Team Members</span>
             </div>
           </div>
 
           <div className="owner-kpi-tile purple">
             <div className="owner-kpi-tile-top">
               <span className="owner-kpi-tile-label">Role Profiles</span>
-              <div className="owner-kpi-tile-icon purple">
-                <Icon name="roles" size={16} />
-              </div>
             </div>
             <div>
               <strong className="owner-kpi-tile-value">{uniqueRoles.length}</strong>
-              <span className="owner-kpi-tile-sub">Distinct Functional Roles</span>
             </div>
           </div>
 
           <div className="owner-kpi-tile green">
             <div className="owner-kpi-tile-top">
               <span className="owner-kpi-tile-label">Branch Jurisdiction</span>
-              <div className="owner-kpi-tile-icon green">
-                <Icon name="branches" size={16} />
-              </div>
             </div>
             <div>
               <strong className="owner-kpi-tile-value" style={{ color: "#10b981" }}>
                 {managerTeamView.branch}
               </strong>
-              <span className="owner-kpi-tile-sub">Assigned Territory</span>
             </div>
           </div>
         </div>
@@ -525,41 +513,29 @@ export default function OwnerEmployeesPage({
           <div className="owner-kpi-tile blue">
             <div className="owner-kpi-tile-top">
               <span className="owner-kpi-tile-label">Clients Managed</span>
-              <div className="owner-kpi-tile-icon blue">
-                <Icon name="clients" size={16} />
-              </div>
             </div>
             <div>
               <strong className="owner-kpi-tile-value">{managedClients.length}</strong>
-              <span className="owner-kpi-tile-sub">Active Accounts</span>
             </div>
           </div>
 
           <div className="owner-kpi-tile purple">
             <div className="owner-kpi-tile-top">
               <span className="owner-kpi-tile-label">Total Portfolio Value</span>
-              <div className="owner-kpi-tile-icon purple">
-                <Icon name="revenue" size={16} />
-              </div>
             </div>
             <div>
               <strong className="owner-kpi-tile-value">₹{totalVal.toLocaleString()}</strong>
-              <span className="owner-kpi-tile-sub">Contracted Value</span>
             </div>
           </div>
 
           <div className="owner-kpi-tile green">
             <div className="owner-kpi-tile-top">
               <span className="owner-kpi-tile-label">Average Completion</span>
-              <div className="owner-kpi-tile-icon green">
-                <Icon name="overview" size={16} />
-              </div>
             </div>
             <div>
               <strong className="owner-kpi-tile-value" style={{ color: "#10b981" }}>
                 {avgProgress}%
               </strong>
-              <span className="owner-kpi-tile-sub">Pipeline Milestone Rate</span>
             </div>
           </div>
         </div>
@@ -768,56 +744,40 @@ export default function OwnerEmployeesPage({
         <div className="owner-kpi-tile blue">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Total Workforce</span>
-            <div className="owner-kpi-tile-icon blue">
-              <Icon name="team" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value">{totalEmployees}</strong>
-            <span className="owner-kpi-tile-sub">Active Enterprise Staff</span>
           </div>
         </div>
 
         <div className="owner-kpi-tile green">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Branch Managers</span>
-            <div className="owner-kpi-tile-icon green">
-              <Icon name="roles" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#10b981" }}>
               {branchManagersCount}
             </strong>
-            <span className="owner-kpi-tile-sub">Territory Heads</span>
           </div>
         </div>
 
         <div className="owner-kpi-tile amber">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Regional Managers</span>
-            <div className="owner-kpi-tile-icon amber">
-              <Icon name="team" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#f59e0b" }}>
               {salesManagersCount}
             </strong>
-            <span className="owner-kpi-tile-sub">Sales Operations Leads</span>
           </div>
         </div>
 
         <div className="owner-kpi-tile purple">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Operating Branches</span>
-            <div className="owner-kpi-tile-icon purple">
-              <Icon name="branches" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value">{uniqueBranchesCount}</strong>
-            <span className="owner-kpi-tile-sub">Across All Regions</span>
           </div>
         </div>
       </div>

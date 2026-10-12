@@ -89,7 +89,9 @@
   border-radius: 18px;
   display: flex;
   flex-direction: column;
-  justifyContent: space-between;
+  justify-content: space-between;
+  min-height: 124px;
+  box-sizing: border-box;
 }
 
 .bm-kpi-tile-top {
@@ -97,6 +99,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-height: 32px;
 }
 
 .bm-kpi-tile-label {

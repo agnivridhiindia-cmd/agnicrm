@@ -41,7 +41,6 @@ export default function OwnerOverviewPage({
       {
         label: "Total Clients",
         value: clientsCount.toLocaleString("en-IN"),
-        description: "Active client accounts",
         accent: "#3b82f6",
         linkTo: "Clients",
         slug: "clients",
@@ -49,7 +48,6 @@ export default function OwnerOverviewPage({
       {
         label: "Total Branch Managers",
         value: branchManagersCount.toLocaleString("en-IN"),
-        description: "Branch performance leads",
         accent: "#0284c7",
         linkTo: "Employees",
         employeeRole: "branch manager",
@@ -58,7 +56,6 @@ export default function OwnerOverviewPage({
       {
         label: "Total Sales Managers",
         value: salesManagersCount.toLocaleString("en-IN"),
-        description: "Regional sales leads",
         accent: "#4f46e5",
         linkTo: "Employees",
         employeeRole: "manager",
@@ -67,7 +64,6 @@ export default function OwnerOverviewPage({
       {
         label: "Sales Persons",
         value: salesPersonsCount.toLocaleString("en-IN"),
-        description: "Active sales reps",
         accent: "#14b8a6",
         linkTo: "Employees",
         employeeRole: "sales",
@@ -88,7 +84,6 @@ export default function OwnerOverviewPage({
       {
         label: "Daily Revenue",
         value: `₹${(revenueMetrics.dailyNet || 0).toLocaleString("en-IN")}`,
-        description: "All salespeople & branches (Today)",
         accent: "#10b981",
         linkTo: "Revenue",
         slug: "daily-revenue",
@@ -97,7 +92,6 @@ export default function OwnerOverviewPage({
       {
         label: "Weekly Revenue",
         value: `₹${(revenueMetrics.weeklyNet || 0).toLocaleString("en-IN")}`,
-        description: "All salespeople & branches (This week)",
         accent: "#6366f1",
         linkTo: "Revenue",
         slug: "weekly-revenue",
@@ -106,7 +100,6 @@ export default function OwnerOverviewPage({
       {
         label: "Monthly Revenue",
         value: `₹${(revenueMetrics.monthlyNet || 0).toLocaleString("en-IN")}`,
-        description: "All salespeople & branches (This month)",
         accent: "#f59e0b",
         linkTo: "Revenue",
         slug: "monthly-revenue",
@@ -115,7 +108,6 @@ export default function OwnerOverviewPage({
       {
         label: "Yearly Revenue",
         value: `₹${(revenueMetrics.yearlyNet || 0).toLocaleString("en-IN")}`,
-        description: "FY 2026-27 annual total",
         accent: "#8b5cf6",
         linkTo: "Revenue",
         slug: "yearly-revenue",
@@ -124,7 +116,6 @@ export default function OwnerOverviewPage({
       {
         label: "Total Payment Received",
         value: `₹${(revenueMetrics.totalReceivedNet || 0).toLocaleString("en-IN")}`,
-        description: "All revenue generated till date",
         accent: "#059669",
         linkTo: "Invoice",
         slug: "payment-received",
@@ -133,7 +124,6 @@ export default function OwnerOverviewPage({
       {
         label: "Total Payment Pending",
         value: `₹${(revenueMetrics.totalPendingNet || 0).toLocaleString("en-IN")}`,
-        description: "Pending dues from token & partial clients",
         accent: "#dc2626",
         linkTo: "Invoice",
         slug: "payment-pending",
@@ -145,7 +135,7 @@ export default function OwnerOverviewPage({
   const displayActivities = useMemo(() => {
     const dynamicList = [];
     if (clients && clients.length > 0) {
-      clients.slice(0, 3).forEach((c, i) => {
+      clients.forEach((c, i) => {
         dynamicList.push({
           title: "New Client Added",
           detail: `${c.companyName || c.clientName || "Client"} (${c.serviceType || "Services"})`,
@@ -155,7 +145,7 @@ export default function OwnerOverviewPage({
       });
     }
     if (invoices && invoices.length > 0) {
-      invoices.slice(0, 2).forEach((inv, i) => {
+      invoices.forEach((inv, i) => {
         dynamicList.push({
           title: "Payment Received",
           detail: `${inv.invoiceNo || "Invoice"} - ₹${(inv.grandTotal || inv.amount || 0).toLocaleString("en-IN")}`,
@@ -165,7 +155,7 @@ export default function OwnerOverviewPage({
       });
     }
     const merged = [...dynamicList, ...defaultOwnerActivities];
-    return merged.slice(0, 8);
+    return merged.slice(0, 30);
   }, [clients, invoices]);
 
   return (

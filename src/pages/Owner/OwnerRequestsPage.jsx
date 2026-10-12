@@ -8,6 +8,7 @@ export default function OwnerRequestsPage({
   onCancelRequest,
 }) {
   const [requestsActiveTab, setRequestsActiveTab] = useState("Pending Requests");
+  const [searchTerm, setSearchTerm] = useState("");
   const [historyMonthFilter, setHistoryMonthFilter] = useState("All");
   const [historyYearFilter, setHistoryYearFilter] = useState("All");
   const [historyStatusFilter, setHistoryStatusFilter] = useState("All");
@@ -19,16 +20,55 @@ export default function OwnerRequestsPage({
     return rawType !== "NEW_SERVICE" && rawType !== "NEW_SCHEME" && !reason.includes("self-enrollment");
   });
 
-  const pendingRequests = ownerRequestsList.filter((r) => r.status === "Pending");
-  const historyRequests = ownerRequestsList.filter((r) => {
-    if (r.status === "Pending") return false;
+  const matchesSearch = (r) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    const id = String(r.id || r.requestCode || "").toLowerCase();
+    const client = String(r.clientName || r.client?.name || r.title || "").toLowerCase();
+    const company = String(r.company || r.client?.company || "").toLowerCase();
+    const manager = String(r.branchManagerName || r.managerName || "").toLowerCase();
+    const type = String(r.requestType || r.category || "").toLowerCase();
+    const reason = String(r.reason || "").toLowerCase();
+    return (
+      id.includes(term) ||
+      client.includes(term) ||
+      company.includes(term) ||
+      manager.includes(term) ||
+      type.includes(term) ||
+      reason.includes(term)
+    );
+  };
+
+  const rawPendingRequests = ownerRequestsList.filter((r) => r.status === "Pending");
+  const rawHistoryRequests = ownerRequestsList.filter((r) => r.status !== "Pending");
+
+  const pendingRequests = rawPendingRequests.filter(matchesSearch);
+  const historyRequests = rawHistoryRequests.filter((r) => {
     if (historyStatusFilter !== "All" && r.status !== historyStatusFilter) return false;
     if (historyMonthFilter !== "All" && r.month !== historyMonthFilter) return false;
     if (historyYearFilter !== "All" && String(r.year) !== String(historyYearFilter)) return false;
+    if (!matchesSearch(r)) return false;
     return true;
   });
 
   const displayedRequests = requestsActiveTab === "Pending Requests" ? pendingRequests : historyRequests;
+  const totalCount = requestsActiveTab === "Pending Requests" ? rawPendingRequests.length : rawHistoryRequests.length;
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setHistoryStatusFilter("All");
+    setHistoryMonthFilter("All");
+    setHistoryYearFilter("All");
+  };
+
+  const hasActiveFilters = Boolean(
+    searchTerm ||
+    (requestsActiveTab === "Request History" && (
+      historyStatusFilter !== "All" ||
+      historyMonthFilter !== "All" ||
+      historyYearFilter !== "All"
+    ))
+  );
 
   return (
     <section className="owner-page-view">
@@ -72,59 +112,136 @@ export default function OwnerRequestsPage({
         })}
       </div>
 
-      {/* History Filters Toolbar (if on history tab) */}
-      {requestsActiveTab === "Request History" && (
-        <div className="analytics-card owner-toolbar-card">
-          <div className="owner-toolbar-filters">
-            <label className="field-label" style={{ margin: 0 }}>
-              <span>Status:</span>
-              <select
-                className="owner-filter-select"
-                value={historyStatusFilter}
-                onChange={(e) => setHistoryStatusFilter(e.target.value)}
+      {/* Toolbar Filter Card matching Owner Employees UI */}
+      <div className="analytics-card owner-toolbar-card">
+        <div className="owner-toolbar-filters">
+          <div className="owner-search-box">
+            <span className="owner-search-icon">
+              <Icon name="search" size={15} />
+            </span>
+            <input
+              type="text"
+              placeholder={
+                requestsActiveTab === "Pending Requests"
+                  ? "Search pending requests by ID, client, manager..."
+                  : "Search requests by ID, client, manager, category..."
+              }
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                className="owner-search-clear-btn"
+                onClick={() => setSearchTerm("")}
+                title="Clear search"
+                aria-label="Clear search"
               >
-                <option value="All">All Statuses</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </label>
-
-            <label className="field-label" style={{ margin: 0 }}>
-              <span>Month:</span>
-              <select
-                className="owner-filter-select"
-                value={historyMonthFilter}
-                onChange={(e) => setHistoryMonthFilter(e.target.value)}
-              >
-                <option value="All">All Months</option>
-                {monthNamesList.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="field-label" style={{ margin: 0 }}>
-              <span>Year:</span>
-              <select
-                className="owner-filter-select"
-                value={historyYearFilter}
-                onChange={(e) => setHistoryYearFilter(e.target.value)}
-              >
-                <option value="All">All Years</option>
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
-              </select>
-            </label>
+                ✕
+              </button>
+            )}
           </div>
 
-          <div className="owner-count-badge">
-            <span>Historical Records:</span>
-            <strong>{displayedRequests.length}</strong>
-          </div>
+          {requestsActiveTab === "Request History" && (
+            <>
+              <div className="owner-filter-control-group">
+                <label className="owner-filter-inline-label" htmlFor="owner-status-filter">
+                  <Icon name="checkCircle" size={13} />
+                  <span>Status:</span>
+                </label>
+                <div className="owner-select-wrapper">
+                  <select
+                    id="owner-status-filter"
+                    className="owner-filter-select"
+                    value={historyStatusFilter}
+                    onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                  <span className="owner-select-chevron">▾</span>
+                </div>
+              </div>
+
+              <div className="owner-filter-control-group">
+                <label className="owner-filter-inline-label" htmlFor="owner-month-filter">
+                  <Icon name="calendarToday" size={13} />
+                  <span>Month:</span>
+                </label>
+                <div className="owner-select-wrapper">
+                  <select
+                    id="owner-month-filter"
+                    className="owner-filter-select"
+                    value={historyMonthFilter}
+                    onChange={(e) => setHistoryMonthFilter(e.target.value)}
+                  >
+                    {monthNamesList.map((m) => (
+                      <option key={m} value={m}>
+                        {m === "All" ? "All Months" : m}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="owner-select-chevron">▾</span>
+                </div>
+              </div>
+
+              <div className="owner-filter-control-group">
+                <label className="owner-filter-inline-label" htmlFor="owner-year-filter">
+                  <Icon name="clock" size={13} />
+                  <span>Year:</span>
+                </label>
+                <div className="owner-select-wrapper">
+                  <select
+                    id="owner-year-filter"
+                    className="owner-filter-select"
+                    value={historyYearFilter}
+                    onChange={(e) => setHistoryYearFilter(e.target.value)}
+                  >
+                    <option value="All">All Years</option>
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                  </select>
+                  <span className="owner-select-chevron">▾</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="owner-btn-reset-filters"
+              onClick={handleResetFilters}
+              title="Reset all active filters"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>Reset</span>
+            </button>
+          )}
         </div>
-      )}
+
+        <div className="owner-count-badge">
+          <span className="owner-count-dot"></span>
+          <span>Showing</span>
+          <strong>{displayedRequests.length}</strong>
+          <span>of {totalCount} records</span>
+        </div>
+      </div>
 
       {/* Table Card */}
       <div className="analytics-card owner-table-card">

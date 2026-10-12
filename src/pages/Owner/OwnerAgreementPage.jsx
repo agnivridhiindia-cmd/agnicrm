@@ -168,9 +168,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
         <div className="owner-kpi-tile purple">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Total Mandates</span>
-            <div className="owner-kpi-tile-icon purple">
-              <Icon name="agreement" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value">{totalAgreements}</strong>
@@ -180,9 +177,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
         <div className="owner-kpi-tile blue">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Ready / Executed</span>
-            <div className="owner-kpi-tile-icon blue">
-              <Icon name="checkCircle" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#3b82f6" }}>
@@ -194,9 +188,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
         <div className="owner-kpi-tile green">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Dispatched to Client</span>
-            <div className="owner-kpi-tile-icon green">
-              <Icon name="arrowUp" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#10b981" }}>
@@ -208,9 +199,6 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
         <div className="owner-kpi-tile amber">
           <div className="owner-kpi-tile-top">
             <span className="owner-kpi-tile-label">Pending Execution</span>
-            <div className="owner-kpi-tile-icon amber">
-              <Icon name="overview" size={16} />
-            </div>
           </div>
           <div>
             <strong className="owner-kpi-tile-value" style={{ color: "#f59e0b" }}>

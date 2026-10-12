@@ -47,11 +47,6 @@ export default function KpiCard({ card, onAction, onClick, dark, ...props }) {
     >
       <div className="kpi-card-header">
         <div className="kpi-card-title">
-          {icon && (
-            <span className="kpi-card-icon">
-              <Icon name={icon} size={18} />
-            </span>
-          )}
           <span>{label}</span>
         </div>
       </div>
