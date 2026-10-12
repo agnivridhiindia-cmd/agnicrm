@@ -87,12 +87,21 @@ export const SCHEME_PROCESS_TYPE_MAP = {
   "CGSS": PROCESS_TYPES.APPLICATION,
   "Seed Funding": PROCESS_TYPES.APPLICATION,
   "Financial Assistant SC/ST": PROCESS_TYPES.APPLICATION,
+  "Financial Assistant for SC/ST": PROCESS_TYPES.APPLICATION,
+  "Financial Assistance for SC/ST": PROCESS_TYPES.APPLICATION,
+  "Seed Support Scheme": PROCESS_TYPES.APPLICATION,
+  "SIDBI Funding": PROCESS_TYPES.APPLICATION,
+  "PMFME Funding": PROCESS_TYPES.APPLICATION,
+  "National Livestock Development Scheme": PROCESS_TYPES.APPLICATION,
+  "CMEGP": PROCESS_TYPES.APPLICATION,
+  "Startup India Seed Scheme": PROCESS_TYPES.APPLICATION,
 
   // --- INTERVIEW ONLY (5 Stages) ---
   "Private Funding": PROCESS_TYPES.INTERVIEW,
   "Equity Based Funding": PROCESS_TYPES.INTERVIEW,
 
   // --- APPLICATION + INTERVIEW (6 Stages) ---
+  "Queen's Funding": PROCESS_TYPES.APPLICATION_INTERVIEW,
   "DIV": PROCESS_TYPES.APPLICATION_INTERVIEW,
   "DIV Funding": PROCESS_TYPES.APPLICATION_INTERVIEW,
   "NGO Elevation": PROCESS_TYPES.APPLICATION_INTERVIEW,
@@ -149,11 +158,29 @@ const SCHEME_ALIASES = {
   "cgss": "CGSS",
   "seed funding": "Seed Funding",
   "seed funnding": "Seed Funding",
-  "startup india seed scheme": "Seed Funding",
-  "financial assistant sc/st": "Financial Assistant SC/ST",
-  "financial assistant sc st": "Financial Assistant SC/ST",
-  "stand-up india": "Financial Assistant SC/ST",
-  "stand up india": "Financial Assistant SC/ST",
+  "startup india seed scheme": "Startup India Seed Scheme",
+  "seed support scheme": "Seed Support Scheme",
+  "seed support": "Seed Support Scheme",
+  "queen's funding": "Queen's Funding",
+  "queens funding": "Queen's Funding",
+  "queen funding": "Queen's Funding",
+  "sidbi funding": "SIDBI Funding",
+  "sidbi": "SIDBI Funding",
+  "pmfme funding": "PMFME Funding",
+  "pmfme": "PMFME Funding",
+  "financial assistant sc/st": "Financial Assistant for SC/ST",
+  "financial assistant sc st": "Financial Assistant for SC/ST",
+  "financial assistant for sc/st": "Financial Assistant for SC/ST",
+  "financial assistant for sc?st": "Financial Assistant for SC/ST",
+  "financial assistance for sc/st": "Financial Assistant for SC/ST",
+  "financial assistance for sc?st": "Financial Assistant for SC/ST",
+  "national livestock development scheme": "National Livestock Development Scheme",
+  "national livestock development": "National Livestock Development Scheme",
+  "national livestock scheme": "National Livestock Development Scheme",
+  "cmegp": "CMEGP",
+  "cmegp scheme": "CMEGP",
+  "stand-up india": "Financial Assistant for SC/ST",
+  "stand up india": "Financial Assistant for SC/ST",
 
   "private funding": "Private Funding",
   "private funnding": "Private Funding",
@@ -270,6 +297,33 @@ export function getCanonicalSchemeName(schemeInput) {
   const lookupKey = clean.toLowerCase();
   if (lookupKey.includes("mudra")) {
     return "PM MUDRA";
+  }
+  if (lookupKey.includes("sidbi")) {
+    return "SIDBI Funding";
+  }
+  if (lookupKey.includes("pmfme")) {
+    return "PMFME Funding";
+  }
+  if (lookupKey.includes("cmegp")) {
+    return "CMEGP";
+  }
+  if (lookupKey.includes("queen")) {
+    return "Queen's Funding";
+  }
+  if (lookupKey.includes("seed support")) {
+    return "Seed Support Scheme";
+  }
+  if (lookupKey.includes("national livestock")) {
+    return "National Livestock Development Scheme";
+  }
+  if (
+    lookupKey.includes("financial assistant") ||
+    lookupKey.includes("financial assistance") ||
+    lookupKey.includes("sc/st") ||
+    lookupKey.includes("sc?st") ||
+    lookupKey.includes("sc st")
+  ) {
+    return "Financial Assistant for SC/ST";
   }
   if (SCHEME_ALIASES[lookupKey]) {
     return SCHEME_ALIASES[lookupKey];

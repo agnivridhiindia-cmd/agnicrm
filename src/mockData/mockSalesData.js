@@ -55,6 +55,13 @@ export const serviceTypeSchemes = {
     "NGO Development",
     "CSR",
     "Spark Grant",
+    "Seed Support Scheme",
+    "Queen's Funding",
+    "SIDBI Funding",
+    "PMFME Funding",
+    "Financial Assistant for SC/ST",
+    "National Livestock Development Scheme",
+    "CMEGP",
   ],
   IT: [
     "Enterprise Web Portal & CRM Maintenance",

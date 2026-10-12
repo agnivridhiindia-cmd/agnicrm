@@ -65,6 +65,14 @@ const standardSchemes = [
   "State Subsidy Scheme",
   "Trade & GST Registration",
   "Consultancy & Advisory",
+  "Seed Support Scheme",
+  "Queen's Funding",
+  "SIDBI Funding",
+  "PMFME Funding",
+  "NAIFF",
+  "Financial Assistant for SC/ST",
+  "National Livestock Development Scheme",
+  "CMEGP",
 ];
 
 const businessSectors = [

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 
 function formatDate(value) {
   if (!value) return "";
@@ -85,6 +85,10 @@ export default function EligibleSchemes({ initialSchemes = [], enrolledSchemes =
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [savedMessage, setSavedMessage] = useState("");
+
+  useEffect(() => {
+    setSchemes(initialSchemes);
+  }, [initialSchemes]);
 
   const filteredSchemes = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();

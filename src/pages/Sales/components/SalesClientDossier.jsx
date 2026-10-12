@@ -900,7 +900,13 @@ export default function SalesClientDossier({
 
       {/* Eligible Schemes Section */}
       <EligibleSchemes
-        initialSchemes={selectedClient.eligibleSchemes && selectedClient.eligibleSchemes.length > 0 ? selectedClient.eligibleSchemes : mockEligibleSchemes}
+        initialSchemes={(() => {
+          const clientSchemes = selectedClient.eligibleSchemes || [];
+          if (!clientSchemes.length) return mockEligibleSchemes;
+          const existingNames = new Set(clientSchemes.map((s) => (s.schemeName || "").toLowerCase().trim()));
+          const newFromMock = mockEligibleSchemes.filter((m) => !existingNames.has((m.schemeName || "").toLowerCase().trim()));
+          return [...clientSchemes, ...newFromMock];
+        })()}
         enrolledSchemes={enrolledSchemesList}
         onSave={onSchemeSave}
       />

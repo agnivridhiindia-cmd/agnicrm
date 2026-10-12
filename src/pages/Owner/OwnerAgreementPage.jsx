@@ -285,6 +285,13 @@ export default function OwnerAgreementPage({ clients = [], showToast }) {
                 <option value="Stand-Up India">Stand-Up India</option>
                 <option value="Private Funding">Private Funding</option>
                 <option value="CMEGP">CMEGP</option>
+                <option value="Seed Support Scheme">Seed Support Scheme</option>
+                <option value="Queen's Funding">Queen's Funding</option>
+                <option value="SIDBI Funding">SIDBI Funding</option>
+                <option value="PMFME Funding">PMFME Funding</option>
+                <option value="NAIFF">NAIFF</option>
+                <option value="Financial Assistant for SC/ST">Financial Assistant for SC/ST</option>
+                <option value="National Livestock Development Scheme">National Livestock Development Scheme</option>
               </select>
               <span className="owner-select-chevron">▾</span>
             </div>
