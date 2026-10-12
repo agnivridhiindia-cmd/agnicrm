@@ -68,14 +68,6 @@ export default function AdminOverviewPage({
       accent: "#9a74e9",
       onClick: onOpenPipeline || onOpenClients,
     },
-    {
-      label: "Branch S.L.A Health",
-      value: "99.8%",
-      trend: "Optimal",
-      description: "Milestone dispatch uptime",
-      accent: "#f2938f",
-      onClick: onOpenHistory,
-    },
   ];
 
   return (
