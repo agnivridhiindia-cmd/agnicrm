@@ -158,7 +158,10 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 const dbScheme = typeof c.serviceName === "string" ? c.serviceName : (c.scheme || "");
                 const canonicalScheme = getCanonicalSchemeName(dbScheme || c.scheme);
                 const itemKey = c.id ? String(c.id) : `${String(dbComp).toLowerCase().trim()}::${String(canonicalScheme).toLowerCase().trim()}`;
-                const dbSpRaw = typeof c.salesPerson === "string" ? c.salesPerson : (c.salesPerson?.fullName || c.salesPerson?.name || c.assignedSalesPerson || c.owner || "Mia Rose");
+                const dbSpObj = (typeof dbC.salesPerson === "object" && dbC.salesPerson !== null) ? dbC.salesPerson : (typeof c.salesPerson === "object" && c.salesPerson !== null ? c.salesPerson : null);
+                const dbSpRaw = typeof c.salesPerson === "string" ? c.salesPerson : (c.salesPerson?.fullName || c.salesPerson?.name || dbSpObj?.fullName || dbSpObj?.name || c.assignedSalesPerson || c.owner || "Mia Rose");
+                const dbSpId = dbC.salesPersonId || c.salesPersonId || dbSpObj?.id || "";
+                const dbSpEmail = dbC.salesPersonEmail || c.salesPersonEmail || dbSpObj?.email || "";
                 const explicitTotal = parseFloat(String(c.invoices?.[0]?.rawTotal || c.totalPayment || c.amount || 0).replace(/[^0-9.]/g, "")) || 0;
                 const clientRec = parseFloat(String(c.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0;
                 const invRec = (c.invoices || []).reduce((sum, inv) => sum + (parseFloat(String(inv.paymentReceived || 0).replace(/[^0-9.]/g, "")) || 0), 0);
@@ -184,6 +187,11 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                   serviceName: canonicalScheme || "PMEGP",
                   scheme: canonicalScheme || "PMEGP",
                   salesPerson: dbSpRaw,
+                  salesPersonId: dbSpId,
+                  salesPersonEmail: dbSpEmail,
+                  salesPersonObj: dbSpObj,
+                  salesManager: dbC.salesManager || c.salesManager || "",
+                  salesManagerEmail: dbC.salesManagerEmail || c.salesManagerEmail || "",
                   branch: c.branch?.name || c.branch || "West Zone (Mumbai)",
                   totalPayment: rawAmt,
                   paymentReceived: finalRecAmt,

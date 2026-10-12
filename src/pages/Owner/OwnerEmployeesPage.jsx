@@ -108,55 +108,94 @@ export default function OwnerEmployeesPage({
     );
   }, [deletedEmployees, archiveSearchTerm]);
 
-  function getClientsForEmployee(emp) {
-    if (!emp) return [];
-    const empRole = (emp.role || emp.rawRole || "").toLowerCase().trim();
-    const empRaw = (emp.rawRole || "").toLowerCase().trim();
-    const empName = (emp.name || emp.fullName || "").toLowerCase().trim();
-    const empFirstName = empName.split(" ")[0];
-    const empBranch = (emp.branch || "").toLowerCase().trim();
+  function matchClientToEmployee(c, emp) {
+    if (!c || !emp) return false;
 
-    let matched = (clients || []).filter((c) => {
-      if (!c) return false;
-      const cSales = (c.assignedPerson || c.salesPerson || c.owner || c.assignedSalesPerson || "").toLowerCase().trim();
-      if (!cSales) return false;
+    const empId = String(emp.id || emp.originalUserId || "").trim();
+    const empEmail = String(emp.email || "").toLowerCase().trim();
+    const empName = String(emp.name || emp.fullName || "").toLowerCase().trim();
 
-      return (
-        cSales.includes(empName) ||
-        empName.includes(cSales) ||
-        (empFirstName && empFirstName.length > 2 && cSales.includes(empFirstName))
-      );
-    });
-
-    if (matched.length > 0) return matched;
-
-    if (empRole.includes("it") || empRaw === "it") {
-      matched = (clients || []).filter(
-        (c) => (c.serviceType || "").toLowerCase() === "it" || (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0])
-      );
-    } else if (empRole.includes("market") || empRaw === "marketing") {
-      matched = (clients || []).filter(
-        (c) => (c.serviceType || "").toLowerCase() === "marketing" || (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0])
-      );
-    } else if (empRole.includes("admin") || empRaw === "admin") {
-      matched = (clients || []).filter(
-        (c) =>
-          (c.serviceType || "").toLowerCase() === "certificate" ||
-          (c.serviceType || "").toLowerCase() === "consultancy" ||
-          (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0])
-      );
-    } else if (empRole.includes("sales") || empRaw === "sales_person" || empRole.includes("manager")) {
-      matched = (clients || []).filter(
-        (c) => (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0]) || !!c.salesPerson
-      );
+    // 1. Direct salesperson ID match
+    const cSpId = String(
+      c.salesPersonId ||
+      c.salesPerson?.id ||
+      c.salesPersonObj?.id ||
+      c.assignedSalesPersonId ||
+      c.salespersonId ||
+      ""
+    ).trim();
+    if (empId && cSpId && empId === cSpId) {
+      return true;
     }
 
-    if (matched.length > 0) return matched;
-    return (clients || []).filter((c) => (c.branch || "").toLowerCase().includes(empBranch.split(" ")[0]));
+    // 2. Direct salesperson email match
+    const cSpEmail = String(
+      c.salesPersonEmail ||
+      c.salesPerson?.email ||
+      c.salesPersonObj?.email ||
+      c.salesRepresentativeEmail ||
+      ""
+    ).toLowerCase().trim();
+    if (empEmail && cSpEmail && empEmail === cSpEmail) {
+      return true;
+    }
+
+    // 3. Name match
+    const cSalesName = String(
+      c.salesPerson?.fullName ||
+      c.salesPersonObj?.fullName ||
+      (typeof c.salesPerson === "string" ? c.salesPerson : "") ||
+      c.assignedSalesPerson ||
+      c.salesRep ||
+      c.owner ||
+      c.assignedPerson ||
+      ""
+    ).toLowerCase().trim();
+
+    // Ignore generic/unassigned placeholders
+    if (
+      !cSalesName ||
+      cSalesName === "sales representative" ||
+      cSalesName === "sales executive" ||
+      cSalesName === "unassigned" ||
+      cSalesName === "unknown"
+    ) {
+      return false;
+    }
+
+    if (empName && cSalesName) {
+      // Direct exact match
+      if (cSalesName === empName) return true;
+
+      // Clean multiple whitespace
+      const cleanC = cSalesName.replace(/\s+/g, " ");
+      const cleanE = empName.replace(/\s+/g, " ");
+      if (cleanC === cleanE) return true;
+
+      // Multi-part name token matching
+      const cTokens = cleanC.split(" ").filter((t) => t.length > 1);
+      const eTokens = cleanE.split(" ").filter((t) => t.length > 1);
+      if (cTokens.length >= 2 && eTokens.length >= 2) {
+        if (cTokens[0] === eTokens[0] && cTokens[cTokens.length - 1] === eTokens[eTokens.length - 1]) {
+          return true;
+        }
+      }
+
+      // Single name matching first name of multi-part name (min 3 chars)
+      if (cTokens.length === 1 && eTokens.length > 1 && cTokens[0].length >= 3 && cTokens[0] === eTokens[0]) {
+        return true;
+      }
+      if (eTokens.length === 1 && cTokens.length > 1 && eTokens[0].length >= 3 && eTokens[0] === cTokens[0]) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   function getTeamForManager(mgr) {
     if (!mgr) return [];
+    const mgrId = String(mgr.id || mgr.originalUserId || "").trim();
     const mgrName = (mgr.name || mgr.fullName || "").toLowerCase().trim();
     const mgrBranch = (mgr.branch || "").toLowerCase().trim();
     const mgrRole = (mgr.role || mgr.rawRole || "").toLowerCase().trim();
@@ -164,24 +203,146 @@ export default function OwnerEmployeesPage({
     return staffEmployeesList.filter((emp) => {
       if (!emp || emp.id === mgr.id) return false;
       const empRole = (emp.role || emp.rawRole || "").toLowerCase().trim();
-      const empRM = (emp.reportingManager || "").toLowerCase().trim();
+      const empRMId = String(emp.reportingManagerId || emp.reportingManager?.id || "").trim();
+      const empRM = (typeof emp.reportingManager === "string" ? emp.reportingManager : emp.reportingManager?.fullName || emp.reportingManager?.name || "").toLowerCase().trim();
       const empBM = (emp.branchManager || "").toLowerCase().trim();
       const empBranch = (emp.branch || "").toLowerCase().trim();
 
-      const sameBranch = empBranch && mgrBranch && (empBranch.includes(mgrBranch.split(" ")[0]) || mgrBranch.includes(empBranch.split(" ")[0]));
+      // Direct ID reporting match
+      if (mgrId && empRMId && mgrId === empRMId) return true;
 
-      if (mgrRole.includes("branch")) {
+      const sameBranch = empBranch && mgrBranch && (
+        cleanBranchDisplay(empBranch).toLowerCase() === cleanBranchDisplay(mgrBranch).toLowerCase() ||
+        isBranchMatch(empBranch, mgrBranch)
+      );
+
+      if (mgrRole.includes("branch") || mgr.rawRole === "BRANCH_MANAGER") {
         return empBM === mgrName || empRM === mgrName || sameBranch;
       }
 
-      if (mgrRole.includes("manager")) {
-        const isSales = empRole.includes("sales") || empRole.includes("sr") || empRole === "sales person";
+      if (mgrRole.includes("admin") || mgr.rawRole === "ADMIN") {
+        const isSales = empRole.includes("sales") || empRole.includes("sr") || empRole === "sales person" || emp.rawRole === "SALES_PERSON";
+        const isPanIndia = !mgrBranch || mgrBranch.includes("pan-india") || mgrBranch.includes("all");
+        if (empRM === mgrName || empBM === mgrName) return true;
+        if (isPanIndia && isSales) return true;
+        return sameBranch && isSales;
+      }
+
+      if (mgrRole.includes("manager") || mgrRole.includes("sm") || mgr.rawRole === "MANAGER") {
+        const isSales = empRole.includes("sales") || empRole.includes("sr") || empRole === "sales person" || emp.rawRole === "SALES_PERSON";
         if (isSales) {
-          return empRM === mgrName || empBM === mgrName || sameBranch;
+          if (empRM === mgrName || empBM === mgrName) return true;
+          if (sameBranch && (!empRM || empRM === mgrName)) return true;
         }
         return empRM === mgrName;
       }
       return false;
+    });
+  }
+
+  function getClientsForEmployee(emp) {
+    if (!emp) return [];
+    const empRole = (emp.role || emp.rawRole || "").toLowerCase().trim();
+    const empRaw = (emp.rawRole || "").toLowerCase().trim();
+    const empName = (emp.name || emp.fullName || "").toLowerCase().trim();
+    const empId = String(emp.id || emp.originalUserId || "").trim();
+    const empEmail = (emp.email || "").toLowerCase().trim();
+    const empBranch = (emp.branch || "").toLowerCase().trim();
+
+    const isBranchManager =
+      empRole.includes("branch manager") ||
+      empRole === "branch_manager" ||
+      empRole === "bm" ||
+      empRaw === "branch_manager" ||
+      (empRole.includes("branch") && empRole.includes("manager"));
+
+    const isSalesManager =
+      !isBranchManager &&
+      (empRole.includes("sales manager") ||
+        empRole === "sales_manager" ||
+        empRole === "manager" ||
+        empRole === "sm" ||
+        empRaw === "manager" ||
+        (empRole.includes("manager") && !empRole.includes("branch")));
+
+    const isAdmin =
+      empRole.includes("admin") ||
+      empRaw === "admin" ||
+      emp.rawRole === "ADMIN";
+
+    // 1. Branch Manager: sees all clients in their branch
+    if (isBranchManager) {
+      const cleanEmpBranch = cleanBranchDisplay(empBranch).toLowerCase();
+      return (clients || []).filter((c) => {
+        if (!c) return false;
+        const cleanClientBranch = cleanBranchDisplay(c.branch || "").toLowerCase();
+        return cleanClientBranch && (cleanClientBranch === cleanEmpBranch || isBranchMatch(cleanClientBranch, cleanEmpBranch));
+      });
+    }
+
+    // 2. Admin: sees every client made by any salesperson in their branch (or across all branches if Pan-India/all)
+    if (isAdmin) {
+      const cleanEmpBranch = cleanBranchDisplay(empBranch).toLowerCase();
+      const isPanIndia = !empBranch || empBranch.includes("pan-india") || empBranch.includes("all");
+      const team = getTeamForManager(emp);
+
+      return (clients || []).filter((c) => {
+        if (!c) return false;
+
+        // If Pan-India or unassigned branch, Admin oversees all clients created in the CRM
+        if (isPanIndia) {
+          return true;
+        }
+
+        // Branch match
+        const cleanClientBranch = cleanBranchDisplay(c.branch || "").toLowerCase();
+        if (cleanClientBranch && (cleanClientBranch === cleanEmpBranch || isBranchMatch(cleanClientBranch, cleanEmpBranch))) {
+          return true;
+        }
+
+        // Client created by any salesperson in the Admin's team/branch
+        if (team.some((member) => matchClientToEmployee(c, member))) {
+          return true;
+        }
+
+        // Direct match to admin
+        return matchClientToEmployee(c, emp);
+      });
+    }
+
+    // 3. Sales Manager: sees clients belonging to subordinates in their sales team + directly assigned clients
+    if (isSalesManager) {
+      const team = getTeamForManager(emp);
+      return (clients || []).filter((c) => {
+        if (!c) return false;
+
+        // Direct match to manager
+        if (matchClientToEmployee(c, emp)) return true;
+
+        // Explicit manager assignment on client
+        const cMgrName = String(c.salesManager || "").toLowerCase().trim();
+        const cMgrEmail = String(c.salesManagerEmail || "").toLowerCase().trim();
+        if (empName && cMgrName && (cMgrName === empName || cMgrName.includes(empName))) return true;
+        if (empEmail && cMgrEmail && cMgrEmail === empEmail) return true;
+
+        // Reporting manager on salesperson relation
+        const spRM = c.salesPersonObj?.reportingManager || c.salesPerson?.reportingManager;
+        if (spRM) {
+          if (empId && spRM.id && String(spRM.id) === empId) return true;
+          if (empEmail && spRM.email && spRM.email.toLowerCase().trim() === empEmail) return true;
+        }
+
+        // Subordinate in this manager's team
+        return team.some((member) => matchClientToEmployee(c, member));
+      });
+    }
+
+    // 4. Individual Sales Person / IT / Marketing:
+    // Strictly return only clients directly assigned to / created by this specific employee!
+    // Never fall back to branch-wide clients or other salespersons' clients!
+    return (clients || []).filter((c) => {
+      if (!c) return false;
+      return matchClientToEmployee(c, emp);
     });
   }
 
@@ -296,22 +457,21 @@ export default function OwnerEmployeesPage({
       <section className="owner-page-view">
         {/* Header Bar */}
         <div className="owner-header-banner">
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <button
-              type="button"
-              className="owner-btn-secondary"
-              onClick={() => setManagerTeamView(null)}
-            >
-              ← Back to All Employees
-            </button>
-            <div className="owner-header-info">
-              <p className="owner-header-eyebrow">Managerial Team Drilldown</p>
-              <h1 className="owner-header-title">Team Under — {managerTeamView.name}</h1>
-              <p className="owner-header-subtitle">
-                Role: {(managerTeamView.role || "").toUpperCase()} • Branch: {managerTeamView.branch} • Contact: {managerTeamView.email}
-              </p>
-            </div>
+          <div className="owner-header-info">
+            <p className="owner-header-eyebrow">Managerial Team Drilldown</p>
+            <h1 className="owner-header-title">Team Under — {managerTeamView.name}</h1>
+            <p className="owner-header-subtitle">
+              Role: {(managerTeamView.role || "").toUpperCase()} • Branch: {managerTeamView.branch} • Contact: {managerTeamView.email}
+            </p>
           </div>
+          <button
+            type="button"
+            className="owner-btn-secondary"
+            style={{ flexShrink: 0 }}
+            onClick={() => setManagerTeamView(null)}
+          >
+            ← Back to All Employees
+          </button>
         </div>
 
         {/* Summary Cards */}
@@ -422,9 +582,10 @@ export default function OwnerEmployeesPage({
                         </td>
                         <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                           <div className="owner-actions-cell">
-                            {["sales", "it", "admin", "market"].includes(
-                              (member.role || "").toLowerCase()
-                            ) && (
+                            {(() => {
+                              const r = (member.role || member.rawRole || "").toLowerCase();
+                              return r.includes("sales") || r.includes("it") || r.includes("admin") || r.includes("market");
+                            })() && (
                               <button
                                 className="owner-btn-primary"
                                 style={{ padding: "6px 12px", fontSize: 12 }}
@@ -490,22 +651,21 @@ export default function OwnerEmployeesPage({
       <section className="owner-page-view">
         {/* Header Bar */}
         <div className="owner-header-banner">
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <button
-              type="button"
-              className="owner-btn-secondary"
-              onClick={() => setSalesClientsView(null)}
-            >
-              ← Back to All Employees
-            </button>
-            <div className="owner-header-info">
-              <p className="owner-header-eyebrow">Client Portfolio Assignment</p>
-              <h1 className="owner-header-title">Clients Under — {salesClientsView.name}</h1>
-              <p className="owner-header-subtitle">
-                Role: {(salesClientsView.role || "").toUpperCase()} • Branch: {salesClientsView.branch} • Contact: {salesClientsView.email}
-              </p>
-            </div>
+          <div className="owner-header-info">
+            <p className="owner-header-eyebrow">Client Portfolio Assignment</p>
+            <h1 className="owner-header-title">Clients Under — {salesClientsView.name}</h1>
+            <p className="owner-header-subtitle">
+              Role: {(salesClientsView.role || "").toUpperCase()} • Branch: {salesClientsView.branch} • Contact: {salesClientsView.email}
+            </p>
           </div>
+          <button
+            type="button"
+            className="owner-btn-secondary"
+            style={{ flexShrink: 0 }}
+            onClick={() => setSalesClientsView(null)}
+          >
+            ← Back to All Employees
+          </button>
         </div>
 
         {/* Summary Cards */}
@@ -1155,7 +1315,7 @@ export default function OwnerEmployeesPage({
                         <div className="owner-actions-cell">
                           {(() => {
                             const r = (employee.role || employee.rawRole || "").toLowerCase();
-                            return r.includes("manager") || r.includes("branch");
+                            return r.includes("manager") || r.includes("branch") || r.includes("admin");
                           })() && (
                             <button
                               className="owner-btn-primary"
