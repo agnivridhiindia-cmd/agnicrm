@@ -80,47 +80,31 @@ export default function AdminRequestsPage({ clients = [], onRollbackApproved }) 
       {/* 2. Glassmorphic KPI Cards */}
       <div className="admin-kpi-grid">
         <div className="admin-stat-card amber">
-          <div className="admin-stat-top">
+          <div>
             <span className="admin-stat-label">Pending Manager Review</span>
-            <div className="admin-stat-icon-wrap">
-              <Icon name="clock" size={18} />
-            </div>
+            <div className="admin-stat-value" style={{ margin: "4px 0 0" }}>{pendingRequests.length}</div>
           </div>
-          <div className="admin-stat-value">{pendingRequests.length}</div>
-          <span className="admin-stat-pill">Awaiting Branch Manager sign-off</span>
         </div>
 
         <div className="admin-stat-card green">
-          <div className="admin-stat-top">
+          <div>
             <span className="admin-stat-label">Approved Rollbacks</span>
-            <div className="admin-stat-icon-wrap">
-              <Icon name="checkCircle" size={18} />
-            </div>
+            <div className="admin-stat-value" style={{ margin: "4px 0 0" }}>{approvedRequests.length}</div>
           </div>
-          <div className="admin-stat-value">{approvedRequests.length}</div>
-          <span className="admin-stat-pill">Successfully authorized &amp; applied</span>
         </div>
 
         <div className="admin-stat-card blue">
-          <div className="admin-stat-top">
+          <div>
             <span className="admin-stat-label">Total Petitions Logged</span>
-            <div className="admin-stat-icon-wrap">
-              <Icon name="document" size={18} />
-            </div>
+            <div className="admin-stat-value" style={{ margin: "4px 0 0" }}>{requests.length}</div>
           </div>
-          <div className="admin-stat-value">{requests.length}</div>
-          <span className="admin-stat-pill">Audit tracked in branch ledger</span>
         </div>
 
         <div className="admin-stat-card purple">
-          <div className="admin-stat-top">
+          <div>
             <span className="admin-stat-label">Governing Authority</span>
-            <div className="admin-stat-icon-wrap">
-              <Icon name="settings" size={18} />
-            </div>
+            <div className="admin-stat-value admin-req-stat-authority" style={{ margin: "4px 0 0" }}>Branch Manager</div>
           </div>
-          <div className="admin-stat-value admin-req-stat-authority">Branch Manager</div>
-          <span className="admin-stat-pill">Official approval endpoint</span>
         </div>
       </div>
 

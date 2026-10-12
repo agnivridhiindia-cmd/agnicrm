@@ -280,100 +280,32 @@ export default function AgreementPage({
 
       {/* ── KPI Stat Cards Strip ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
-        <div className="admin-subcard" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <span className="admin-kicker" style={{ fontSize: 11 }}>Client Roster</span>
-            <strong style={{ display: "block", fontSize: 22, color: "inherit", margin: "2px 0 0" }}>
-              {metrics.totalClients}
-            </strong>
-            <small style={{ color: "#64748b", fontSize: 11.5 }}>Total Registered Clients</small>
-          </div>
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: "rgba(78, 124, 255, 0.12)",
-              color: "#4e7cff",
-              display: "grid",
-              placeItems: "center",
-              fontSize: 18,
-            }}
-          >
-            👥
-          </div>
+        <div className="admin-subcard" style={{ padding: "19px 18px" }}>
+          <span className="admin-kicker" style={{ fontSize: 11 }}>Client Roster</span>
+          <strong style={{ display: "block", fontSize: 22, color: "inherit", margin: "2px 0 0" }}>
+            {metrics.totalClients}
+          </strong>
         </div>
 
-        <div className="admin-subcard" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <span className="admin-kicker" style={{ fontSize: 11, color: "#10b981" }}>Dispatched &amp; Live</span>
-            <strong style={{ display: "block", fontSize: 22, color: "#10b981", margin: "2px 0 0" }}>
-              {metrics.sentCount}
-            </strong>
-            <small style={{ color: "#64748b", fontSize: 11.5 }}>Sent to Client Email</small>
-          </div>
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: "rgba(16, 185, 129, 0.12)",
-              color: "#10b981",
-              display: "grid",
-              placeItems: "center",
-              fontSize: 18,
-            }}
-          >
-            ✉️
-          </div>
+        <div className="admin-subcard" style={{ padding: "19px 18px" }}>
+          <span className="admin-kicker" style={{ fontSize: 11, color: "#10b981" }}>Dispatched &amp; Live</span>
+          <strong style={{ display: "block", fontSize: 22, color: "#10b981", margin: "2px 0 0" }}>
+            {metrics.sentCount}
+          </strong>
         </div>
 
-        <div className="admin-subcard" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <span className="admin-kicker" style={{ fontSize: 11, color: "#9a74e9" }}>Ready &amp; Generated</span>
-            <strong style={{ display: "block", fontSize: 22, color: "#9a74e9", margin: "2px 0 0" }}>
-              {metrics.readyCount}
-            </strong>
-            <small style={{ color: "#64748b", fontSize: 11.5 }}>Docx / PDF Available</small>
-          </div>
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: "rgba(154, 116, 233, 0.12)",
-              color: "#9a74e9",
-              display: "grid",
-              placeItems: "center",
-              fontSize: 18,
-            }}
-          >
-            📄
-          </div>
+        <div className="admin-subcard" style={{ padding: "19px 18px" }}>
+          <span className="admin-kicker" style={{ fontSize: 11, color: "#9a74e9" }}>Ready &amp; Generated</span>
+          <strong style={{ display: "block", fontSize: 22, color: "#9a74e9", margin: "2px 0 0" }}>
+            {metrics.readyCount}
+          </strong>
         </div>
 
-        <div className="admin-subcard" style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <span className="admin-kicker" style={{ fontSize: 11, color: "#f59e0b" }}>Pending Contract Creation</span>
-            <strong style={{ display: "block", fontSize: 22, color: "#f59e0b", margin: "2px 0 0" }}>
-              {metrics.pendingCount}
-            </strong>
-            <small style={{ color: "#64748b", fontSize: 11.5 }}>Requires 7-field form fill</small>
-          </div>
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 12,
-              background: "rgba(245, 158, 11, 0.12)",
-              color: "#f59e0b",
-              display: "grid",
-              placeItems: "center",
-              fontSize: 18,
-            }}
-          >
-            ⏳
-          </div>
+        <div className="admin-subcard" style={{ padding: "19px 18px" }}>
+          <span className="admin-kicker" style={{ fontSize: 11, color: "#f59e0b" }}>Pending Contract Creation</span>
+          <strong style={{ display: "block", fontSize: 22, color: "#f59e0b", margin: "2px 0 0" }}>
+            {metrics.pendingCount}
+          </strong>
         </div>
       </div>
 
