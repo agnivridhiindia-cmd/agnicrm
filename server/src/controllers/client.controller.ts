@@ -4,6 +4,7 @@ import { ServiceType, PaymentMode, ApprovalStatus, DocumentStatus } from "@prism
 import { AuthenticatedRequest } from "../middlewares/auth.middleware";
 import {
   getClientsService,
+  getClientByIdService,
   createClientService,
   onboardClientProfileService,
   getMyProfileService,
@@ -116,6 +117,17 @@ export async function getMyProfile(req: AuthenticatedRequest, res: Response, nex
   }
 }
 
+export async function getClientById(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const user = req.user!;
+    const clientId = req.params.id as string;
+    const result = await getClientByIdService(clientId, user);
+    return res.status(result.statusCode).json(result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function updateClientStatus(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const clientId = req.params.id as string;
@@ -184,6 +196,7 @@ const updateClientSchema = z.object({
   contactPerson: z.string().optional(),
   email: z.string().optional(),
   phone: z.string().optional(),
+  address: z.string().optional().nullable(),
   serviceType: z.any().optional(),
   serviceName: z.string().optional(),
   totalPayment: z.number().optional(),

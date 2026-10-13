@@ -6,6 +6,7 @@
 
 import { getCanonicalSchemeName, getTrackerState } from "./schemeTracker";
 import { formatCurrency, parseNetRevenue, parseRevenueValue } from "./paymentHelpers";
+import { apiFetch } from "../services/apiClient";
 
 /**
  * Escapes text for safe inclusion in HTML.
@@ -29,8 +30,8 @@ export function generateClientDossierHTML(client) {
   const appId = client.appId || client.clientCode || (client.id ? `CRM-${new Date().getFullYear()}-${String(client.id).slice(-3).toUpperCase()}` : `CRM-${new Date().getFullYear()}-001`);
   const email = client.email || "N/A";
   const phone = client.phone || client.contactNumber || "N/A";
-  const address = client.address || "Corporate Office, Metro City";
   const branchName = typeof client.branch === "object" ? client.branch?.name : (client.branch || "Regional Branch");
+  const address = client.address || client.officeAddress || (client.branch ? `${branchName} Commercial Office` : "Registered Corporate Office");
   const salesRep = client.salesPerson?.fullName || client.salesRep || client.owner || client.assignedSalesPerson || "Sales Representative";
   const schemeName = getCanonicalSchemeName(client.serviceName || client.scheme || "PMEGP");
   const serviceType = client.serviceType || "Consultancy Services";
@@ -46,10 +47,48 @@ export function generateClientDossierHTML(client) {
   const netTotal = parseNetRevenue(rawTotal);
   const netRec = parseNetRevenue(rawRec);
 
-  const gstNo = client.gstNumber || client.gstNo || client.gstin || "N/A";
-  const panNo = client.panNumber || client.pan || client.companyPan || "N/A";
-  const aadharNo = client.aadharNumber || client.aadhar || "N/A";
-  const msmeNo = client.msmeNumber || client.msme || "N/A";
+  // Extract compliance document numbers and statuses from relations or fields
+  const docsList = Array.isArray(client.documents) ? client.documents : [];
+  const findDoc = (patterns) => {
+    return docsList.find((d) => {
+      const dName = (d.documentName || d.name || "").toLowerCase();
+      return patterns.some((p) => dName.includes(p));
+    });
+  };
+
+  const panDoc = findDoc(["pan card", "pan"]);
+  const gstDoc = findDoc(["gstin", "gst"]);
+  const msmeDoc = findDoc(["msme", "udyam"]);
+  const aadharDoc = findDoc(["aadhar", "aadhaar", "director", "promoter"]);
+
+  const panNo = panDoc?.documentNumber || panDoc?.number || client.panNumber || client.pan || client.companyPan || "N/A";
+  const gstNo = gstDoc?.documentNumber || gstDoc?.number || client.gstNumber || client.gstNo || client.gstin || "N/A";
+  const msmeNo = msmeDoc?.documentNumber || msmeDoc?.number || client.msmeNumber || client.msme || "N/A";
+  const aadharNo = aadharDoc?.documentNumber || aadharDoc?.number || client.aadharNumber || client.aadhar || "N/A";
+
+  const resolveDocAudit = (doc, fallbackNo, isOptional = false) => {
+    const status = String(doc?.verificationStatus || doc?.status || "").toUpperCase();
+    const hasNum = fallbackNo && fallbackNo !== "N/A";
+    if (status.includes("VERIF")) {
+      return { badgeClass: "badge-success", text: "Verified / Approved" };
+    }
+    if (status.includes("SUBMIT") || hasNum) {
+      return { badgeClass: "badge-primary", text: "Submitted / In Review" };
+    }
+    if (isOptional) {
+      return { badgeClass: "badge-warning", text: "Optional / Exempt" };
+    }
+    return { badgeClass: "badge-warning", text: "Pending Document" };
+  };
+
+  const panAudit = resolveDocAudit(panDoc, panNo);
+  const gstAudit = resolveDocAudit(gstDoc, gstNo, true);
+  const msmeAudit = resolveDocAudit(msmeDoc, msmeNo);
+  const aadharAudit = resolveDocAudit(aadharDoc, aadharNo);
+
+  const coreDocIds = new Set([panDoc?.id, gstDoc?.id, msmeDoc?.id, aadharDoc?.id].filter(Boolean));
+  const extraDocs = docsList.filter((d) => !coreDocIds.has(d.id) && (d.documentName || d.name));
+
   const businessType = client.businessType || "Private Limited Company";
   const sector = client.sector || "Manufacturing / Commercial";
   const fundingReq = client.fundingRequirement ? formatCurrency(client.fundingRequirement) : "₹25,00,000";
@@ -407,26 +446,39 @@ export function generateClientDossierHTML(client) {
           <td><strong>PAN Card</strong></td>
           <td><code>${escapeHtml(panNo)}</code></td>
           <td>Tier 1 Primary Identity</td>
-          <td><span class="status-badge ${panNo !== 'N/A' ? 'badge-success' : 'badge-warning'}">${panNo !== 'N/A' ? 'Verified / Submitted' : 'Pending Document'}</span></td>
+          <td><span class="status-badge ${panAudit.badgeClass}">${escapeHtml(panAudit.text)}</span></td>
         </tr>
         <tr>
           <td><strong>GSTIN Certificate</strong></td>
           <td><code>${escapeHtml(gstNo)}</code></td>
           <td>Tax &amp; Commercial Authority</td>
-          <td><span class="status-badge ${gstNo !== 'N/A' ? 'badge-success' : 'badge-warning'}">${gstNo !== 'N/A' ? 'Verified / Submitted' : 'Optional / Exempt'}</span></td>
+          <td><span class="status-badge ${gstAudit.badgeClass}">${escapeHtml(gstAudit.text)}</span></td>
         </tr>
         <tr>
           <td><strong>MSME / Udyam Certificate</strong></td>
           <td><code>${escapeHtml(msmeNo)}</code></td>
           <td>Ministry MSME Enterprise Tier</td>
-          <td><span class="status-badge ${msmeNo !== 'N/A' ? 'badge-success' : 'badge-warning'}">${msmeNo !== 'N/A' ? 'Verified / Submitted' : 'Pending Verification'}</span></td>
+          <td><span class="status-badge ${msmeAudit.badgeClass}">${escapeHtml(msmeAudit.text)}</span></td>
         </tr>
         <tr>
           <td><strong>Aadhar Card Identification</strong></td>
           <td><code>${escapeHtml(aadharNo)}</code></td>
           <td>Director / Promoter KYC</td>
-          <td><span class="status-badge ${aadharNo !== 'N/A' ? 'badge-success' : 'badge-warning'}">${aadharNo !== 'N/A' ? 'Verified' : 'Pending Submission'}</span></td>
+          <td><span class="status-badge ${aadharAudit.badgeClass}">${escapeHtml(aadharAudit.text)}</span></td>
         </tr>
+        ${extraDocs.map((ed) => {
+          const edName = ed.documentName || ed.name || "Supporting Document";
+          const edNum = ed.documentNumber || ed.number || "On File";
+          const edAudit = resolveDocAudit(ed, edNum, false);
+          return `
+          <tr>
+            <td><strong>${escapeHtml(edName)}</strong></td>
+            <td><code>${escapeHtml(edNum)}</code></td>
+            <td>Supporting Enterprise Verification</td>
+            <td><span class="status-badge ${edAudit.badgeClass}">${escapeHtml(edAudit.text)}</span></td>
+          </tr>
+          `;
+        }).join("")}
       </tbody>
     </table>
   </div>
@@ -652,10 +704,32 @@ export function printHtmlContent(htmlContent) {
 /**
  * Triggers PDF print window for Client Dossier profile.
  */
-export function downloadClientDossierPDF(client) {
+export async function downloadClientDossierPDF(client) {
   if (!client) return;
+  let fullClient = client;
   try {
-    const html = generateClientDossierHTML(client);
+    const lookupKey = client.id || client.appId || client.email;
+    if (lookupKey) {
+      const res = await apiFetch(`/clients/${encodeURIComponent(lookupKey)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          fullClient = {
+            ...client,
+            ...json.data,
+            companyName: json.data.companyName || client.companyName || client.company,
+            address: json.data.address || client.address,
+            documents: (Array.isArray(json.data.documents) && json.data.documents.length > 0) ? json.data.documents : (client.documents || []),
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not fetch enriched client profile for dossier PDF, using current client object:", err);
+  }
+
+  try {
+    const html = generateClientDossierHTML(fullClient);
     printHtmlContent(html);
   } catch (err) {
     console.error("Failed to generate Dossier PDF:", err);
@@ -665,10 +739,32 @@ export function downloadClientDossierPDF(client) {
 /**
  * Triggers PDF print window for Client Financial Statement.
  */
-export function downloadClientStatementPDF(client) {
+export async function downloadClientStatementPDF(client) {
   if (!client) return;
+  let fullClient = client;
   try {
-    const html = generateClientStatementHTML(client);
+    const lookupKey = client.id || client.appId || client.email;
+    if (lookupKey) {
+      const res = await apiFetch(`/clients/${encodeURIComponent(lookupKey)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          fullClient = {
+            ...client,
+            ...json.data,
+            companyName: json.data.companyName || client.companyName || client.company,
+            address: json.data.address || client.address,
+            documents: (Array.isArray(json.data.documents) && json.data.documents.length > 0) ? json.data.documents : (client.documents || []),
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not fetch enriched client profile for statement PDF, using current client object:", err);
+  }
+
+  try {
+    const html = generateClientStatementHTML(fullClient);
     printHtmlContent(html);
   } catch (err) {
     console.error("Failed to generate Statement PDF:", err);

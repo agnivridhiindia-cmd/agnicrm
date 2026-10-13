@@ -480,9 +480,23 @@ export function mergeSecondaryClients(primaryList = [], secondaryList = []) {
         map.set(key, { ...item, secondarySchemes: [] });
       } else {
         const existing = map.get(key);
+        const effectiveAddr = existing.address || item.address || null;
+        const mergedDocs = [...(existing.documents || [])];
+        (item.documents || []).forEach((d) => {
+          if (!mergedDocs.some((ed) => (ed.documentName || ed.name) === (d.documentName || d.name))) {
+            mergedDocs.push(d);
+          }
+        });
         if (!existing.isPrimary && item.isPrimary) {
-          map.set(key, { ...item, secondarySchemes: [...(existing.secondarySchemes || []), existing] });
+          map.set(key, {
+            ...item,
+            address: item.address || effectiveAddr,
+            documents: mergedDocs,
+            secondarySchemes: [...(existing.secondarySchemes || []), existing],
+          });
         } else {
+          existing.address = effectiveAddr;
+          existing.documents = mergedDocs;
           existing.secondarySchemes.push(item);
         }
       }
@@ -493,6 +507,18 @@ export function mergeSecondaryClients(primaryList = [], secondaryList = []) {
     const key = (sec.email || "").toLowerCase();
     if (map.has(key)) {
       const primary = map.get(key);
+      if (!primary.address && sec.address) {
+        primary.address = sec.address;
+      }
+      if (Array.isArray(sec.documents) && sec.documents.length > 0) {
+        const mergedDocs = [...(primary.documents || [])];
+        sec.documents.forEach((d) => {
+          if (!mergedDocs.some((ed) => (ed.documentName || ed.name) === (d.documentName || d.name))) {
+            mergedDocs.push(d);
+          }
+        });
+        primary.documents = mergedDocs;
+      }
       primary.secondarySchemes.push(sec);
     }
   });

@@ -62,6 +62,7 @@ export interface UpdateClientInput {
   contactPerson?: string;
   email?: string;
   phone?: string;
+  address?: string | null;
   serviceType?: ServiceType | string | any;
   serviceName?: string;
   totalPayment?: number;
@@ -256,8 +257,36 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
     // Real-time sales manager directly from reportingManager relation in PostgreSQL
     const sm = c.salesPerson?.reportingManager || branchManagerMap.get(c.branchId || c.salesPerson?.branchId || "") || null;
 
+    // Resolve address from sister records under the same email if c.address is empty
+    const emailGroup = emailClientsMap.get(em) || [];
+    let clientAddress = c.address;
+    if (!clientAddress || clientAddress.trim() === "") {
+      for (const sis of emailGroup) {
+        if (sis.address && sis.address.trim() !== "") {
+          clientAddress = sis.address;
+          break;
+        }
+      }
+    }
+
+    // Merge documents across sister records so both primary & secondary services have verified compliance docs
+    const docMap = new Map<string, any>();
+    for (const sis of emailGroup) {
+      for (const d of (sis.documents || [])) {
+        if (!docMap.has(d.documentName) || (d.verificationStatus === "VERIFIED" && docMap.get(d.documentName)?.verificationStatus !== "VERIFIED")) {
+          docMap.set(d.documentName, d);
+        }
+      }
+    }
+    for (const d of (c.documents || [])) {
+      docMap.set(d.documentName, d);
+    }
+    const combinedDocuments = Array.from(docMap.values());
+
     return {
       ...c,
+      address: clientAddress,
+      documents: combinedDocuments,
       companyName: compName,
       name: compName,
       contactPerson: contactPerson,
@@ -1083,6 +1112,132 @@ export async function restoreClientService(clientId: string, user: Authenticated
     statusCode: 200,
     message: "Client restored successfully.",
     data: restored,
+  };
+}
+
+export async function getClientByIdService(clientId: string, user: AuthenticatedUser) {
+  const trimmed = (clientId || "").trim();
+
+  let client = await prisma.client.findFirst({
+    where: {
+      OR: [
+        { id: trimmed },
+        { appId: { equals: trimmed, mode: "insensitive" } },
+        { email: { equals: trimmed, mode: "insensitive" } },
+      ],
+      isDeleted: false,
+    },
+    include: {
+      branch: true,
+      salesPerson: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          branchId: true,
+          branch: true,
+          reportingManager: {
+            select: { id: true, fullName: true, email: true, phone: true, role: true },
+          },
+        },
+      },
+      originalSalesPerson: { select: { id: true, fullName: true, email: true } },
+      lastSalesPerson: { select: { id: true, fullName: true, email: true } },
+      deletedByUser: { select: { id: true, fullName: true, email: true } },
+      transferLogs: { orderBy: { transferredAt: "desc" } },
+      invoices: { where: { isDeleted: false }, include: { payments: { where: { isDeleted: false } } } },
+      payments: { where: { isDeleted: false } },
+      documents: { where: { isDeleted: false }, orderBy: { uploadedAt: "asc" } },
+      schemes: { where: { isDeleted: false } },
+    },
+  });
+
+  if (!client) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: "Client not found.",
+    };
+  }
+
+  // Authorization check
+  if (user.role === Role.CLIENT) {
+    if (client.email.toLowerCase() !== user.email.toLowerCase()) {
+      return { success: false, statusCode: 403, message: "Forbidden" };
+    }
+  }
+
+  // Find sister clients under the same email to aggregate address and documents
+  const sisterClients = await prisma.client.findMany({
+    where: {
+      email: { equals: client.email, mode: "insensitive" },
+      isDeleted: false,
+    },
+    include: {
+      documents: { where: { isDeleted: false } },
+      schemes: { where: { isDeleted: false } },
+    },
+  });
+
+  let effectiveAddress = client.address;
+  if (!effectiveAddress || effectiveAddress.trim() === "") {
+    for (const sis of sisterClients) {
+      if (sis.address && sis.address.trim() !== "") {
+        effectiveAddress = sis.address;
+        break;
+      }
+    }
+  }
+
+  const docMap = new Map<string, any>();
+  for (const sis of sisterClients) {
+    for (const d of (sis.documents || [])) {
+      if (!docMap.has(d.documentName) || (d.verificationStatus === "VERIFIED" && docMap.get(d.documentName)?.verificationStatus !== "VERIFIED")) {
+        docMap.set(d.documentName, d);
+      }
+    }
+  }
+  for (const d of (client.documents || [])) {
+    docMap.set(d.documentName, d);
+  }
+  const mergedDocuments = Array.from(docMap.values());
+
+  const totalPayNum = Number(client.totalPayment || 0);
+  const invoicePaymentsSum = (client.invoices || []).reduce((sum: number, inv: any) => sum + Number(inv.paymentReceived || 0), 0);
+  const directPaymentsSum = (client.payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+  const schemeReceivedSum = (client.schemes || []).reduce((sum: number, s: any) => sum + Number(s.receivedAmount || 0), 0);
+  const payReceivedNum = Math.max(Number(client.paymentReceived || 0), invoicePaymentsSum, directPaymentsSum, schemeReceivedSum);
+  const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
+  const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
+
+  const sm = client.salesPerson?.reportingManager || null;
+
+  const resultClient = {
+    ...client,
+    address: effectiveAddress,
+    documents: mergedDocuments,
+    companyName: client.companyName || client.name,
+    name: client.name || client.companyName,
+    totalPayment: totalPayNum,
+    paymentReceived: payReceivedNum,
+    paymentPending: payPendingNum,
+    paymentStatus: isPaid ? "Paid" : (payReceivedNum > 0 ? "Partial" : "Pending"),
+    salesManager: sm?.fullName || null,
+    salesManagerEmail: sm?.email || null,
+    salesManagerPhone: sm?.phone || null,
+    salesRepresentative: client.salesPerson?.fullName || null,
+    salesRepresentativeEmail: client.salesPerson?.email || null,
+    salesRepresentativePhone: client.salesPerson?.phone || null,
+    branchName: client.branch?.name || null,
+    branchCode: client.branch?.code || null,
+    branchRegion: client.branch?.region || null,
+  };
+
+  return {
+    success: true,
+    statusCode: 200,
+    data: resultClient,
   };
 }
 
