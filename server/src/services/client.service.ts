@@ -841,6 +841,77 @@ export async function updateClientService(clientId: string, data: UpdateClientIn
     data: updateData,
   });
 
+  const oldEmail = existingClient.email?.trim().toLowerCase();
+  const newEmail = updateData.email ? updateData.email.trim().toLowerCase() : undefined;
+
+  if (newEmail && oldEmail && newEmail !== oldEmail) {
+    // Sync other sister client records sharing this email
+    await prisma.client.updateMany({
+      where: {
+        email: { equals: oldEmail, mode: "insensitive" },
+        id: { not: existingClient.id },
+        isDeleted: false,
+      },
+      data: { email: newEmail },
+    });
+  }
+
+  // Sync client User login account
+  const targetEmail = newEmail || oldEmail;
+  if (targetEmail) {
+    const userToSync = oldEmail
+      ? await prisma.user.findFirst({
+          where: {
+            email: { equals: oldEmail, mode: "insensitive" },
+            role: Role.CLIENT,
+          },
+        })
+      : null;
+
+    const newFullName = updateData.contactPerson || updateData.companyName
+      ? `${updateData.contactPerson || existingClient.contactPerson || "Client"} (${updateData.companyName || existingClient.companyName || "Enterprise"})`
+      : undefined;
+
+    if (userToSync) {
+      const userUpdates: any = { isDeleted: false, deletedAt: null };
+      if (newEmail) userUpdates.email = newEmail;
+      if (newFullName) userUpdates.fullName = newFullName;
+      if (updateData.phone !== undefined) userUpdates.phone = updateData.phone;
+      await prisma.user.update({
+        where: { id: userToSync.id },
+        data: userUpdates,
+      });
+    } else {
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: { equals: targetEmail, mode: "insensitive" },
+          role: Role.CLIENT,
+        },
+      });
+      if (existingUser) {
+        const userUpdates: any = { isDeleted: false, deletedAt: null };
+        if (newFullName) userUpdates.fullName = newFullName;
+        if (updateData.phone !== undefined) userUpdates.phone = updateData.phone;
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: userUpdates,
+        });
+      } else {
+        const defaultPasswordHash = "$2a$10$JG0jmgWyjXbhIdYVr02KM.x7lAdO6IWTB9ca5PYDtOdZCVtrHfD/.";
+        await prisma.user.create({
+          data: {
+            email: targetEmail,
+            passwordHash: defaultPasswordHash,
+            fullName: newFullName || `${existingClient.contactPerson || "Client"} (${existingClient.companyName || "Enterprise"})`,
+            phone: updateData.phone || existingClient.phone || null,
+            role: Role.CLIENT,
+            branchId: existingClient.branchId || null,
+          },
+        });
+      }
+    }
+  }
+
   // Sync associated primary ClientScheme record
   const schemeUpdate: any = {};
   if (data.completedSteps !== undefined) schemeUpdate.completedSteps = data.completedSteps;

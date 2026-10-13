@@ -293,6 +293,11 @@ export async function executeWorkflowDecision(
         }
       } else if (existingRequest.requestType === RequestType.EDIT_CLIENT) {
         if (targetClientId && existingRequest.requestedChanges) {
+          const clientBeforeEdit = await tx.client.findUnique({
+            where: { id: targetClientId },
+            select: { id: true, email: true, contactPerson: true, companyName: true, phone: true, branchId: true },
+          });
+
           const changes = Array.isArray(existingRequest.requestedChanges)
             ? existingRequest.requestedChanges
             : [];
@@ -302,8 +307,9 @@ export async function executeWorkflowDecision(
             if (c.field === "Company Name") updatePayload.companyName = c.newValue;
             if (c.field === "Contact Person") updatePayload.contactPerson = c.newValue;
             if (c.field === "Phone Number" || c.field === "Phone") updatePayload.phone = c.newValue;
-            if (c.field === "Email") updatePayload.email = c.newValue;
+            if (c.field === "Email") updatePayload.email = typeof c.newValue === "string" ? c.newValue.trim().toLowerCase() : c.newValue;
             if (c.field === "Address") updatePayload.address = c.newValue;
+            if (c.field === "GST Number" || c.field === "gstNumber" || c.field === "gstNo") updatePayload.gstNumber = c.newValue;
             if (c.field === "Milestone Stage" || c.field === "Target Stage" || c.field === "applicationStatus") {
               const targetStage = String(c.newValue).split(" (")[0].trim();
               updatePayload.applicationStatus = targetStage;
@@ -315,6 +321,87 @@ export async function executeWorkflowDecision(
               where: { id: targetClientId },
               data: updatePayload,
             });
+          }
+
+          const oldEmail = clientBeforeEdit?.email?.trim().toLowerCase();
+          const newEmail = updatePayload.email ? updatePayload.email.trim().toLowerCase() : undefined;
+
+          // If email changed, sync all sister client records sharing the old email
+          if (newEmail && oldEmail && newEmail !== oldEmail) {
+            await tx.client.updateMany({
+              where: {
+                email: { equals: oldEmail, mode: "insensitive" },
+                id: { not: targetClientId },
+                isDeleted: false,
+              },
+              data: { email: newEmail },
+            });
+          }
+
+          // Always ensure the client's login user account in `users` table stays in sync
+          const targetLookupEmail = newEmail || oldEmail;
+          if (targetLookupEmail) {
+            const userToSync = oldEmail
+              ? await tx.user.findFirst({
+                  where: {
+                    email: { equals: oldEmail, mode: "insensitive" },
+                    role: Role.CLIENT,
+                  },
+                })
+              : null;
+
+            const newFullName = updatePayload.contactPerson || updatePayload.companyName
+              ? `${updatePayload.contactPerson || clientBeforeEdit?.contactPerson || "Client"} (${updatePayload.companyName || clientBeforeEdit?.companyName || "Enterprise"})`
+              : undefined;
+
+            if (userToSync) {
+              const userUpdates: any = {
+                isDeleted: false,
+                deletedAt: null,
+              };
+              if (newEmail) userUpdates.email = newEmail;
+              if (newFullName) userUpdates.fullName = newFullName;
+              if (updatePayload.phone !== undefined) userUpdates.phone = updatePayload.phone;
+
+              await tx.user.update({
+                where: { id: userToSync.id },
+                data: userUpdates,
+              });
+            } else {
+              // Check if a client user already exists under the new email
+              const existingNewUser = await tx.user.findFirst({
+                where: {
+                  email: { equals: targetLookupEmail, mode: "insensitive" },
+                  role: Role.CLIENT,
+                },
+              });
+
+              if (existingNewUser) {
+                const userUpdates: any = {
+                  isDeleted: false,
+                  deletedAt: null,
+                };
+                if (newFullName) userUpdates.fullName = newFullName;
+                if (updatePayload.phone !== undefined) userUpdates.phone = updatePayload.phone;
+                await tx.user.update({
+                  where: { id: existingNewUser.id },
+                  data: userUpdates,
+                });
+              } else {
+                // Auto-create client user login account with standard default credentials
+                const defaultPasswordHash = "$2a$10$JG0jmgWyjXbhIdYVr02KM.x7lAdO6IWTB9ca5PYDtOdZCVtrHfD/.";
+                await tx.user.create({
+                  data: {
+                    email: targetLookupEmail,
+                    passwordHash: defaultPasswordHash,
+                    fullName: newFullName || `${clientBeforeEdit?.contactPerson || "Client"} (${clientBeforeEdit?.companyName || "Enterprise"})`,
+                    phone: updatePayload.phone || clientBeforeEdit?.phone || null,
+                    role: Role.CLIENT,
+                    branchId: clientBeforeEdit?.branchId || null,
+                  },
+                });
+              }
+            }
           }
 
           // If requested changes also specify salesperson profile designation and quota

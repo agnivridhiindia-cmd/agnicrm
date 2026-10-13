@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { Role } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { ENV } from "../config/env";
 
@@ -12,13 +13,60 @@ export interface LoginParams {
 
 export async function loginUser({ email, password }: LoginParams) {
   const normalizedEmail = (email || "").trim().toLowerCase();
-  const user = await prisma.user.findFirst({
+  let user = await prisma.user.findFirst({
     where: {
       email: { equals: normalizedEmail, mode: "insensitive" },
       isDeleted: false,
     },
     include: { branch: true, reportingManager: true },
   });
+
+  // If user not found directly, check if an active client exists under this email (e.g. edited email)
+  if (!user) {
+    const activeClient = await prisma.client.findFirst({
+      where: {
+        email: { equals: normalizedEmail, mode: "insensitive" },
+        isDeleted: false,
+      },
+    });
+
+    if (activeClient) {
+      // Find candidate user by client's contact phone number
+      const candidateUser = activeClient.phone
+        ? await prisma.user.findFirst({
+            where: {
+              role: Role.CLIENT,
+              phone: activeClient.phone,
+            },
+          })
+        : null;
+
+      if (candidateUser) {
+        user = await prisma.user.update({
+          where: { id: candidateUser.id },
+          data: {
+            email: normalizedEmail,
+            isDeleted: false,
+            deletedAt: null,
+          },
+          include: { branch: true, reportingManager: true },
+        });
+      } else {
+        const defaultPasswordHash = "$2a$10$JG0jmgWyjXbhIdYVr02KM.x7lAdO6IWTB9ca5PYDtOdZCVtrHfD/.";
+        user = await prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash: defaultPasswordHash,
+            fullName: `${activeClient.contactPerson} (${activeClient.companyName})`,
+            phone: activeClient.phone,
+            role: Role.CLIENT,
+            branchId: activeClient.branchId,
+          },
+          include: { branch: true, reportingManager: true },
+        });
+      }
+    }
+  }
 
   if (!user) {
     logger.warn(`[AUTH] Login failed: User not found for email: ${normalizedEmail}`);
@@ -49,10 +97,27 @@ export async function loginUser({ email, password }: LoginParams) {
   }
 
   // If user is a CLIENT, verify an active non-deleted client profile exists
-  if (user.role === "CLIENT") {
-    const activeClient = await prisma.client.findFirst({
-      where: { email: user.email, isDeleted: false },
+  if (user.role === Role.CLIENT) {
+    let activeClient = await prisma.client.findFirst({
+      where: {
+        email: { equals: user.email, mode: "insensitive" },
+        isDeleted: false,
+      },
     });
+
+    if (!activeClient && user.phone) {
+      // Fallback: match by phone if client's email was edited in client profile
+      activeClient = await prisma.client.findFirst({
+        where: { phone: user.phone, isDeleted: false },
+      });
+      if (activeClient) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { email: activeClient.email.toLowerCase() },
+          include: { branch: true, reportingManager: true },
+        });
+      }
+    }
 
     if (!activeClient) {
       // Auto-cleanup: soft delete orphaned client user account
