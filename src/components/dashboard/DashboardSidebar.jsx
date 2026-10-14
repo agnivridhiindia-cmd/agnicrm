@@ -1,5 +1,6 @@
 import React from "react";
 import Icon from "../Icon";
+import { apiFetch } from "../../services/apiClient";
 
 export default function DashboardSidebar({
   navItems = [],
@@ -12,7 +13,62 @@ export default function DashboardSidebar({
   navLabel = "Dashboard navigation",
   brandMark,
   brandName,
+  badges = {},
 }) {
+  const [hasNewRequest, setHasNewRequest] = React.useState(false);
+
+  const checkPendingRequests = React.useCallback(async () => {
+    try {
+      const token = localStorage.getItem("agni_token");
+      if (!token) return;
+
+      const res = await apiFetch("/requests");
+      if (!res.ok) return;
+
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        const pending = result.data.filter((r) => r.status === "PENDING");
+        const lastViewed = Number(localStorage.getItem("agni_last_viewed_requests_time") || 0);
+
+        const hasUnviewed = pending.some((r) => {
+          const t = new Date(r.createdAt).getTime();
+          return !lastViewed || t > lastViewed;
+        });
+
+        if (hasUnviewed || (pending.length > 0 && !lastViewed)) {
+          setHasNewRequest(true);
+        }
+      }
+    } catch (e) {
+      // Ignore network errors silently
+    }
+  }, []);
+
+  React.useEffect(() => {
+    checkPendingRequests();
+
+    const handleNewRequest = () => {
+      if (activeNav?.toLowerCase() !== "requests") {
+        setHasNewRequest(true);
+      }
+    };
+
+    window.addEventListener("agni_new_request_received", handleNewRequest);
+    window.addEventListener("agni_requests_updated", checkPendingRequests);
+
+    return () => {
+      window.removeEventListener("agni_new_request_received", handleNewRequest);
+      window.removeEventListener("agni_requests_updated", checkPendingRequests);
+    };
+  }, [checkPendingRequests, activeNav]);
+
+  React.useEffect(() => {
+    if (activeNav?.toLowerCase() === "requests") {
+      setHasNewRequest(false);
+      localStorage.setItem("agni_last_viewed_requests_time", Date.now().toString());
+    }
+  }, [activeNav]);
+
   const items = navItems.map((item) => {
     if (Array.isArray(item)) {
       const [icon, label] = item;
@@ -59,22 +115,40 @@ export default function DashboardSidebar({
 
       {/* ── Nav Items ── */}
       <nav aria-label={navLabel}>
-        {items.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            className={activeNav === item.label ? "selected" : ""}
-            aria-label={item.label}
-            aria-current={activeNav === item.label ? "page" : undefined}
-            onClick={() => onNavChange(item.label)}
-          >
-            <span className="sidebar-nav-icon-wrap">
-              <IconComponent name={item.icon} size={18} />
-            </span>
-            <span>{item.label}</span>
-            {activeNav === item.label && <span className="sidebar-active-indicator" />}
-          </button>
-        ))}
+        {items.map((item) => {
+          const isRequest = item.label?.toLowerCase() === "requests" || item.label?.toLowerCase().includes("request");
+          const showDot = badges[item.label] ?? (isRequest ? hasNewRequest : Boolean(item.hasDot || item.badge));
+
+          return (
+            <button
+              key={item.label}
+              type="button"
+              className={activeNav === item.label ? "selected" : ""}
+              aria-label={item.label}
+              aria-current={activeNav === item.label ? "page" : undefined}
+              onClick={() => {
+                if (isRequest) {
+                  setHasNewRequest(false);
+                  localStorage.setItem("agni_last_viewed_requests_time", Date.now().toString());
+                }
+                onNavChange(item.label);
+              }}
+            >
+              <span className="sidebar-nav-icon-wrap">
+                <IconComponent name={item.icon} size={18} />
+              </span>
+              <span>{item.label}</span>
+              {showDot && (
+                <span
+                  className="sidebar-nav-badge-dot"
+                  title="New request"
+                  aria-label="New request indicator"
+                />
+              )}
+              {activeNav === item.label && <span className="sidebar-active-indicator" />}
+            </button>
+          );
+        })}
       </nav>
 
       {/* ── Bottom Controls ── */}

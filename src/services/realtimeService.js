@@ -45,6 +45,18 @@ export function initRealtimeService() {
           return;
         }
 
+        // Handle New Incoming Requests (Client edits, transfers, employee updates, etc.)
+        if (data.type === "REQUEST_CREATED") {
+          const payload = data.payload || {};
+          const title = `New Request: ${payload.requestCode || ""}`;
+          const msg = `🔔 New ${payload.requestType ? payload.requestType.replace(/_/g, " ") : "Request"} received for ${payload.clientName || "Client"} (${payload.reason || ""})`;
+
+          window.dispatchEvent(new CustomEvent("agni_requests_updated", { detail: payload }));
+          window.dispatchEvent(new CustomEvent("agni_new_request_received", { detail: payload }));
+          window.dispatchEvent(new CustomEvent("agni_notifications_updated", { detail: { title, message: msg } }));
+          window.dispatchEvent(new CustomEvent("agni_toast_notification", { detail: msg }));
+        }
+
         // Handle Workflow Decisions (Approval / Rejection of Transfers, Edits, Deletions)
         if (data.type === "REQUEST_APPROVED" || data.type === "REQUEST_REJECTED") {
           const payload = data.payload || {};
