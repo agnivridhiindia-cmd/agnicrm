@@ -13,6 +13,7 @@ import invoiceRoutes from "./routes/invoice.routes";
 import notificationRoutes from "./routes/notification.routes";
 import employeeRoutes from "./routes/employee.routes";
 import eventRoutes from "./routes/event.routes";
+import revenueRoutes from "./routes/revenue.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 
 const app = express();
@@ -68,6 +69,7 @@ app.use("/api/v1/invoices", invoiceRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/employees", employeeRoutes);
 app.use("/api/v1/events", eventRoutes);
+app.use("/api/v1/revenue", revenueRoutes);
 
 // Database-backed Health Check Handler
 const healthCheckHandler = async (req: express.Request, res: express.Response) => {

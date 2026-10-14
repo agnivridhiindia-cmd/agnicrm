@@ -26,34 +26,34 @@ export default function OwnerRevenuePage({
   const revenueReceived = useMemo(() => {
     switch (activeRange) {
       case "daily":
-        return metrics.dailyNet || 0;
+        return metrics.dailyGross ?? metrics.dailyNet ?? 0;
       case "weekly":
-        return metrics.weeklyNet || 0;
+        return metrics.weeklyGross ?? metrics.weeklyNet ?? 0;
       case "monthly":
-        return metrics.monthlyNet || 0;
+        return metrics.monthlyGross ?? metrics.monthlyNet ?? 0;
       case "yearly":
-        return metrics.yearlyNet || 0;
+        return metrics.yearlyGross ?? metrics.yearlyNet ?? 0;
       case "allTime":
-        return metrics.totalReceivedNet || 0;
+        return metrics.totalReceivedGross ?? metrics.totalReceivedNet ?? 0;
       default:
-        return metrics.monthlyNet || 0;
+        return metrics.monthlyGross ?? metrics.monthlyNet ?? 0;
     }
   }, [activeRange, metrics]);
 
   const revenuePending = useMemo(() => {
     switch (activeRange) {
       case "daily":
-        return metrics.dailyPendingNet || 0;
+        return metrics.dailyPendingGross ?? metrics.dailyPendingNet ?? 0;
       case "weekly":
-        return metrics.weeklyPendingNet || 0;
+        return metrics.weeklyPendingGross ?? metrics.weeklyPendingNet ?? 0;
       case "monthly":
-        return metrics.monthlyPendingNet || 0;
+        return metrics.monthlyPendingGross ?? metrics.monthlyPendingNet ?? 0;
       case "yearly":
-        return metrics.yearlyPendingNet || 0;
+        return metrics.yearlyPendingGross ?? metrics.yearlyPendingNet ?? 0;
       case "allTime":
-        return metrics.totalPendingNet || 0;
+        return metrics.totalPendingGross ?? metrics.totalPendingNet ?? 0;
       default:
-        return metrics.monthlyPendingNet || 0;
+        return metrics.monthlyPendingGross ?? metrics.monthlyPendingNet ?? 0;
     }
   }, [activeRange, metrics]);
 
@@ -82,7 +82,7 @@ export default function OwnerRevenuePage({
     {
       label: "Payment received",
       value: `₹${revenueReceived.toLocaleString("en-IN")}`,
-      hint: "Collected from clients (Net)",
+      hint: "Collected from clients (with GST)",
       accentClass: "received",
       icon: "arrowUp",
       percentage: receivedPct,
@@ -90,7 +90,7 @@ export default function OwnerRevenuePage({
     {
       label: "Payment pending",
       value: `₹${revenuePending.toLocaleString("en-IN")}`,
-      hint: "Awaiting confirmation",
+      hint: "Awaiting confirmation (with GST)",
       accentClass: "pending",
       icon: "overview",
       percentage: pendingPct,
@@ -98,7 +98,7 @@ export default function OwnerRevenuePage({
     {
       label: "Total payment",
       value: `₹${revenueTotal.toLocaleString("en-IN")}`,
-      hint: "Overall revenue range",
+      hint: "Overall revenue range (with GST)",
       accentClass: "total",
       icon: "revenue",
       percentage: totalPct,

@@ -529,6 +529,31 @@ export async function createActiveClientCore(
     },
   });
 
+  if (Number(data.paymentReceived) > 0) {
+    try {
+      const { recordDailySalesPayment } = await import("./revenue.service");
+      await recordDailySalesPayment(
+        {
+          amount: Number(data.paymentReceived),
+          paymentDate: new Date(),
+          paymentMode: data.paymentMode,
+          status: "COMPLETED",
+          notes: `Initial client payment on onboarding (${client.serviceName})`,
+          salesPersonId: resolvedSalesPersonId,
+          branchId: resolvedBranchId,
+          clientId: client.id,
+          clientName: client.name || client.contactPerson,
+          companyName: client.companyName || client.name,
+          schemeName: client.serviceName,
+          serviceType: client.serviceType,
+        },
+        tx
+      );
+    } catch (paymentErr) {
+      console.error("[createActiveClientCore] Failed to record daily sales payment:", paymentErr);
+    }
+  }
+
   return client;
 }
 

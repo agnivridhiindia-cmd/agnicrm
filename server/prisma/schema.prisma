@@ -110,6 +110,7 @@ model Branch {
   users           User[]
   clients         Client[]
   invoices        Invoice[]
+  dailySalesPayments DailySalesPayment[]
 
   @@map("branches")
 }
@@ -151,6 +152,7 @@ model User {
   notifications      Notification[]
   recordedPayments   Payment[] @relation("UserPayments")
   employeeTransferLogs EmployeeTransferLog[]
+  salesPersonDailyPayments DailySalesPayment[] @relation("SalesPersonDailyPayments")
 
   @@index([branchId])
   @@index([role])
@@ -253,6 +255,7 @@ model Client {
   agreements            Agreement[]
   schemes               ClientScheme[]
   transferLogs          ClientTransferLog[]
+  dailySalesPayments    DailySalesPayment[]
 
   @@index([branchId, stage])
   @@index([salesPersonId])
@@ -572,5 +575,47 @@ model OwnerChangeLog {
   @@index([entityId])
   @@index([createdAt])
   @@map("owner_change_logs")
+}
+
+model DailySalesPayment {
+  id               String       @id @default(uuid())
+  dateString       String       // "YYYY-MM-DD" e.g. "2026-10-14"
+  paymentDate      DateTime     // Exact timestamp of payment
+  amount           Decimal      @db.Decimal(14, 2) // Gross collection (with GST)
+  netAmount        Decimal      @db.Decimal(14, 2) // Base collection (excl. GST)
+  gstAmount        Decimal      @default(0) @db.Decimal(14, 2) // GST portion
+  paymentMode      PaymentMode  @default(ONLINE)
+  referenceNumber  String?
+  status           String       @default("COMPLETED")
+  notes            String?
+
+  salesPersonId    String
+  salesPerson      User         @relation("SalesPersonDailyPayments", fields: [salesPersonId], references: [id])
+  salesPersonName  String
+  salesPersonEmail String?
+
+  branchId         String
+  branch           Branch       @relation(fields: [branchId], references: [id])
+  branchName       String?
+
+  clientId         String
+  client           Client       @relation(fields: [clientId], references: [id])
+  clientName       String
+  companyName      String
+  schemeName       String
+  serviceType      String?
+
+  invoiceId        String?
+  paymentId        String?
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([dateString])
+  @@index([paymentDate])
+  @@index([salesPersonId])
+  @@index([branchId])
+  @@index([clientId])
+  @@map("daily_sales_payments")
 }
 

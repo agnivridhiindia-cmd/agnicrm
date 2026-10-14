@@ -1,6 +1,6 @@
 /**
  * Revenue Calculation Engine for Agni CRM (Owner Dashboard)
- * Formula: Revenue = Math.round(Gross Amount Came / 1.18)
+ * Computes Gross (with 18% GST) and Net (excl. GST) revenue metrics.
  * Strictly calculates metrics from database client data, payments, and invoices.
  * Aggregates collections across ALL salespeople from ALL branches (West, North, South, East).
  */
@@ -92,7 +92,9 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
   const p0Start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 27, 0, 0, 0, 0).getTime();
 
   const weeklyTrendBuckets = [0, 0, 0, 0];
+  const weeklyTrendBucketsGross = [0, 0, 0, 0];
   const monthlyCompanySeries = new Array(12).fill(0);
+  const monthlyCompanySeriesGross = new Array(12).fill(0);
 
   // Salesperson & Branch breakdown maps
   const salesMap = new Map();
@@ -113,9 +115,11 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
         monthlyGross: 0,
         monthlyNet: 0,
         prevMonthNet: 0,
+        prevMonthGross: 0,
         yearlyGross: 0,
         yearlyNet: 0,
         yearlySeries: new Array(12).fill(0),
+        yearlySeriesGross: new Array(12).fill(0),
         totalGross: 0,
         totalNet: 0,
         collectionsCount: 0,
@@ -134,10 +138,15 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       branchMap.set(normBranch, {
         name: normBranch,
         dailyNet: 0,
+        dailyGross: 0,
         weeklyNet: 0,
+        weeklyGross: 0,
         monthlyNet: 0,
+        monthlyGross: 0,
         yearlyNet: 0,
+        yearlyGross: 0,
         totalNet: 0,
+        totalGross: 0,
       });
     }
     return branchMap.get(normBranch);
@@ -156,12 +165,19 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
   let yearlyNetTotal = 0;
 
   let overallReceivedNetTotal = 0;
+  let overallReceivedGrossTotal = 0;
+
   let overallPendingNetTotal = 0;
+  let overallPendingGrossTotal = 0;
   
   let dailyPendingNet = 0;
+  let dailyPendingGross = 0;
   let weeklyPendingNet = 0;
+  let weeklyPendingGross = 0;
   let monthlyPendingNet = 0;
+  let monthlyPendingGross = 0;
   let yearlyPendingNet = 0;
+  let yearlyPendingGross = 0;
 
   const receivedClientsList = [];
   const pendingClientsList = [];
@@ -189,7 +205,9 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     sp.collectionsCount += 1;
 
     br.totalNet += net;
+    br.totalGross += gross;
     overallReceivedNetTotal += net;
+    overallReceivedGrossTotal += gross;
 
     transactions.push({
       net,
@@ -215,6 +233,7 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       sp.dailyGross += gross;
       sp.dailyNet += net;
       br.dailyNet += net;
+      br.dailyGross += gross;
     }
 
     // Weekly (Last 7 Days)
@@ -224,6 +243,7 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       sp.weeklyGross += gross;
       sp.weeklyNet += net;
       br.weeklyNet += net;
+      br.weeklyGross += gross;
     }
 
     // Monthly (Current Month)
@@ -233,12 +253,15 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       sp.monthlyGross += gross;
       sp.monthlyNet += net;
       br.monthlyNet += net;
+      br.monthlyGross += gross;
     }
 
     // Previous Month
     if (timestamp !== null && timestamp >= startOfPrevMonth && timestamp <= endOfPrevMonth) {
       sp.prevMonthNet += net;
+      sp.prevMonthGross = (sp.prevMonthGross || 0) + gross;
       br.prevMonthNet += net;
+      br.prevMonthGross = (br.prevMonthGross || 0) + gross;
     }
 
     // Yearly (Current Year)
@@ -248,47 +271,62 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       sp.yearlyGross += gross;
       sp.yearlyNet += net;
       br.yearlyNet += net;
+      br.yearlyGross += gross;
 
       const m = new Date(timestamp).getMonth();
       sp.yearlySeries[m] += net;
+      if (sp.yearlySeriesGross) {
+        sp.yearlySeriesGross[m] += gross;
+      }
     }
 
     // Sparkline bucket tracking
     if (timestamp !== null) {
       if (timestamp >= p0Start && timestamp < p1Start) {
         weeklyTrendBuckets[0] += net;
+        weeklyTrendBucketsGross[0] += gross;
       } else if (timestamp >= p1Start && timestamp < p2Start) {
         weeklyTrendBuckets[1] += net;
+        weeklyTrendBucketsGross[1] += gross;
       } else if (timestamp >= p2Start && timestamp < p3Start) {
         weeklyTrendBuckets[2] += net;
+        weeklyTrendBucketsGross[2] += gross;
       } else if (timestamp >= p3Start && timestamp <= endOfToday) {
         weeklyTrendBuckets[3] += net;
+        weeklyTrendBucketsGross[3] += gross;
       }
 
       if (timestamp >= startOfYear && timestamp <= endOfToday) {
         const m = new Date(timestamp).getMonth();
         monthlyCompanySeries[m] += net;
+        monthlyCompanySeriesGross[m] += gross;
       }
     } else {
       weeklyTrendBuckets[3] += net;
+      weeklyTrendBucketsGross[3] += gross;
       monthlyCompanySeries[now.getMonth()] += net;
+      monthlyCompanySeriesGross[now.getMonth()] += gross;
     }
   };
 
-  const processPending = (netPending, dateInput) => {
-    if (netPending <= 0) return;
+  const processPending = (grossPending, netPending, dateInput) => {
+    if (grossPending <= 0 && netPending <= 0) return;
     const timestamp = parseDateTimestamp(dateInput);
     if (timestamp !== null && timestamp >= startOfToday && timestamp <= endOfToday) {
       dailyPendingNet += netPending;
+      dailyPendingGross += grossPending;
     }
     if (timestamp !== null && timestamp >= startOf7Days && timestamp <= endOfToday) {
       weeklyPendingNet += netPending;
+      weeklyPendingGross += grossPending;
     }
     if (timestamp !== null && timestamp >= startOfMonth && timestamp <= endOfToday) {
       monthlyPendingNet += netPending;
+      monthlyPendingGross += grossPending;
     }
     if (timestamp !== null && timestamp >= startOfYear && timestamp <= endOfToday) {
       yearlyPendingNet += netPending;
+      yearlyPendingGross += grossPending;
     }
   };
 
@@ -346,7 +384,8 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     if (pendingGross > 0 && c.paymentStatus !== "Paid") {
       const netPending = Math.round(pendingGross / 1.18);
       overallPendingNetTotal += netPending;
-      processPending(netPending, dt);
+      overallPendingGrossTotal += pendingGross;
+      processPending(pendingGross, netPending, dt);
 
       pendingClientsList.push({
         clientName: safeString(c.name || c.company || c.companyName, "Client Account"),
@@ -404,7 +443,8 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     if (pendingGross > 0 && status !== "paid") {
       const netPending = Math.round(pendingGross / 1.18);
       overallPendingNetTotal += netPending;
-      processPending(netPending, dt);
+      overallPendingGrossTotal += pendingGross;
+      processPending(pendingGross, netPending, dt);
 
       pendingClientsList.push({
         clientName: safeString(inv.clientName || inv.company, "Invoice Dues"),
@@ -420,39 +460,40 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     }
   });
 
-  // Yearly Revenue should reflect total annual operational total (matching overallReceivedNetTotal)
+  // Yearly Revenue should reflect total annual operational total (matching overallReceivedGrossTotal / overallReceivedNetTotal)
   const resolvedYearlyNet = Math.max(yearlyNetTotal, overallReceivedNetTotal);
+  const resolvedYearlyGross = Math.max(yearlyGrossTotal, overallReceivedGrossTotal);
 
-  // Derive dynamic sparkline data based on actual collections
+  // Derive dynamic sparkline data based on actual collections (with GST)
   let sparklineData = [0, 0, 0, 0];
-  if (overallReceivedNetTotal > 0) {
-    if (weeklyTrendBuckets.some((v) => v > 0)) {
-      sparklineData = [...weeklyTrendBuckets];
+  if (overallReceivedGrossTotal > 0) {
+    if (weeklyTrendBucketsGross.some((v) => v > 0)) {
+      sparklineData = [...weeklyTrendBucketsGross];
     } else {
       const currM = now.getMonth();
       const last4M = [
-        monthlyCompanySeries[(currM - 3 + 12) % 12],
-        monthlyCompanySeries[(currM - 2 + 12) % 12],
-        monthlyCompanySeries[(currM - 1 + 12) % 12],
-        monthlyCompanySeries[currM],
+        monthlyCompanySeriesGross[(currM - 3 + 12) % 12],
+        monthlyCompanySeriesGross[(currM - 2 + 12) % 12],
+        monthlyCompanySeriesGross[(currM - 1 + 12) % 12],
+        monthlyCompanySeriesGross[currM],
       ];
       if (last4M.some((v) => v > 0)) {
         sparklineData = last4M;
       } else {
-        const q1 = monthlyCompanySeries.slice(0, 3).reduce((a, b) => a + b, 0);
-        const q2 = monthlyCompanySeries.slice(3, 6).reduce((a, b) => a + b, 0);
-        const q3 = monthlyCompanySeries.slice(6, 9).reduce((a, b) => a + b, 0);
-        const q4 = monthlyCompanySeries.slice(9, 12).reduce((a, b) => a + b, 0);
+        const q1 = monthlyCompanySeriesGross.slice(0, 3).reduce((a, b) => a + b, 0);
+        const q2 = monthlyCompanySeriesGross.slice(3, 6).reduce((a, b) => a + b, 0);
+        const q3 = monthlyCompanySeriesGross.slice(6, 9).reduce((a, b) => a + b, 0);
+        const q4 = monthlyCompanySeriesGross.slice(9, 12).reduce((a, b) => a + b, 0);
         sparklineData = [q1, q2, q3, q4];
       }
     }
     // If still all zeroes (e.g. date outside current year), end with total
     if (sparklineData.every((v) => v === 0)) {
-      sparklineData = [0, 0, Math.round(overallReceivedNetTotal * 0.4), overallReceivedNetTotal];
+      sparklineData = [0, 0, Math.round(overallReceivedGrossTotal * 0.4), overallReceivedGrossTotal];
     }
   }
 
-  // 1. Daily Chart Series (Past 7 days ending today)
+  // 1. Daily Chart Series (Past 7 days ending today) - with GST as value
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dailyChartSeries = [];
   for (let i = 6; i >= 0; i--) {
@@ -461,14 +502,17 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     const endOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
     const label = dayNames[d.getDay()];
 
+    const dayGross = transactions
+      .filter((t) => t.timestamp >= startOfDay && t.timestamp <= endOfDay)
+      .reduce((sum, t) => sum + t.gross, 0);
     const dayNet = transactions
       .filter((t) => t.timestamp >= startOfDay && t.timestamp <= endOfDay)
       .reduce((sum, t) => sum + t.net, 0);
 
-    dailyChartSeries.push({ label, value: dayNet });
+    dailyChartSeries.push({ label, value: dayGross, grossValue: dayGross, netValue: dayNet });
   }
 
-  // 2. Weekly Chart Series (Past 4 weeks ending today)
+  // 2. Weekly Chart Series (Past 4 weeks ending today) - with GST as value
   const weeklyChartSeries = [];
   const weekMs = 7 * 24 * 60 * 60 * 1000;
   for (let i = 3; i >= 0; i--) {
@@ -476,14 +520,17 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     const weekStart = weekEnd - weekMs + 1;
     const label = `W${4 - i}`;
 
+    const weekGross = transactions
+      .filter((t) => t.timestamp >= weekStart && t.timestamp <= weekEnd)
+      .reduce((sum, t) => sum + t.gross, 0);
     const weekNet = transactions
       .filter((t) => t.timestamp >= weekStart && t.timestamp <= weekEnd)
       .reduce((sum, t) => sum + t.net, 0);
 
-    weeklyChartSeries.push({ label, value: weekNet });
+    weeklyChartSeries.push({ label, value: weekGross, grossValue: weekGross, netValue: weekNet });
   }
 
-  // 3. Monthly Chart Series (All 12 calendar months)
+  // 3. Monthly Chart Series (All 12 calendar months) - with GST as value
   const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const currYear = now.getFullYear();
   const targetYear = transactions.some((t) => new Date(t.timestamp).getFullYear() === currYear)
@@ -491,6 +538,12 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     : (transactions.length > 0 ? new Date(Math.max(...transactions.map((t) => t.timestamp))).getFullYear() : currYear);
 
   const monthlyChartSeries = shortMonths.map((label, m) => {
+    const mGross = transactions
+      .filter((t) => {
+        const td = new Date(t.timestamp);
+        return td.getFullYear() === targetYear && td.getMonth() === m;
+      })
+      .reduce((sum, t) => sum + t.gross, 0);
     const mNet = transactions
       .filter((t) => {
         const td = new Date(t.timestamp);
@@ -498,29 +551,51 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       })
       .reduce((sum, t) => sum + t.net, 0);
 
-    return { label, value: mNet };
+    return { label, value: mGross, grossValue: mGross, netValue: mNet };
   });
 
-  // 4. Yearly Chart Series (Past 4 years ending current year)
+  // 4. Yearly Chart Series (Past 4 years ending current year) - with GST as value
   const yearlyChartSeries = [];
   for (let i = 3; i >= 0; i--) {
     const yr = currYear - i;
     const label = String(yr);
+    const yrGross = transactions
+      .filter((t) => new Date(t.timestamp).getFullYear() === yr)
+      .reduce((sum, t) => sum + t.gross, 0);
     const yrNet = transactions
       .filter((t) => new Date(t.timestamp).getFullYear() === yr)
       .reduce((sum, t) => sum + t.net, 0);
-    yearlyChartSeries.push({ label, value: yrNet });
+    yearlyChartSeries.push({ label, value: yrGross, grossValue: yrGross, netValue: yrNet });
   }
 
   // 5. All-Time Chart Series
   const allTimeChartSeries = [...yearlyChartSeries];
 
   return {
+    // Primary with-GST (Gross) metrics for Owner Dashboard KPI cards
+    dailyGross: dailyGrossTotal,
+    weeklyGross: weeklyGrossTotal,
+    monthlyGross: monthlyGrossTotal,
+    yearlyGross: resolvedYearlyGross,
+    totalReceivedGross: overallReceivedGrossTotal,
+    dailyPendingGross,
+    weeklyPendingGross,
+    monthlyPendingGross,
+    yearlyPendingGross,
+    totalPendingGross: overallPendingGrossTotal,
+
+    // Net metrics (excl. 18% GST) preserved for backwards-compatibility & net breakdowns
     dailyNet: dailyNetTotal,
     weeklyNet: weeklyNetTotal,
     monthlyNet: monthlyNetTotal,
     yearlyNet: resolvedYearlyNet,
     totalReceivedNet: overallReceivedNetTotal,
+    dailyPendingNet,
+    weeklyPendingNet,
+    monthlyPendingNet,
+    yearlyPendingNet,
+    totalPendingNet: overallPendingNetTotal,
+
     sparklineData,
 
     chartSeries: {
@@ -530,12 +605,6 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
       yearly: yearlyChartSeries,
       allTime: allTimeChartSeries,
     },
-    
-    dailyPendingNet,
-    weeklyPendingNet,
-    monthlyPendingNet,
-    yearlyPendingNet,
-    totalPendingNet: overallPendingNetTotal,
 
     salespeopleBreakdown: Array.from(salesMap.values()),
     branchesBreakdown: Array.from(branchMap.values()),

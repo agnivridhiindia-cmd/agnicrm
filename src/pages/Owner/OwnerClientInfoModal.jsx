@@ -83,7 +83,9 @@ export default function OwnerClientInfoModal({
         </div>
         <div className="owner-modal-card">
           <span className="owner-modal-card-label">Total Commercial Payment</span>
-          <span className="owner-modal-card-val">₹{Math.round((selectedClient.paymentReceived || 0) / 1.18).toLocaleString()}</span>
+          <span className="owner-modal-card-val">
+            ₹{(selectedClient.totalPayment || selectedClient.amount || selectedClient.paymentReceived || 0).toLocaleString()}
+          </span>
         </div>
 
         <div className="owner-modal-card">

@@ -4,6 +4,7 @@ import Icon from "../../components/Icon";
 import Modal from "../../components/Modal";
 import { RevenueSparkline } from "../../components/charts";
 import { calculateRevenueMetrics } from "../../utils/revenueCalculator";
+import OwnerRevenueCalendarWidget from "./components/OwnerRevenueCalendarWidget";
 import "./owner.css";
 const defaultOwnerActivities = [];
 
@@ -85,7 +86,7 @@ export default function OwnerOverviewPage({
   }, [clients, employeesList]);
 
   // Dynamic Revenue Engine calculation across all salespeople & branches
-  // Formula: Net Revenue = Math.round(Gross Collection / 1.18)
+  // Calculates live collections with 18% GST for executive owner KPIs
   const revenueMetrics = useMemo(
     () => calculateRevenueMetrics(clients, invoices) || {},
     [clients, invoices]
@@ -95,7 +96,7 @@ export default function OwnerOverviewPage({
     return [
       {
         label: "Daily Revenue",
-        value: `₹${(revenueMetrics.dailyNet || 0).toLocaleString("en-IN")}`,
+        value: `₹${(revenueMetrics.dailyGross || 0).toLocaleString("en-IN")}`,
         accent: "#10b981",
         linkTo: "Revenue",
         slug: "daily-revenue",
@@ -103,7 +104,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Weekly Revenue",
-        value: `₹${(revenueMetrics.weeklyNet || 0).toLocaleString("en-IN")}`,
+        value: `₹${(revenueMetrics.weeklyGross || 0).toLocaleString("en-IN")}`,
         accent: "#6366f1",
         linkTo: "Revenue",
         slug: "weekly-revenue",
@@ -111,7 +112,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Monthly Revenue",
-        value: `₹${(revenueMetrics.monthlyNet || 0).toLocaleString("en-IN")}`,
+        value: `₹${(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}`,
         accent: "#f59e0b",
         linkTo: "Revenue",
         slug: "monthly-revenue",
@@ -119,7 +120,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Yearly Revenue",
-        value: `₹${(revenueMetrics.yearlyNet || 0).toLocaleString("en-IN")}`,
+        value: `₹${(revenueMetrics.yearlyGross || 0).toLocaleString("en-IN")}`,
         accent: "#8b5cf6",
         linkTo: "Revenue",
         slug: "yearly-revenue",
@@ -127,7 +128,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Total Payment Received",
-        value: `₹${(revenueMetrics.totalReceivedNet || 0).toLocaleString("en-IN")}`,
+        value: `₹${(revenueMetrics.totalReceivedGross || 0).toLocaleString("en-IN")}`,
         accent: "#059669",
         linkTo: "Invoice",
         slug: "payment-received",
@@ -135,7 +136,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Total Payment Pending",
-        value: `₹${(revenueMetrics.totalPendingNet || 0).toLocaleString("en-IN")}`,
+        value: `₹${(revenueMetrics.totalPendingGross || 0).toLocaleString("en-IN")}`,
         accent: "#dc2626",
         linkTo: "Invoice",
         slug: "payment-pending",
@@ -175,12 +176,12 @@ export default function OwnerOverviewPage({
       <div className="dashboard-main">
         {/* Revenue & Financial KPIs */}
         <div style={{ marginBottom: 26 }}>
-          <div className="owner-section-header">
-            <h3 className="owner-section-title">
+          <div className="owner-section-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <h3 className="owner-section-title" style={{ margin: 0 }}>
               <span className="owner-section-title-dot" style={{ background: '#6366f1' }} />
               Revenue &amp; Payment Overview
             </h3>
-            <span className="owner-section-subtitle">Real-time Financial Metrics</span>
+            <OwnerRevenueCalendarWidget dark={dark} />
           </div>
           <section className="kpi-grid">
             {revenueKpiCards.map((card) => (
@@ -238,20 +239,20 @@ export default function OwnerOverviewPage({
         <section className="revenue-panel">
           <div className="revenue-summary">
             <p className="eyebrow">Revenue overview</p>
-            <h2>₹{(revenueMetrics.monthlyNet || 0).toLocaleString("en-IN")}</h2>
-            <p className="revenue-copy">Current net revenue calculated across all regional sales teams.</p>
+            <h2>₹{(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}</h2>
+            <p className="revenue-copy">Current revenue (with GST) calculated across all regional sales teams.</p>
             <div className="revenue-breakdown">
               <div>
-                <span>Monthly Net Revenue</span>
-                <strong>₹{(revenueMetrics.monthlyNet || 0).toLocaleString("en-IN")}</strong>
+                <span>Monthly Revenue (with GST)</span>
+                <strong>₹{(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}</strong>
               </div>
               <div>
-                <span>Daily Net Revenue</span>
-                <strong>₹{(revenueMetrics.dailyNet || 0).toLocaleString("en-IN")}</strong>
+                <span>Daily Revenue (with GST)</span>
+                <strong>₹{(revenueMetrics.dailyGross || 0).toLocaleString("en-IN")}</strong>
               </div>
               <div>
-                <span>Weekly Net Revenue</span>
-                <strong>₹{(revenueMetrics.weeklyNet || 0).toLocaleString("en-IN")}</strong>
+                <span>Weekly Revenue (with GST)</span>
+                <strong>₹{(revenueMetrics.weeklyGross || 0).toLocaleString("en-IN")}</strong>
               </div>
             </div>
           </div>
@@ -319,7 +320,7 @@ export default function OwnerOverviewPage({
               footer={
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 10 }}>
                   <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
-                    Calculated for clients with remaining dues after token/partial payments
+                    Pending dues calculated with 18% GST for accounts with remaining balances
                   </span>
                   <button
                     type="button"
@@ -336,12 +337,12 @@ export default function OwnerOverviewPage({
                 {/* Metric Highlights */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
                   <div style={{ background: "rgba(220, 38, 38, 0.08)", padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(220, 38, 38, 0.25)" }}>
-                    <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, display: "block" }}>Total Net Pending</span>
-                    <strong style={{ fontSize: 22, color: "#991b1b", fontWeight: 800 }}>₹{totalPendingNet.toLocaleString("en-IN")}</strong>
+                    <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, display: "block" }}>Total Pending (with GST)</span>
+                    <strong style={{ fontSize: 22, color: "#991b1b", fontWeight: 800 }}>₹{totalPendingGross.toLocaleString("en-IN")}</strong>
                   </div>
                   <div style={{ background: "rgba(245, 158, 11, 0.08)", padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(245, 158, 11, 0.25)" }}>
-                    <span style={{ fontSize: 12, color: "#d97706", fontWeight: 600, display: "block" }}>Gross Pending Dues</span>
-                    <strong style={{ fontSize: 22, color: "#b45309", fontWeight: 800 }}>₹{totalPendingGross.toLocaleString("en-IN")}</strong>
+                    <span style={{ fontSize: 12, color: "#d97706", fontWeight: 600, display: "block" }}>Net Pending (Excl. GST)</span>
+                    <strong style={{ fontSize: 22, color: "#b45309", fontWeight: 800 }}>₹{totalPendingNet.toLocaleString("en-IN")}</strong>
                   </div>
                   <div style={{ background: "rgba(99, 102, 241, 0.08)", padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(99, 102, 241, 0.25)" }}>
                     <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 600, display: "block" }}>Token Paid Accounts</span>
@@ -357,7 +358,7 @@ export default function OwnerOverviewPage({
                         <th style={{ padding: "10px 14px" }}>Sales Rep &amp; Branch</th>
                         <th style={{ padding: "10px 14px" }}>Total Deal (₹)</th>
                         <th style={{ padding: "10px 14px" }}>Token Paid (₹)</th>
-                        <th style={{ padding: "10px 14px" }}>Remaining Gross (₹)</th>
+                        <th style={{ padding: "10px 14px" }}>Remaining Pending (with GST)</th>
                         <th style={{ padding: "10px 14px" }}>Net Pending</th>
                         <th style={{ padding: "10px 14px", borderRadius: "0 8px 8px 0" }}>Token Status</th>
                       </tr>
@@ -386,10 +387,10 @@ export default function OwnerOverviewPage({
                             <td style={{ padding: "12px 14px", fontWeight: 700, color: "#059669" }}>
                               ₹{(item.paidGross || 0).toLocaleString("en-IN")}
                             </td>
-                            <td style={{ padding: "12px 14px", fontWeight: 700, color: "#d97706" }}>
+                            <td style={{ padding: "12px 14px", fontWeight: 800, color: "#dc2626", fontSize: 15 }}>
                               ₹{(item.pendingGross || 0).toLocaleString("en-IN")}
                             </td>
-                            <td style={{ padding: "12px 14px", fontWeight: 800, color: "#dc2626", fontSize: 15 }}>
+                            <td style={{ padding: "12px 14px", fontWeight: 600, color: "#d97706" }}>
                               ₹{(item.pendingNet || 0).toLocaleString("en-IN")}
                             </td>
                             <td style={{ padding: "12px 14px" }}>
@@ -429,7 +430,7 @@ export default function OwnerOverviewPage({
               footer={
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 10 }}>
                   <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
-                    All-time cumulative total net revenue
+                    All-time cumulative total revenue (with 18% GST)
                   </span>
                   <button
                     type="button"
@@ -445,12 +446,12 @@ export default function OwnerOverviewPage({
               <div style={{ padding: "6px 0" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
                   <div style={{ background: "rgba(16, 185, 129, 0.08)", padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(16, 185, 129, 0.25)" }}>
-                    <span style={{ fontSize: 12, color: "#059669", fontWeight: 600, display: "block" }}>All-Time Net Revenue</span>
-                    <strong style={{ fontSize: 22, color: "#047857", fontWeight: 800 }}>₹{totalRecNet.toLocaleString("en-IN")}</strong>
+                    <span style={{ fontSize: 12, color: "#059669", fontWeight: 600, display: "block" }}>Total Received (with GST)</span>
+                    <strong style={{ fontSize: 22, color: "#047857", fontWeight: 800 }}>₹{totalRecGross.toLocaleString("en-IN")}</strong>
                   </div>
                   <div style={{ background: "rgba(99, 102, 241, 0.08)", padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(99, 102, 241, 0.25)" }}>
-                    <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 600, display: "block" }}>Total Gross Collections</span>
-                    <strong style={{ fontSize: 22, color: "#4338ca", fontWeight: 800 }}>₹{totalRecGross.toLocaleString("en-IN")}</strong>
+                    <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 600, display: "block" }}>Net Collections (Excl. GST)</span>
+                    <strong style={{ fontSize: 22, color: "#4338ca", fontWeight: 800 }}>₹{totalRecNet.toLocaleString("en-IN")}</strong>
                   </div>
                   <div style={{ background: "rgba(245, 158, 11, 0.08)", padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(245, 158, 11, 0.25)" }}>
                     <span style={{ fontSize: 12, color: "#d97706", fontWeight: 600, display: "block" }}>Paid Records</span>
@@ -464,8 +465,8 @@ export default function OwnerOverviewPage({
                       <tr style={{ background: "rgba(16, 185, 129, 0.06)", textAlign: "left", fontSize: 11, textTransform: "uppercase", color: "#64748b", letterSpacing: "0.5px" }}>
                         <th style={{ padding: "10px 14px", borderRadius: "8px 0 0 8px" }}>Account / Client</th>
                         <th style={{ padding: "10px 14px" }}>Sales Rep &amp; Branch</th>
-                        <th style={{ padding: "10px 14px" }}>Gross Paid (₹)</th>
-                        <th style={{ padding: "10px 14px" }}>Net Revenue</th>
+                        <th style={{ padding: "10px 14px" }}>Amount Received (with GST)</th>
+                        <th style={{ padding: "10px 14px" }}>Net (Excl. GST)</th>
                         <th style={{ padding: "10px 14px", borderRadius: "0 8px 8px 0" }}>Date / Checkpoint</th>
                       </tr>
                     </thead>
@@ -486,10 +487,10 @@ export default function OwnerOverviewPage({
                               <span style={{ fontWeight: 600, color: "#334155" }}>{item.salesPerson}</span>
                               <small style={{ display: "block", color: "#6366f1", fontWeight: 500 }}>{item.branch}</small>
                             </td>
-                            <td style={{ padding: "12px 14px", fontWeight: 600, color: "#475569" }}>
+                            <td style={{ padding: "12px 14px", fontWeight: 800, color: "#10b981", fontSize: 15 }}>
                               ₹{(item.grossPaid || 0).toLocaleString("en-IN")}
                             </td>
-                            <td style={{ padding: "12px 14px", fontWeight: 800, color: "#10b981", fontSize: 15 }}>
+                            <td style={{ padding: "12px 14px", fontWeight: 600, color: "#475569" }}>
                               ₹{(item.netPaid || 0).toLocaleString("en-IN")}
                             </td>
                             <td style={{ padding: "12px 14px", fontSize: 12, color: "#64748b" }}>
@@ -536,7 +537,7 @@ export default function OwnerOverviewPage({
             footer={
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: 10 }}>
                 <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
-                  Net revenue excluding 18% GST
+                  Revenue displayed with 18% GST (Net revenue available in breakdown)
                 </span>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button
@@ -582,10 +583,10 @@ export default function OwnerOverviewPage({
                   }}
                 >
                   <span style={{ fontSize: 12, color: "#059669", fontWeight: 600, display: "block" }}>
-                    Total Net Revenue
+                    Total Revenue (with GST)
                   </span>
                   <strong style={{ fontSize: 22, color: "#047857", fontWeight: 800 }}>
-                    ₹{totalNet.toLocaleString("en-IN")}
+                    ₹{totalGross.toLocaleString("en-IN")}
                   </strong>
                 </div>
                 <div
@@ -597,10 +598,10 @@ export default function OwnerOverviewPage({
                   }}
                 >
                   <span style={{ fontSize: 12, color: "#4f46e5", fontWeight: 600, display: "block" }}>
-                    Total Gross Collection
+                    Net Revenue (Excl. GST)
                   </span>
                   <strong style={{ fontSize: 22, color: "#4338ca", fontWeight: 800 }}>
-                    ₹{totalGross.toLocaleString("en-IN")}
+                    ₹{totalNet.toLocaleString("en-IN")}
                   </strong>
                 </div>
                 <div
@@ -646,8 +647,8 @@ export default function OwnerOverviewPage({
                         Salesperson
                       </th>
                       <th style={{ padding: "10px 14px" }}>Branch / Region</th>
-                      <th style={{ padding: "10px 14px" }}>Gross Collection</th>
-                      <th style={{ padding: "10px 14px" }}>Net Revenue</th>
+                      <th style={{ padding: "10px 14px" }}>Revenue (with GST)</th>
+                      <th style={{ padding: "10px 14px" }}>Net (Excl. GST)</th>
                       <th style={{ padding: "10px 14px", borderRadius: "0 8px 8px 0" }}>
                         Calculation Status
                       </th>
@@ -698,15 +699,14 @@ export default function OwnerOverviewPage({
                                 {sp.branch || "Pan-India"}
                               </span>
                             </td>
-                            <td style={{ padding: "12px 14px", fontWeight: 600, color: "#475569" }}>
+                            <td style={{ padding: "12px 14px", fontWeight: 800, color: "#10b981", fontSize: 15 }}>
                               ₹{gross.toLocaleString("en-IN")}
                             </td>
                             <td
                               style={{
                                 padding: "12px 14px",
-                                fontWeight: 800,
-                                color: "#10b981",
-                                fontSize: 15,
+                                fontWeight: 600,
+                                color: "#475569",
                               }}
                             >
                               ₹{net.toLocaleString("en-IN")}
@@ -718,7 +718,7 @@ export default function OwnerOverviewPage({
                                 color: "#64748b",
                               }}
                             >
-                              Verified Net (Excl. 18% GST)
+                              Verified Total (Incl. 18% GST)
                             </td>
                           </tr>
                         );

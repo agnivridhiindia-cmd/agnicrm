@@ -170,7 +170,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 const rawRec = Math.max(clientRec, invRec, directRec);
 
                 const isSec = c.isPrimary === false || c.processType === "secondary" || c.serviceType === "More Services" || (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
-                const rawAmt = (!isSec && explicitTotal === 0) ? 118000 : (explicitTotal > 0 ? explicitTotal : (rawRec > 0 ? Math.round(rawRec / 1.18) : 0));
+                const rawAmt = (!isSec && explicitTotal === 0) ? 118000 : (explicitTotal > 0 ? explicitTotal : (rawRec > 0 ? rawRec : 0));
                 const isPaid = c.paymentStatus === "Paid" || c.paymentStatus === "PAID" || (rawAmt > 0 && rawRec >= rawAmt) || (c.invoices && c.invoices.some(inv => inv.status === "PAID" || inv.status === "Paid"));
                 const finalRecAmt = isPaid ? Math.max(rawAmt, rawRec) : rawRec;
                 const finalPending = Math.max(0, rawAmt - finalRecAmt);

@@ -573,6 +573,32 @@ export async function markPaymentPaidService(
       });
     }
 
+    try {
+      const { recordDailySalesPayment } = await import("./revenue.service");
+      await recordDailySalesPayment(
+        {
+          amount: payAmount,
+          paymentDate: payment.paymentDate || new Date(),
+          paymentMode: payment.paymentMode,
+          referenceNumber: payment.referenceNumber,
+          status: "COMPLETED",
+          notes: `Payment marked paid (${payment.paymentId})`,
+          salesPersonId: payment.client?.salesPersonId || payment.invoice?.accountManagerId || payment.recordedById,
+          branchId: payment.client?.branchId || payment.invoice?.branchId,
+          clientId: payment.clientId,
+          clientName: payment.client?.name || payment.client?.contactPerson,
+          companyName: payment.client?.companyName || payment.client?.name,
+          schemeName: payment.client?.serviceName || "Service Retainer",
+          serviceType: payment.client?.serviceType,
+          invoiceId: payment.invoiceId,
+          paymentId: payment.id,
+        },
+        tx
+      );
+    } catch (recordErr) {
+      console.error("[markPaymentPaidService] Failed to record daily sales payment:", recordErr);
+    }
+
     return {
       success: true,
       statusCode: 200,
@@ -628,6 +654,32 @@ export async function addPaymentService(user: AuthenticatedUser, invoiceId: stri
         recordedById: user.userId,
       },
     });
+
+    try {
+      const { recordDailySalesPayment } = await import("./revenue.service");
+      await recordDailySalesPayment(
+        {
+          amount: data.amount,
+          paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date(),
+          paymentMode: data.paymentMode,
+          referenceNumber: data.referenceNumber,
+          status: "COMPLETED",
+          notes: data.remarks || `Invoice payment (${invoice.invoiceNo})`,
+          salesPersonId: invoice.accountManagerId || user.userId,
+          branchId: invoice.branchId,
+          clientId: invoice.clientId,
+          clientName: invoice.client?.name || invoice.client?.contactPerson,
+          companyName: invoice.client?.companyName || invoice.client?.name,
+          schemeName: invoice.client?.serviceName || "Service Retainer",
+          serviceType: invoice.client?.serviceType,
+          invoiceId: invoice.id,
+          paymentId: payment.id,
+        },
+        tx
+      );
+    } catch (recordErr) {
+      console.error("[addPaymentService] Failed to record daily sales payment:", recordErr);
+    }
 
     // 2. Atomic update on Invoice using { increment, decrement } to prevent race conditions
     const updatedInvoice = await tx.invoice.update({
