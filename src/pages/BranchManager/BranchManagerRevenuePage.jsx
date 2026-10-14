@@ -132,17 +132,6 @@ export default function BranchManagerRevenuePage({
               Aggregate billing revenue captured for the {revenueRange} horizon across all regional sales accounts.
             </p>
           </div>
-
-          <div className="revenue-breakdown">
-            <div>
-              <span>Average Run Rate</span>
-              <strong>₹{selectedRevenueData.length > 0 ? Math.round(revenueTotal / selectedRevenueData.length).toLocaleString("en-IN") : 0}</strong>
-            </div>
-            <div>
-              <span>Cycle Peak</span>
-              <strong>₹{selectedRevenueData.length > 0 ? Math.max(...selectedRevenueData.map((item) => item.value), 0).toLocaleString("en-IN") : 0}</strong>
-            </div>
-          </div>
         </div>
 
         <div className="revenue-chart-panel">

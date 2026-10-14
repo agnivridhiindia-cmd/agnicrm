@@ -158,21 +158,6 @@ export default function OwnerRevenuePage({
               Selected range: {activeRange.charAt(0).toUpperCase() + activeRange.slice(1)} horizon across all active enterprise portfolios.
             </p>
           </div>
-
-          <div className="revenue-breakdown">
-            <div>
-              <span>Average Run Rate</span>
-              <strong>
-                ₹{averageRunRate.toLocaleString("en-IN")}
-              </strong>
-            </div>
-            <div>
-              <span>Cycle Peak</span>
-              <strong>
-                ₹{cyclePeak.toLocaleString("en-IN")}
-              </strong>
-            </div>
-          </div>
         </div>
 
         <div className="revenue-chart-panel">
