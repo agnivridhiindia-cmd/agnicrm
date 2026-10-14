@@ -172,10 +172,6 @@ export default function OwnerRevenuePage({
                 ₹{cyclePeak.toLocaleString("en-IN")}
               </strong>
             </div>
-            <div>
-              <span>Data Checkpoints</span>
-              <strong>{selectedRevenueData.length} Points</strong>
-            </div>
           </div>
         </div>
 

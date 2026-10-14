@@ -8,6 +8,43 @@ import OwnerRevenueCalendarWidget from "./components/OwnerRevenueCalendarWidget"
 import "./owner.css";
 const defaultOwnerActivities = [];
 
+function formatActivityTime(dateInput, fallbackMinutes) {
+  let minutes = null;
+
+  if (dateInput) {
+    const t = new Date(dateInput).getTime();
+    if (!isNaN(t) && t > 0) {
+      const diffMs = Date.now() - t;
+      if (diffMs >= 0 && diffMs < 12 * 60 * 60 * 1000) {
+        minutes = Math.floor(diffMs / 60000);
+      }
+    }
+  }
+
+  if (minutes === null || isNaN(minutes)) {
+    minutes = fallbackMinutes;
+  }
+
+  if (minutes === undefined || minutes === null || isNaN(minutes) || minutes < 1) {
+    return "Just now";
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours === 1) {
+    return "hour ago";
+  }
+  if (hours < 24) {
+    return `${hours} hours ago`;
+  }
+  const days = Math.floor(hours / 24);
+  if (days === 1) {
+    return "yesterday";
+  }
+  return `${days} days ago`;
+}
+
 export default function OwnerOverviewPage({
   clients = [],
   employeesList = [],
@@ -153,7 +190,7 @@ export default function OwnerOverviewPage({
           title: "New Client Added",
           detail: `${c.companyName || c.clientName || "Client"} (${c.serviceType || "Services"})`,
           tone: "#9a74e9",
-          time: i === 0 ? "Just now" : `${(i + 1) * 20}m ago`,
+          time: formatActivityTime(c.createdAt, i === 0 ? 0 : (i + 1) * 20),
         });
       });
     }
@@ -163,7 +200,7 @@ export default function OwnerOverviewPage({
           title: "Payment Received",
           detail: `${inv.invoiceNo || "Invoice"} - ₹${(inv.grandTotal || inv.amount || 0).toLocaleString("en-IN")}`,
           tone: "#10b981",
-          time: `${(i + 1) * 35}m ago`,
+          time: formatActivityTime(inv.paymentDate || inv.createdAt, (i + 1) * 35),
         });
       });
     }
@@ -271,7 +308,6 @@ export default function OwnerOverviewPage({
         <section className="activity-panel owner-activity-panel">
           <div className="panel-header owner-activity-header">
             <div>
-              <p className="eyebrow owner-activity-eyebrow">Live Activity Feed</p>
               <h2 className="owner-activity-heading">What’s happening</h2>
             </div>
           </div>

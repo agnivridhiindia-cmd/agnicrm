@@ -142,10 +142,6 @@ export default function BranchManagerRevenuePage({
               <span>Cycle Peak</span>
               <strong>₹{selectedRevenueData.length > 0 ? Math.max(...selectedRevenueData.map((item) => item.value), 0).toLocaleString("en-IN") : 0}</strong>
             </div>
-            <div>
-              <span>Data Checkpoints</span>
-              <strong>{selectedRevenueData.length} Points</strong>
-            </div>
           </div>
         </div>
 
