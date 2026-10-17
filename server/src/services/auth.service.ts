@@ -254,7 +254,7 @@ interface UsersCacheEntry {
   data: any;
 }
 const usersCache = new Map<string, UsersCacheEntry>();
-const USERS_CACHE_TTL_MS = 15000; // 15 seconds
+const USERS_CACHE_TTL_MS = 60000; // 60 seconds in-memory cache
 
 export function invalidateUsersCache() {
   usersCache.clear();
@@ -508,6 +508,8 @@ export async function changePasswordService({
     where: { id: user.id },
     data: { passwordHash: newPasswordHash },
   });
+
+  invalidateUsersCache();
 
   return {
     success: true,

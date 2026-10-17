@@ -15,6 +15,48 @@ export function getApiUrl(endpoint = "") {
   return `${API_BASE_URL}${cleanEndpoint}`;
 }
 
+// Ephemeral in-flight promise deduplication map (strictly memory-only, deleted immediately upon resolution)
+// Prevents duplicate concurrent HTTP requests for identical GET endpoints across parallel component mounts.
+const inFlightRequests = new Map();
+
+async function executeNetworkFetch(url, fetchOptions) {
+  let response;
+  let fetchError = null;
+
+  try {
+    response = await fetch(url, fetchOptions);
+  } catch (err) {
+    fetchError = err;
+    const isTimeout = err.name === "TimeoutError" || err.name === "AbortError";
+    // Attempt localhost -> 127.0.0.1 or vice-versa fallback only if not timed out
+    if (!isTimeout) {
+      if (url.includes("localhost:5000")) {
+        const fallbackUrl = url.replace("localhost:5000", "127.0.0.1:5000");
+        try {
+          response = await fetch(fallbackUrl, fetchOptions);
+          fetchError = null;
+        } catch (fallbackErr) {
+          fetchError = fallbackErr;
+        }
+      } else if (url.includes("127.0.0.1:5000")) {
+        const fallbackUrl = url.replace("127.0.0.1:5000", "localhost:5000");
+        try {
+          response = await fetch(fallbackUrl, fetchOptions);
+          fetchError = null;
+        } catch (fallbackErr) {
+          fetchError = fallbackErr;
+        }
+      }
+    }
+  }
+
+  if (fetchError) {
+    throw fetchError;
+  }
+
+  return response;
+}
+
 /**
  * Universal API fetch helper
  */
@@ -62,61 +104,51 @@ export async function apiFetch(endpoint, options = {}) {
     signal: customSignal || (timeoutController ? timeoutController.signal : undefined),
   };
 
-  let response;
-  let fetchError = null;
+  const method = (options.method || "GET").toUpperCase();
+  const isDeduplicatable = method === "GET" && !customSignal;
+  const dedupKey = isDeduplicatable ? `${url}__${token || ""}` : null;
 
-  try {
+  if (isDeduplicatable && inFlightRequests.has(dedupKey)) {
+    const existingPromise = inFlightRequests.get(dedupKey);
+    const existingRes = await existingPromise;
+    return existingRes.clone();
+  }
+
+  const fetchPromise = (async () => {
     try {
-      response = await fetch(url, fetchOptions);
-    } catch (err) {
-      fetchError = err;
-      const isTimeout = err.name === "TimeoutError" || err.name === "AbortError";
-      // Attempt localhost -> 127.0.0.1 or vice-versa fallback only if not timed out
-      if (!isTimeout) {
-        if (url.includes("localhost:5000")) {
-          const fallbackUrl = url.replace("localhost:5000", "127.0.0.1:5000");
-          try {
-            response = await fetch(fallbackUrl, fetchOptions);
-            fetchError = null;
-          } catch (fallbackErr) {
-            fetchError = fallbackErr;
-          }
-        } else if (url.includes("127.0.0.1:5000")) {
-          const fallbackUrl = url.replace("127.0.0.1:5000", "localhost:5000");
-          try {
-            response = await fetch(fallbackUrl, fetchOptions);
-            fetchError = null;
-          } catch (fallbackErr) {
-            fetchError = fallbackErr;
-          }
+      const response = await executeNetworkFetch(url, fetchOptions);
+
+      if (!response.ok) {
+        if (response.status === 401 && !endpoint.includes("/auth/")) {
+          // Session token expired or secret updated — clear stale session and trigger auth refresh
+          localStorage.removeItem("agni_token");
+          localStorage.removeItem("agni_user");
+          localStorage.removeItem("agni_user_role");
+          localStorage.removeItem("agni_role");
+          localStorage.removeItem("agni_user_email");
+          localStorage.removeItem("agni_email");
+          window.dispatchEvent(new CustomEvent("agni_auth_changed"));
+          return response;
         }
       }
-    }
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
 
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  if (!response.ok) {
-    if (response.status === 401 && !endpoint.includes("/auth/")) {
-      // Session token expired or secret updated — clear stale session and trigger auth refresh
-      localStorage.removeItem("agni_token");
-      localStorage.removeItem("agni_user");
-      localStorage.removeItem("agni_user_role");
-      localStorage.removeItem("agni_role");
-      localStorage.removeItem("agni_user_email");
-      localStorage.removeItem("agni_email");
-      window.dispatchEvent(new CustomEvent("agni_auth_changed"));
       return response;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      if (dedupKey) {
+        inFlightRequests.delete(dedupKey);
+      }
     }
+  })();
+
+  if (isDeduplicatable) {
+    inFlightRequests.set(dedupKey, fetchPromise);
   }
 
-  return response;
+  const finalResponse = await fetchPromise;
+  return finalResponse.clone();
 }
 
 export const apiClient = {

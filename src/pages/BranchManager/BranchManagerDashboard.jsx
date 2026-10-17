@@ -176,7 +176,7 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
             setOwnerName(resData.users[0].fullName || resData.users[0].name || "Owner");
           }
         }
-      } catch (err) {}
+      } catch (err) { }
     }
 
     fetchBranchUsersFromDB();

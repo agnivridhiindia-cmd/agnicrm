@@ -18,10 +18,10 @@ export default function OwnerRevenuePage({
     else setLocalRange(val);
   };
 
-  const metrics = useMemo(
-    () => calculateRevenueMetrics(clients || [], invoices || []),
-    [clients, invoices]
-  );
+  const metrics = useMemo(() => {
+    if (!clients || clients.length === 0) return {};
+    return calculateRevenueMetrics(clients || [], invoices || []);
+  }, [clients, invoices]);
 
   const revenueReceived = useMemo(() => {
     switch (activeRange) {

@@ -4,6 +4,20 @@ import { prisma } from "../config/prisma";
 import { ENV } from "../config/env";
 import { AuthenticatedUser } from "../middlewares/auth.middleware";
 import { generateInvoiceNo, generatePaymentId } from "../utils/idGenerator";
+import { invalidateClientCache } from "./client.service";
+
+interface InvoiceCacheEntry {
+  timestamp: number;
+  data: any;
+}
+const invoicesCache = new Map<string, InvoiceCacheEntry>();
+const paymentsCache = new Map<string, InvoiceCacheEntry>();
+const INVOICES_CACHE_TTL_MS = 60000;
+
+export function invalidateInvoiceCache() {
+  invoicesCache.clear();
+  paymentsCache.clear();
+}
 
 export interface CreateInvoiceInput {
   clientId: string;
@@ -31,6 +45,13 @@ export interface CreatePaymentInput {
 }
 
 export async function getInvoicesService(user: AuthenticatedUser) {
+  const cacheKey = `${user.userId}_${user.role}_${user.branchId || ""}`;
+  const now = Date.now();
+  const cached = invoicesCache.get(cacheKey);
+  if (cached && now - cached.timestamp < INVOICES_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   let whereClause: any = { isDeleted: false };
 
   if (user.role === Role.SALES_PERSON) {
@@ -67,7 +88,9 @@ export async function getInvoicesService(user: AuthenticatedUser) {
     orderBy: { createdAt: "desc" },
   });
 
-  return { success: true, statusCode: 200, data: invoices };
+  const responseData = { success: true, statusCode: 200, data: invoices };
+  invoicesCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
+  return responseData;
 }
 
 export async function createInvoiceService(user: AuthenticatedUser, data: CreateInvoiceInput) {
@@ -173,6 +196,8 @@ export async function createInvoiceService(user: AuthenticatedUser, data: Create
     },
   });
 
+  invalidateInvoiceCache();
+  invalidateClientCache();
   return { success: true, statusCode: 201, data: invoice };
 }
 
@@ -189,6 +214,13 @@ export interface CreatePaymentRequestInput {
 }
 
 export async function getPaymentsService(user: AuthenticatedUser) {
+  const cacheKey = `${user.userId}_${user.role}_${user.branchId || ""}`;
+  const now = Date.now();
+  const cached = paymentsCache.get(cacheKey);
+  if (cached && now - cached.timestamp < INVOICES_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   const baseFilter = {
     isDeleted: false,
     NOT: [
@@ -239,7 +271,9 @@ export async function getPaymentsService(user: AuthenticatedUser) {
     orderBy: { createdAt: "desc" },
   });
 
-  return { success: true, statusCode: 200, data: payments };
+  const responseData = { success: true, statusCode: 200, data: payments };
+  paymentsCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
+  return responseData;
 }
 
 export async function createPaymentRequestService(user: AuthenticatedUser, data: CreatePaymentRequestInput) {
@@ -442,6 +476,7 @@ export async function createPaymentRequestService(user: AuthenticatedUser, data:
     },
   });
 
+  invalidateInvoiceCache();
   return { success: true, statusCode: 201, data: payment };
 }
 
@@ -483,6 +518,7 @@ export async function settlePaymentDemandService(
     },
   });
 
+  invalidateInvoiceCache();
   return { success: true, statusCode: 200, data: updatedPayment };
 }
 
@@ -599,6 +635,8 @@ export async function markPaymentPaidService(
       console.error("[markPaymentPaidService] Failed to record daily sales payment:", recordErr);
     }
 
+    invalidateInvoiceCache();
+    invalidateClientCache();
     return {
       success: true,
       statusCode: 200,
@@ -743,6 +781,8 @@ export async function addPaymentService(user: AuthenticatedUser, invoiceId: stri
       });
     }
 
+    invalidateInvoiceCache();
+    invalidateClientCache();
     return {
       success: true,
       statusCode: 201,
@@ -927,6 +967,8 @@ export async function verifyRazorpayPaymentService(
       },
     });
 
+    invalidateInvoiceCache();
+    invalidateClientCache();
     return {
       success: true,
       statusCode: 200,
