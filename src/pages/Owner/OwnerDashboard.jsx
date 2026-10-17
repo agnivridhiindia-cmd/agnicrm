@@ -217,10 +217,19 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
 
     fetchDBOwnerClients();
 
+    let clientDebounceTimer = null;
+    const debouncedClientsFetch = () => {
+      if (clientDebounceTimer) clearTimeout(clientDebounceTimer);
+      clientDebounceTimer = setTimeout(() => {
+        fetchDBOwnerClients();
+      }, 250);
+    };
+
     // Re-fetch when other dashboards update client milestones
-    window.addEventListener("agni_clients_updated", fetchDBOwnerClients);
+    window.addEventListener("agni_clients_updated", debouncedClientsFetch);
     return () => {
-      window.removeEventListener("agni_clients_updated", fetchDBOwnerClients);
+      if (clientDebounceTimer) clearTimeout(clientDebounceTimer);
+      window.removeEventListener("agni_clients_updated", debouncedClientsFetch);
     };
   }, []);
 
@@ -342,13 +351,23 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
       }
     }
     fetchDBOwnerInvoices();
-    window.addEventListener("agni_invoices_updated", fetchDBOwnerInvoices);
-    window.addEventListener("agni_payments_updated", fetchDBOwnerInvoices);
-    window.addEventListener("agni_clients_updated", fetchDBOwnerInvoices);
+
+    let invoiceDebounceTimer = null;
+    const debouncedInvoicesFetch = () => {
+      if (invoiceDebounceTimer) clearTimeout(invoiceDebounceTimer);
+      invoiceDebounceTimer = setTimeout(() => {
+        fetchDBOwnerInvoices();
+      }, 250);
+    };
+
+    window.addEventListener("agni_invoices_updated", debouncedInvoicesFetch);
+    window.addEventListener("agni_payments_updated", debouncedInvoicesFetch);
+    window.addEventListener("agni_clients_updated", debouncedInvoicesFetch);
     return () => {
-      window.removeEventListener("agni_invoices_updated", fetchDBOwnerInvoices);
-      window.removeEventListener("agni_payments_updated", fetchDBOwnerInvoices);
-      window.removeEventListener("agni_clients_updated", fetchDBOwnerInvoices);
+      if (invoiceDebounceTimer) clearTimeout(invoiceDebounceTimer);
+      window.removeEventListener("agni_invoices_updated", debouncedInvoicesFetch);
+      window.removeEventListener("agni_payments_updated", debouncedInvoicesFetch);
+      window.removeEventListener("agni_clients_updated", debouncedInvoicesFetch);
     };
   }, []);
 
@@ -926,6 +945,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 clients={clients}
                 employeesList={employeesList}
                 invoices={invoices}
+                requests={requestsList}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
@@ -940,6 +960,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 clients={clients}
                 employeesList={employeesList}
                 invoices={invoices}
+                requests={requestsList}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}
@@ -954,6 +975,7 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 clients={clients}
                 employeesList={employeesList}
                 invoices={invoices}
+                requests={requestsList}
                 onNavigate={handleNavChange}
                 onSelectEmployeeRole={setSelectedRole}
                 onSelectRevenueRange={setRevenueRange}

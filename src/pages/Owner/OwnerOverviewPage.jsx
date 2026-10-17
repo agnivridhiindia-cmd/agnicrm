@@ -8,47 +8,38 @@ import OwnerRevenueCalendarWidget from "./components/OwnerRevenueCalendarWidget"
 import "./owner.css";
 const defaultOwnerActivities = [];
 
-function formatActivityTime(dateInput, fallbackMinutes) {
-  let minutes = null;
+function formatActivityTime(dateInput) {
+  if (!dateInput) return "Recently";
+  const timestamp = typeof dateInput === "number" ? dateInput : new Date(dateInput).getTime();
+  if (isNaN(timestamp) || timestamp <= 0) return "Recently";
 
-  if (dateInput) {
-    const t = new Date(dateInput).getTime();
-    if (!isNaN(t) && t > 0) {
-      const diffMs = Date.now() - t;
-      if (diffMs >= 0 && diffMs < 12 * 60 * 60 * 1000) {
-        minutes = Math.floor(diffMs / 60000);
-      }
-    }
-  }
+  const diffMs = Date.now() - timestamp;
+  if (diffMs < 0) return "Just now";
 
-  if (minutes === null || isNaN(minutes)) {
-    minutes = fallbackMinutes;
-  }
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return "Just now";
 
-  if (minutes === undefined || minutes === null || isNaN(minutes) || minutes < 1) {
-    return "Just now";
-  }
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours === 1) {
-    return "hour ago";
-  }
-  if (hours < 24) {
-    return `${hours} hours ago`;
-  }
-  const days = Math.floor(hours / 24);
-  if (days === 1) {
-    return "yesterday";
-  }
-  return `${days} days ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return new Date(timestamp).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 export default function OwnerOverviewPage({
   clients = [],
   employeesList = [],
   invoices = [],
+  requests = [],
   onNavigate,
   onSelectEmployeeRole,
   onSelectRevenueRange,
@@ -58,6 +49,7 @@ export default function OwnerOverviewPage({
 
   // Dynamic Workforce & Account KPI cards from live database data
   const workforceKpiCards = useMemo(() => {
+    const isWaitingClients = !clients || clients.length === 0;
     const clientsCount = (clients || []).length;
 
     const branchManagersCount = (employeesList || []).filter((e) => {
@@ -90,7 +82,7 @@ export default function OwnerOverviewPage({
     return [
       {
         label: "Total Clients",
-        value: clientsCount.toLocaleString("en-IN"),
+        value: isWaitingClients ? "—" : clientsCount.toLocaleString("en-IN"),
         accent: "#3b82f6",
         linkTo: "Clients",
         slug: "clients",
@@ -123,17 +115,21 @@ export default function OwnerOverviewPage({
   }, [clients, employeesList]);
 
   // Dynamic Revenue Engine calculation across all salespeople & branches
-  // Calculates live collections with 18% GST for executive owner KPIs
-  const revenueMetrics = useMemo(
-    () => calculateRevenueMetrics(clients, invoices) || {},
-    [clients, invoices]
-  );
+  // Calculates live collections with 18% GST for executive owner KPIs.
+  // Guarded: Never computes partial metrics from standalone invoices when clients are still loading.
+  const revenueMetrics = useMemo(() => {
+    if (!clients || clients.length === 0) {
+      return {};
+    }
+    return calculateRevenueMetrics(clients, invoices) || {};
+  }, [clients, invoices]);
 
   const revenueKpiCards = useMemo(() => {
+    const isWaitingClients = !clients || clients.length === 0;
     return [
       {
         label: "Daily Revenue",
-        value: `₹${(revenueMetrics.dailyGross || 0).toLocaleString("en-IN")}`,
+        value: isWaitingClients ? "—" : `₹${(revenueMetrics.dailyGross || 0).toLocaleString("en-IN")}`,
         accent: "#10b981",
         linkTo: "Revenue",
         slug: "daily-revenue",
@@ -141,7 +137,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Weekly Revenue",
-        value: `₹${(revenueMetrics.weeklyGross || 0).toLocaleString("en-IN")}`,
+        value: isWaitingClients ? "—" : `₹${(revenueMetrics.weeklyGross || 0).toLocaleString("en-IN")}`,
         accent: "#6366f1",
         linkTo: "Revenue",
         slug: "weekly-revenue",
@@ -149,7 +145,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Monthly Revenue",
-        value: `₹${(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}`,
+        value: isWaitingClients ? "—" : `₹${(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}`,
         accent: "#f59e0b",
         linkTo: "Revenue",
         slug: "monthly-revenue",
@@ -157,7 +153,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Yearly Revenue",
-        value: `₹${(revenueMetrics.yearlyGross || 0).toLocaleString("en-IN")}`,
+        value: isWaitingClients ? "—" : `₹${(revenueMetrics.yearlyGross || 0).toLocaleString("en-IN")}`,
         accent: "#8b5cf6",
         linkTo: "Revenue",
         slug: "yearly-revenue",
@@ -165,7 +161,7 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Total Payment Received",
-        value: `₹${(revenueMetrics.totalReceivedGross || 0).toLocaleString("en-IN")}`,
+        value: isWaitingClients ? "—" : `₹${(revenueMetrics.totalReceivedGross || 0).toLocaleString("en-IN")}`,
         accent: "#059669",
         linkTo: "Invoice",
         slug: "payment-received",
@@ -173,40 +169,79 @@ export default function OwnerOverviewPage({
       },
       {
         label: "Total Payment Pending",
-        value: `₹${(revenueMetrics.totalPendingGross || 0).toLocaleString("en-IN")}`,
+        value: isWaitingClients ? "—" : `₹${(revenueMetrics.totalPendingGross || 0).toLocaleString("en-IN")}`,
         accent: "#dc2626",
         linkTo: "Invoice",
         slug: "payment-pending",
         rangeType: "pending",
       },
     ];
-  }, [revenueMetrics]);
+  }, [revenueMetrics, clients]);
 
+  // Dynamically derive live activities strictly from real database records (Requests, Real Payments, Registrations)
+  // Sorted chronologically (newest first) with accurate timestamps
   const displayActivities = useMemo(() => {
-    const dynamicList = [];
-    if (clients && clients.length > 0) {
-      clients.forEach((c, i) => {
-        dynamicList.push({
-          title: "New Client Added",
-          detail: `${c.companyName || c.clientName || "Client"} (${c.serviceType || "Services"})`,
-          tone: "#9a74e9",
-          time: formatActivityTime(c.createdAt, i === 0 ? 0 : (i + 1) * 20),
-        });
+    const list = [];
+
+    // 1. Live Requests (Approvals & Governance submitted to Owner)
+    (requests || []).forEach((r) => {
+      if (!r) return;
+      const rawDate = r.raw?.createdAt || r.createdAt;
+      const ts = rawDate ? new Date(rawDate).getTime() : 0;
+      const isApproved = r.status === "Approved" || r.status === "APPROVED";
+      const isPending = r.status === "Pending" || r.status === "PENDING";
+      const tone = isApproved ? "#10b981" : isPending ? "#f59e0b" : "#ef4444";
+
+      list.push({
+        title: `Request: ${r.requestType || "Approval"}`,
+        detail: `${r.clientName || r.company || "Account"} (${r.status || "Pending"})`,
+        tone,
+        timestamp: ts,
+        time: formatActivityTime(rawDate),
       });
-    }
-    if (invoices && invoices.length > 0) {
-      invoices.forEach((inv, i) => {
-        dynamicList.push({
-          title: "Payment Received",
-          detail: `${inv.invoiceNo || "Invoice"} - ₹${(inv.grandTotal || inv.amount || 0).toLocaleString("en-IN")}`,
-          tone: "#10b981",
-          time: formatActivityTime(inv.paymentDate || inv.createdAt, (i + 1) * 35),
-        });
+    });
+
+    // 2. Real Payments Received (strictly where actual money was collected, paymentReceived > 0)
+    (invoices || []).forEach((inv) => {
+      if (!inv) return;
+      const recAmt = Number(inv.paymentReceived || 0);
+      if (recAmt <= 0) return; // Skip unpaid invoices
+
+      const rawDate = inv.paidAt || inv.updatedAt || inv.createdAt;
+      const ts = rawDate ? new Date(rawDate).getTime() : 0;
+      const cName = inv.company || inv.clientName || "Client";
+
+      list.push({
+        title: "Payment Received",
+        detail: `${cName} • ₹${recAmt.toLocaleString("en-IN")} (${inv.invoiceNo || "Receipt"})`,
+        tone: "#10b981",
+        timestamp: ts,
+        time: formatActivityTime(rawDate),
       });
-    }
-    const merged = [...dynamicList, ...defaultOwnerActivities];
-    return merged.slice(0, 30);
-  }, [clients, invoices]);
+    });
+
+    // 3. Real Client Registrations
+    (clients || []).forEach((c) => {
+      if (!c) return;
+      const rawDate = c.createdAt;
+      const ts = rawDate ? new Date(rawDate).getTime() : 0;
+      const cName = c.companyName || c.name || "Client";
+      const scheme = c.serviceName || c.scheme || c.serviceType || "Services";
+
+      list.push({
+        title: "Client Registered",
+        detail: `${cName} (${scheme})`,
+        tone: "#6366f1",
+        timestamp: ts,
+        time: formatActivityTime(rawDate),
+      });
+    });
+
+    // Sort strictly chronologically: newest timestamp first
+    list.sort((a, b) => b.timestamp - a.timestamp);
+
+    return list.slice(0, 25);
+  }, [requests, invoices, clients]);
 
   return (
     <div className="owner-dashboard-layout" style={{ animation: "ownerFadeIn 0.25s ease-out" }}>
@@ -276,20 +311,20 @@ export default function OwnerOverviewPage({
         <section className="revenue-panel">
           <div className="revenue-summary">
             <p className="eyebrow">Revenue overview</p>
-            <h2>₹{(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}</h2>
+            <h2>{(!clients || clients.length === 0) ? "—" : `₹${(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}`}</h2>
             <p className="revenue-copy">Current revenue (with GST) calculated across all regional sales teams.</p>
             <div className="revenue-breakdown">
               <div>
                 <span>Monthly Revenue (with GST)</span>
-                <strong>₹{(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}</strong>
+                <strong>{(!clients || clients.length === 0) ? "—" : `₹${(revenueMetrics.monthlyGross || 0).toLocaleString("en-IN")}`}</strong>
               </div>
               <div>
                 <span>Daily Revenue (with GST)</span>
-                <strong>₹{(revenueMetrics.dailyGross || 0).toLocaleString("en-IN")}</strong>
+                <strong>{(!clients || clients.length === 0) ? "—" : `₹${(revenueMetrics.dailyGross || 0).toLocaleString("en-IN")}`}</strong>
               </div>
               <div>
                 <span>Weekly Revenue (with GST)</span>
-                <strong>₹{(revenueMetrics.weeklyGross || 0).toLocaleString("en-IN")}</strong>
+                <strong>{(!clients || clients.length === 0) ? "—" : `₹${(revenueMetrics.weeklyGross || 0).toLocaleString("en-IN")}`}</strong>
               </div>
             </div>
           </div>

@@ -19,7 +19,7 @@ export interface CreateRequestInput {
 }
 
 const requestsCache = new Map<string, { timestamp: number; data: any }>();
-const REQUESTS_CACHE_TTL_MS = 3000;
+const REQUESTS_CACHE_TTL_MS = 60000; // 60-second in-memory RAM cache with instant invalidation on mutations
 
 export function invalidateRequestsCache() {
   requestsCache.clear();

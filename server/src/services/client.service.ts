@@ -78,7 +78,7 @@ interface CacheEntry {
   data: any;
 }
 const clientsCache = new Map<string, CacheEntry>();
-const CLIENTS_CACHE_TTL_MS = 3000; // 3-second SWR cache to absorb concurrent polls
+const CLIENTS_CACHE_TTL_MS = 60000; // 60-second in-memory RAM cache with instant invalidation on mutations
 
 let cachedBranches: { timestamp: number; data: any[] } | null = null;
 const BRANCHES_CACHE_TTL_MS = 600000; // 10 minutes static branch cache
@@ -86,10 +86,14 @@ const BRANCHES_CACHE_TTL_MS = 600000; // 10 minutes static branch cache
 let cachedUsers: { timestamp: number; data: any[] } | null = null;
 const USERS_CACHE_TTL_MS = 60000; // 1 minute user name map cache
 
+let cachedManagers: { timestamp: number; data: any[] } | null = null;
+const MANAGERS_CACHE_TTL_MS = 60000; // 1 minute manager map cache
+
 export function invalidateClientCache() {
   clientsCache.clear();
   cachedUsers = null;
   cachedBranches = null;
+  cachedManagers = null;
 }
 
 export async function getClientsService(user: AuthenticatedUser, query?: { deletedOnly?: boolean; includeDeleted?: boolean }) {
@@ -175,12 +179,17 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
   const userMap = new Map(allUsers.map((u) => [u.id, u.fullName]));
 
   let allManagers: any[] = [];
-  try {
-    allManagers = await prisma.user.findMany({
-      where: { role: Role.MANAGER, isDeleted: false },
-      select: { id: true, fullName: true, email: true, phone: true, branchId: true },
-    });
-  } catch (e) { }
+  if (cachedManagers && now - cachedManagers.timestamp < MANAGERS_CACHE_TTL_MS) {
+    allManagers = cachedManagers.data;
+  } else {
+    try {
+      allManagers = await prisma.user.findMany({
+        where: { role: Role.MANAGER, isDeleted: false },
+        select: { id: true, fullName: true, email: true, phone: true, branchId: true },
+      });
+      cachedManagers = { timestamp: now, data: allManagers };
+    } catch (e) { }
+  }
   const branchManagerMap = new Map(allManagers.map((m) => [m.branchId, m]));
 
   // Group clients by email to identify each client's primary scheme
