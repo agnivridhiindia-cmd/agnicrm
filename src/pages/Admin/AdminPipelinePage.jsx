@@ -59,7 +59,7 @@ export default function AdminPipelinePage({
               key={stage.id}
               className="admin-pipeline-column"
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 10, borderBottom: "1px solid rgba(154, 116, 233, 0.15)" }}>
+              <div className="admin-pipeline-column-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 10, borderBottom: "1px solid rgba(154, 116, 233, 0.15)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span
                     style={{
@@ -92,7 +92,7 @@ export default function AdminPipelinePage({
                 </span>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div className="admin-pipeline-column-body">
                 {stageClients.map((client) => {
                   const tracker = getTrackerState(client);
 

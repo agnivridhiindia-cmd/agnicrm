@@ -553,12 +553,61 @@
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid rgba(154, 116, 233, 0.18);
   border-radius: 18px;
-  padding: 18px;
+  padding: 18px 14px 18px 18px;
   box-shadow: 0 12px 32px rgba(154, 116, 233, 0.06);
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 380px;
+  height: 540px;
+  box-sizing: border-box;
+}
+
+.admin-pipeline-column-header {
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+
+.admin-pipeline-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(154, 116, 233, 0.35) transparent;
+}
+
+.admin-pipeline-column-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.admin-pipeline-column-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-pipeline-column-body::-webkit-scrollbar-thumb {
+  background: rgba(154, 116, 233, 0.3);
+  border-radius: 99px;
+}
+
+.admin-pipeline-column-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(154, 116, 233, 0.55);
+}
+
+.dashboard-dark .admin-pipeline-column-body {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.dashboard-dark .admin-pipeline-column-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dashboard-dark .admin-pipeline-column-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 /* ---------------------------------------------------------
