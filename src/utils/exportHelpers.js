@@ -41,7 +41,13 @@ export function generateClientDossierHTML(client) {
     scheme: schemeName,
   });
 
-  const rawTotal = parseRevenueValue(client.totalPayment) || parseRevenueValue(client.amount) || parseRevenueValue(client.revenue) || 118000;
+  const isSec = client.isPrimary === false ||
+    client.processType === "secondary" ||
+    client.serviceType === "More Services" ||
+    (typeof client.appId === "string" && (client.appId.endsWith("-S") || client.appId.endsWith("-E")));
+  const rawTotal = (client.totalPayment !== undefined && client.totalPayment !== null && client.totalPayment !== "")
+    ? parseRevenueValue(client.totalPayment)
+    : (parseRevenueValue(client.amount) || parseRevenueValue(client.revenue) || (isSec ? 0 : 118000));
   const rawRec = parseRevenueValue(client.paymentReceived) || 0;
   const rawPending = Math.max(0, rawTotal - rawRec);
   const netTotal = parseNetRevenue(rawTotal);
@@ -518,7 +524,13 @@ export function generateClientStatementHTML(client) {
   const salesRep = client.salesPerson?.fullName || client.salesRep || client.owner || "Sales Executive";
   const branchName = typeof client.branch === "object" ? client.branch?.name : (client.branch || "Regional Branch");
 
-  const rawTotal = parseRevenueValue(client.totalPayment) || parseRevenueValue(client.amount) || parseRevenueValue(client.revenue) || 118000;
+  const isSec = client.isPrimary === false ||
+    client.processType === "secondary" ||
+    client.serviceType === "More Services" ||
+    (typeof client.appId === "string" && (client.appId.endsWith("-S") || client.appId.endsWith("-E")));
+  const rawTotal = (client.totalPayment !== undefined && client.totalPayment !== null && client.totalPayment !== "")
+    ? parseRevenueValue(client.totalPayment)
+    : (parseRevenueValue(client.amount) || parseRevenueValue(client.revenue) || (isSec ? 0 : 118000));
   const rawRec = parseRevenueValue(client.paymentReceived) || 0;
   const rawPending = Math.max(0, rawTotal - rawRec);
   const netTotal = parseNetRevenue(rawTotal);
@@ -800,7 +812,13 @@ export function exportClientsToCSV(clientsList = [], filenamePrefix = "Clients_R
   ];
 
   const rows = clientsList.map((c) => {
-    const rawTotal = parseRevenueValue(c.totalPayment) || parseRevenueValue(c.amount) || parseRevenueValue(c.revenue) || 118000;
+    const isSec = c.isPrimary === false ||
+      c.processType === "secondary" ||
+      c.serviceType === "More Services" ||
+      (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
+    const rawTotal = (c.totalPayment !== undefined && c.totalPayment !== null && c.totalPayment !== "")
+      ? parseRevenueValue(c.totalPayment)
+      : (parseRevenueValue(c.amount) || parseRevenueValue(c.revenue) || (isSec ? 0 : 118000));
     const rawRec = parseRevenueValue(c.paymentReceived) || 0;
     const rawPending = Math.max(0, rawTotal - rawRec);
 

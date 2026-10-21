@@ -418,8 +418,10 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
         serviceType = "MARKETING";
       }
 
-      const totalPay = Number(details.totalPayment || details.pitchedAmount || 0);
-      const payRec = details.paymentReceived !== undefined && details.paymentReceived !== ""
+      const totalPay = details.totalPayment !== undefined && details.totalPayment !== null && details.totalPayment !== ""
+        ? Number(details.totalPayment)
+        : Number(details.pitchedAmount || 0);
+      const payRec = details.paymentReceived !== undefined && details.paymentReceived !== "" && details.paymentReceived !== null
         ? Number(details.paymentReceived)
         : totalPay;
       const payPend = Math.max(0, totalPay - payRec);

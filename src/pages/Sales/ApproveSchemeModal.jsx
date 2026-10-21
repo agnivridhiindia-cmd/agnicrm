@@ -63,7 +63,7 @@ export default function ApproveSchemeModal({ request, onClose, onSubmit }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!pitchedAmount) return;
+    if (pitchedAmount === "" || pitchedAmount === undefined || pitchedAmount === null) return;
     if (isLoanScheme && !amountRequired) return;
 
     onSubmit({

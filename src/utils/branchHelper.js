@@ -389,10 +389,15 @@ export function sanitizeClientRecord(c = {}) {
   const rawRep = c.salesPerson?.fullName || c.salesRep || c.owner || c.assignedSalesPerson || "";
   const salesRep = rawRep ? normalizeSalesPersonName(rawRep) : "Sales Representative";
 
-  const rawTot = Number(c.totalPayment || c.amount || c.invoices?.[0]?.rawTotal || c.fundingRequirement || 0);
-  const totalPayment = rawTot === 0 && !c.isPrimary ? 118000 : rawTot;
+  const isSec = c.isPrimary === false ||
+    c.processType === "secondary" ||
+    c.serviceType === "More Services" ||
+    (typeof c.appId === "string" && (c.appId.endsWith("-S") || c.appId.endsWith("-E")));
+
+  const rawTot = Number(c.totalPayment !== undefined && c.totalPayment !== null ? c.totalPayment : (c.amount || c.invoices?.[0]?.rawTotal || 0));
+  const totalPayment = (!isSec && rawTot === 0 && c.totalPayment === undefined) ? 118000 : rawTot;
   const rawRec = Math.max(Number(c.paymentReceived || 0), Number(c.invoices?.[0]?.paymentReceived || 0));
-  const paymentReceived = (rawRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? totalPayment : rawRec;
+  const paymentReceived = (!isSec && rawRec === 0 && (c.paymentStatus === "Paid" || c.approvalStatus === "ACTIVE")) ? totalPayment : rawRec;
   const paymentPending = Math.max(0, totalPayment - paymentReceived);
 
   // Sales rep or branch lookup from database hierarchy
