@@ -116,6 +116,18 @@ const dashboardIcons = {
       <path d="M2 9h20" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </>
+  ),
+  alertTriangle: (
+    <>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <path d="M12 9v4M12 17h.01" />
+    </>
+  ),
 };
 
 function DashboardIcon({ name, size = 19 }) {
@@ -306,6 +318,8 @@ export default function Dashboard({ onSignOut, userEmail }) {
   const [newRequestOpen, setNewRequestOpen] = React.useState(false);
   const [requestSubmitted, setRequestSubmitted] = React.useState(false);
   const [supportOpen, setSupportOpen] = React.useState(false);
+  const [renewalModalOpen, setRenewalModalOpen] = React.useState(false);
+  const [renewalDismissed, setRenewalDismissed] = React.useState(false);
   const [requestService, setRequestService] = React.useState("Certificate");
   const [requestNotes, setRequestNotes] = React.useState("");
 
@@ -427,6 +441,60 @@ export default function Dashboard({ onSignOut, userEmail }) {
     return dbProfile || null;
   }, [dbProfile]);
 
+  // Comprehensive Renewal & Due Date resolution
+  const resolvedRenewalInfo = React.useMemo(() => {
+    let rawDate = dbProfile?.dueDate || activeSalesClient?.dueDate;
+    if (!rawDate) {
+      try {
+        const emailKey = (userEmail || "").trim().toLowerCase();
+        rawDate = localStorage.getItem(`agni_client_due_date_${emailKey}`);
+      } catch (e) { }
+    }
+
+    let parsedDate = null;
+    let formattedStr = "14 Jun 2027";
+
+    if (rawDate) {
+      try {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          parsedDate = d;
+          formattedStr = d.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+        } else if (typeof rawDate === "string" && rawDate.trim()) {
+          formattedStr = rawDate.trim();
+        }
+      } catch (e) { }
+    }
+
+    if (!parsedDate) {
+      try {
+        const fallback = new Date("2027-06-14");
+        if (!isNaN(fallback.getTime())) parsedDate = fallback;
+      } catch (e) { }
+    }
+
+    let diffDays = null;
+    if (parsedDate && !isNaN(parsedDate.getTime())) {
+      const now = new Date();
+      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const renewalMidnight = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate()).getTime();
+      diffDays = Math.round((renewalMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+    }
+
+    return {
+      dateObj: parsedDate,
+      formatted: formattedStr,
+      diffDays,
+    };
+  }, [dbProfile?.dueDate, activeSalesClient?.dueDate, userEmail]);
+
+  const formattedRenewalDate = resolvedRenewalInfo.formatted;
+  const renewalDaysDiff = resolvedRenewalInfo.diffDays;
+
   const clientInfo = React.useMemo(() => {
     let authUser = null;
     try {
@@ -547,12 +615,12 @@ export default function Dashboard({ onSignOut, userEmail }) {
       activeCoverage: "₹5.0 Cr",
       totalServices: "4 Active Plans",
       annualBilling: "₹3,07,000 / year",
-      nextRenewal: "14 June 2027",
+      nextRenewal: formattedRenewalDate,
       complianceScore: "94% Verified",
       kycStatus: "Verified (Level 3 Tier)",
       primaryScheme: "PMEGP / Corporate Health Shield",
     };
-  }, [userEmail, clientStoredData, dbProfile, activeSalesClient]);
+  }, [userEmail, clientStoredData, dbProfile, activeSalesClient, formattedRenewalDate]);
 
   const [trackerSyncTick, setTrackerSyncTick] = React.useState(0);
 
@@ -976,6 +1044,92 @@ export default function Dashboard({ onSignOut, userEmail }) {
     return Array.from(demandMap.values());
   }, [userEmail, clientInfo, trackerSyncTick, apiPayments]);
 
+  const unsettledDemands = React.useMemo(() => {
+    return pendingPaymentDemands.filter(
+      (p) => !String(p.status || "").toLowerCase().includes("awaiting")
+    );
+  }, [pendingPaymentDemands]);
+
+  // Auto-display reminder popup 1 day before renewal day (diffDays === 1) or on renewal day (diffDays === 0)
+  React.useEffect(() => {
+    if (renewalDaysDiff === null) return;
+    const emailKey = (userEmail || "").trim().toLowerCase();
+    const dateKey = formattedRenewalDate || "default";
+    const sessionKey = `agni_renewal_reminder_dismissed_${emailKey}_${dateKey}`;
+
+    // Reminder applies if 1 day before (renewalDaysDiff === 1) or due today (renewalDaysDiff === 0)
+    // or overdue within past 7 days
+    const isDueSoonOrToday = renewalDaysDiff <= 1 && renewalDaysDiff >= -7;
+    const wasDismissed = sessionStorage.getItem(sessionKey);
+
+    if (isDueSoonOrToday && !wasDismissed && !renewalDismissed) {
+      const timer = setTimeout(() => {
+        setRenewalModalOpen(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [renewalDaysDiff, formattedRenewalDate, userEmail, renewalDismissed]);
+
+  // Auto notification for Upcoming Renewal Payment
+  React.useEffect(() => {
+    if (renewalDaysDiff === null) return;
+    if (renewalDaysDiff <= 1 && renewalDaysDiff >= -7) {
+      const isDueTomorrow = renewalDaysDiff === 1;
+      const isDueToday = renewalDaysDiff === 0;
+      const isOverdue = renewalDaysDiff < 0;
+      const title = isDueTomorrow
+        ? "Renewal Payment Due Tomorrow"
+        : isDueToday
+        ? "Renewal Payment Due Today"
+        : isOverdue
+        ? "Renewal Payment Overdue"
+        : "Upcoming Renewal Notice";
+      const detail = `Service renewal scheduled for ${formattedRenewalDate}. Please review and settle pending dues.`;
+
+      const notif = {
+        id: `notif-renewal-${formattedRenewalDate}`,
+        type: "payments",
+        tone: "#f59e0b",
+        title: title,
+        detail: detail,
+        time: isDueToday ? "Due Today" : isDueTomorrow ? "1 Day Remaining" : "Action Required",
+        createdAt: new Date().toISOString(),
+        clientEmail: userEmail || "",
+        isRenewalNotif: true,
+      };
+
+      setClientNotifications((prev) => {
+        if (prev.some((n) => n.id === notif.id || n.title === notif.title)) return prev;
+        return [notif, ...prev];
+      });
+    }
+  }, [renewalDaysDiff, formattedRenewalDate, userEmail]);
+
+  const handleDismissRenewalModal = React.useCallback((rememberForSession = true) => {
+    setRenewalModalOpen(false);
+    if (rememberForSession) {
+      setRenewalDismissed(true);
+      try {
+        const emailKey = (userEmail || "").trim().toLowerCase();
+        const dateKey = formattedRenewalDate || "default";
+        sessionStorage.setItem(`agni_renewal_reminder_dismissed_${emailKey}_${dateKey}`, "true");
+      } catch (e) { }
+    }
+  }, [userEmail, formattedRenewalDate]);
+
+  const handleProceedToPaymentsFromRenewal = React.useCallback(() => {
+    if (unsettledDemands.length > 0) {
+      setActivePaymentToSettle(unsettledDemands[0]);
+    }
+    setActiveNav("Payments");
+    handleDismissRenewalModal(true);
+  }, [unsettledDemands, handleDismissRenewalModal]);
+
+  const handleViewInvoicesFromRenewal = React.useCallback(() => {
+    setActiveNav("Invoices");
+    handleDismissRenewalModal(true);
+  }, [handleDismissRenewalModal]);
+
   // Re-sync enrolled plans when storage event fires or user logs in
   React.useEffect(() => {
 
@@ -1326,38 +1480,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
 
   const clientProgressPercent = clientTracker.progressPercent;
 
-  const formattedRenewalDate = React.useMemo(() => {
-    const rawDate = dbProfile?.dueDate || activeSalesClient?.dueDate;
-    if (rawDate) {
-      try {
-        const d = new Date(rawDate);
-        if (!isNaN(d.getTime())) {
-          return d.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          });
-        }
-      } catch (e) { }
-      if (typeof rawDate === "string" && rawDate.trim()) return rawDate;
-    }
-    try {
-      const emailKey = (userEmail || "").trim().toLowerCase();
-      const localDue = localStorage.getItem(`agni_client_due_date_${emailKey}`);
-      if (localDue) {
-        const d = new Date(localDue);
-        if (!isNaN(d.getTime())) {
-          return d.toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          });
-        }
-      }
-    } catch (e) { }
-    return "14 Jun 2027";
-  }, [dbProfile?.dueDate, activeSalesClient?.dueDate, userEmail]);
-
   const executiveMetrics = React.useMemo(() => {
     return [
       { label: "Required Amount", value: formattedTotalLoan, icon: "shield", color: "#4e7cff", bg: "rgba(78, 124, 255, 0.12)" },
@@ -1682,7 +1804,16 @@ export default function Dashboard({ onSignOut, userEmail }) {
                         </div>
                       ) : (
                         notificationsList.map((notice) => (
-                          <article key={notice.id}>
+                          <article
+                            key={notice.id}
+                            onClick={() => {
+                              if (notice.isRenewalNotif) {
+                                setRenewalModalOpen(true);
+                                setNotificationsOpen(false);
+                              }
+                            }}
+                            style={{ cursor: notice.isRenewalNotif ? "pointer" : "default" }}
+                          >
                             <i className="cd-notice-dot" style={{ background: notice.tone }} />
                             <div>
                               <strong>{notice.title}</strong>
@@ -1988,15 +2119,31 @@ export default function Dashboard({ onSignOut, userEmail }) {
                   {executiveMetrics.map((item, idx) => (
                     <article
                       key={item.label}
-                      className="cd-metric-card"
-                      style={{ animationDelay: `${idx * 0.08}s` }}
+                      className={`cd-metric-card ${item.label === "Next Renewal" ? "cd-metric-card-interactive" : ""}`}
+                      style={{
+                        animationDelay: `${idx * 0.08}s`,
+                        cursor: item.label === "Next Renewal" ? "pointer" : "default",
+                      }}
+                      onClick={() => {
+                        if (item.label === "Next Renewal") {
+                          setRenewalModalOpen(true);
+                        }
+                      }}
+                      title={item.label === "Next Renewal" ? "Click to view Renewal & Payment details" : undefined}
                     >
                       <div className="cd-metric-icon-box" style={{ background: item.bg, color: item.color }}>
                         <DashboardIcon name={item.icon} size={22} />
                       </div>
                       <div className="cd-metric-info">
                         <span className="cd-metric-value">{item.value}</span>
-                        <span className="cd-metric-label">{item.label}</span>
+                        <span className="cd-metric-label">
+                          {item.label}
+                          {item.label === "Next Renewal" && renewalDaysDiff !== null && renewalDaysDiff <= 1 && renewalDaysDiff >= 0 && (
+                            <span className="cd-metric-due-chip">
+                              {renewalDaysDiff === 1 ? "Due Tomorrow" : "Due Today"}
+                            </span>
+                          )}
+                        </span>
                       </div>
                     </article>
                   ))}
@@ -2707,6 +2854,157 @@ export default function Dashboard({ onSignOut, userEmail }) {
               </form>
             )}
           </section>
+        </div>
+      )}
+
+      {/* ── SERVICE RENEWAL & PENDING PAYMENT NOTICE MODAL ── */}
+      {renewalModalOpen && (
+        <div
+          className="cd-modal-backdrop"
+          onMouseDown={() => handleDismissRenewalModal(true)}
+        >
+          <div
+            className="cd-modal cd-renewal-modal"
+            onMouseDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cd-renewal-modal-title"
+          >
+            <div className="cd-modal-top-glow cd-renewal-top-glow" />
+            <button
+              type="button"
+              className="cd-modal-close"
+              onClick={() => handleDismissRenewalModal(true)}
+              aria-label="Close renewal notice"
+            >
+              ×
+            </button>
+
+            <div className="cd-renewal-head-pill">
+              <span className={`cd-renewal-badge ${renewalDaysDiff === 1 ? "due-tomorrow" : renewalDaysDiff === 0 ? "due-today" : renewalDaysDiff < 0 ? "overdue" : "scheduled"}`}>
+                <span className="cd-pulse-dot" />
+                {renewalDaysDiff === 1
+                  ? "ADVANCE NOTICE • DUE TOMORROW"
+                  : renewalDaysDiff === 0
+                  ? "ACTION REQUIRED • DUE TODAY"
+                  : renewalDaysDiff < 0
+                  ? "ATTENTION • PAYMENT OVERDUE"
+                  : "SCHEDULED RENEWAL ADVISORY"}
+              </span>
+              <span className="cd-renewal-countdown-tag">
+                {renewalDaysDiff === 1
+                  ? "1 Day Remaining"
+                  : renewalDaysDiff === 0
+                  ? "Due Today"
+                  : renewalDaysDiff < 0
+                  ? `${Math.abs(renewalDaysDiff)} Days Past Due`
+                  : `${renewalDaysDiff} Days Remaining`}
+              </span>
+            </div>
+
+            <h2 id="cd-renewal-modal-title" className="cd-renewal-title">
+              {renewalDaysDiff === 1
+                ? "Scheduled Service Renewal & Payment Due Tomorrow"
+                : renewalDaysDiff === 0
+                ? "Service Renewal & Payment Due Today"
+                : renewalDaysDiff < 0
+                ? "Service Renewal Payment Past Due"
+                : "Scheduled Service Renewal & Retainer Advisory"}
+            </h2>
+
+            <p className="cd-renewal-desc">
+              Dear <strong>{clientInfo.companyName}</strong>, this is an official advisory regarding your CRM subscription, active scheme management (<strong>{activePipelineScheme}</strong>), and compliance vault coverage scheduled for renewal on <strong className="cd-renewal-date-highlight">{formattedRenewalDate}</strong>.
+            </p>
+
+            <div className="cd-renewal-grid">
+              <div className="cd-renewal-grid-card">
+                <span className="label">Next Renewal Date</span>
+                <strong className="value highlight-amber">{formattedRenewalDate}</strong>
+                <span className="sub">{renewalDaysDiff === 1 ? "Due Tomorrow" : renewalDaysDiff === 0 ? "Due Today" : `${renewalDaysDiff} Days Left`}</span>
+              </div>
+              <div className="cd-renewal-grid-card">
+                <span className="label">Active Scheme</span>
+                <strong className="value">{activePipelineScheme}</strong>
+                <span className="sub">{clientTracker?.currentStage || "Operational Stage"}</span>
+              </div>
+              <div className="cd-renewal-grid-card">
+                <span className="label">Client Account ID</span>
+                <strong className="value">{clientInfo.registrationNumber || clientInfo.clientId || "Active CRM"}</strong>
+                <span className="sub">{clientInfo.tier || "Enterprise Client"}</span>
+              </div>
+              <div className="cd-renewal-grid-card">
+                <span className="label">Billing Status</span>
+                <strong className={`value ${unsettledDemands.length > 0 ? "highlight-red" : "highlight-blue"}`}>
+                  {unsettledDemands.length > 0 ? `₹${Number(unsettledDemands[0].amount || 0).toLocaleString("en-IN")} Pending` : "Renewal Clearance Due"}
+                </strong>
+                <span className="sub">{unsettledDemands.length > 0 ? "Payment Demand Issued" : "Annual Subscription"}</span>
+              </div>
+            </div>
+
+            {unsettledDemands.length > 0 ? (
+              <div className="cd-renewal-demand-callout">
+                <div className="cd-demand-callout-icon">⚠️</div>
+                <div className="cd-demand-callout-body">
+                  <div className="cd-demand-callout-top">
+                    <span className="cd-demand-badge">Active Payment Demand</span>
+                    <span className="cd-demand-ref">{unsettledDemands[0].paymentId || unsettledDemands[0].id || "INVOICE-DEMAND"}</span>
+                  </div>
+                  <strong className="cd-demand-amount">
+                    ₹{Number(unsettledDemands[0].amount || 0).toLocaleString("en-IN")}
+                  </strong>
+                  <p className="cd-demand-desc">
+                    {unsettledDemands[0].description || "Payment demand issued by Sales Representative for annual service renewal."}
+                    {unsettledDemands[0].dueDate ? ` • Due Date: ${unsettledDemands[0].dueDate}` : ""}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="cd-renewal-info-callout">
+                <div className="cd-callout-icon">ℹ️</div>
+                <p>
+                  Please ensure your renewal payment and retainers are settled promptly to avoid any interruption to your active application pipeline, verification workflows, or relationship manager services.
+                </p>
+              </div>
+            )}
+
+            <div className="cd-renewal-manager-row">
+              <div className="cd-manager-avatar">
+                {(clientInfo.relationshipManager || clientInfo.salesRepresentative || "RM").slice(0, 2).toUpperCase()}
+              </div>
+              <div className="cd-manager-meta">
+                <span className="role">Dedicated Relationship Manager</span>
+                <strong className="name">{clientInfo.relationshipManager || clientInfo.salesRepresentative || "Enterprise Account Lead"}</strong>
+              </div>
+              <div className="cd-manager-contact">
+                <span>Direct Helpline</span>
+                <strong>{clientInfo.phone || "+91 98765 43210"}</strong>
+              </div>
+            </div>
+
+            <div className="cd-renewal-actions">
+              <button
+                type="button"
+                className="cd-renewal-btn-primary"
+                onClick={handleProceedToPaymentsFromRenewal}
+              >
+                <span>{unsettledDemands.length > 0 ? "Review & Settle Payment Now →" : "Proceed to Payments Portal →"}</span>
+              </button>
+              <button
+                type="button"
+                className="cd-renewal-btn-secondary"
+                onClick={handleViewInvoicesFromRenewal}
+              >
+                <span>View Invoices</span>
+              </button>
+              <button
+                type="button"
+                className="cd-renewal-btn-ghost"
+                onClick={() => handleDismissRenewalModal(true)}
+              >
+                <span>Remind Me Later</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>

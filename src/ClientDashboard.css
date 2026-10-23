@@ -5253,3 +5253,485 @@ body.cd-profile-modal-open .cd-header,
     font-size: 18px !important;
   }
 }
+
+/* ═════════════════════════════════════════════════════════════════
+   SERVICE RENEWAL & PENDING PAYMENT REMINDER POPUP
+   ═════════════════════════════════════════════════════════════════ */
+
+.cd-renewal-modal {
+  max-width: 620px !important;
+  padding: 34px 38px !important;
+  background: var(--cd-panel-solid) !important;
+  border: 1px solid var(--cd-border) !important;
+  box-shadow: 0 32px 70px -15px rgba(15, 23, 42, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
+  border-radius: 26px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.cd-renewal-top-glow {
+  height: 5px !important;
+  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 40%, #8b5cf6 80%, #3b82f6 100%) !important;
+}
+
+.cd-renewal-head-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.cd-renewal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.cd-renewal-badge.due-tomorrow {
+  background: rgba(245, 158, 11, 0.16);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.dashboard-dark .cd-renewal-badge.due-tomorrow {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.cd-renewal-badge.due-today {
+  background: rgba(239, 68, 68, 0.16);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.dashboard-dark .cd-renewal-badge.due-today {
+  background: rgba(239, 68, 68, 0.22);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+.cd-renewal-badge.overdue {
+  background: rgba(220, 38, 38, 0.2);
+  color: #b91c1c;
+  border: 1px solid rgba(220, 38, 38, 0.45);
+}
+
+.dashboard-dark .cd-renewal-badge.overdue {
+  background: rgba(220, 38, 38, 0.28);
+  color: #fca5a5;
+  border: 1px solid rgba(220, 38, 38, 0.6);
+}
+
+.cd-renewal-badge.scheduled {
+  background: rgba(79, 70, 229, 0.14);
+  color: #4f46e5;
+  border: 1px solid rgba(79, 70, 229, 0.3);
+}
+
+.dashboard-dark .cd-renewal-badge.scheduled {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.cd-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+  animation: cdPulseGlow 1.8s infinite ease-in-out;
+}
+
+@keyframes cdPulseGlow {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.cd-renewal-countdown-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cd-muted);
+  background: rgba(148, 163, 184, 0.12);
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--cd-border);
+}
+
+.cd-renewal-title {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  line-height: 1.3 !important;
+  color: var(--cd-ink) !important;
+  margin: 0 0 10px 0 !important;
+  letter-spacing: -0.4px !important;
+}
+
+.cd-renewal-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--cd-muted);
+  margin: 0 0 20px 0;
+}
+
+.cd-renewal-date-highlight {
+  color: #d97706;
+  font-weight: 800;
+}
+
+.dashboard-dark .cd-renewal-date-highlight {
+  color: #fbbf24;
+}
+
+.cd-renewal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.cd-renewal-grid-card {
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid var(--cd-border);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+
+.dashboard-dark .cd-renewal-grid-card {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.cd-renewal-grid-card .label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--cd-muted);
+}
+
+.cd-renewal-grid-card .value {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--cd-ink);
+}
+
+.cd-renewal-grid-card .value.highlight-amber {
+  color: #d97706;
+}
+
+.dashboard-dark .cd-renewal-grid-card .value.highlight-amber {
+  color: #fbbf24;
+}
+
+.cd-renewal-grid-card .value.highlight-red {
+  color: #dc2626;
+}
+
+.dashboard-dark .cd-renewal-grid-card .value.highlight-red {
+  color: #f87171;
+}
+
+.cd-renewal-grid-card .value.highlight-blue {
+  color: #2563eb;
+}
+
+.dashboard-dark .cd-renewal-grid-card .value.highlight-blue {
+  color: #60a5fa;
+}
+
+.cd-renewal-grid-card .sub {
+  font-size: 11px;
+  color: var(--cd-muted);
+}
+
+.cd-renewal-demand-callout {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.08) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.38);
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.dashboard-dark .cd-renewal-demand-callout {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.cd-demand-callout-icon {
+  font-size: 22px;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.cd-demand-callout-body {
+  flex: 1;
+}
+
+.cd-demand-callout-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.cd-demand-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  background: #f59e0b;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+
+.cd-demand-ref {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cd-muted);
+}
+
+.cd-demand-amount {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--cd-ink);
+  margin-bottom: 4px;
+}
+
+.cd-demand-desc {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cd-muted);
+  margin: 0;
+}
+
+.cd-renewal-info-callout {
+  background: rgba(79, 70, 229, 0.08);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.dashboard-dark .cd-renewal-info-callout {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.cd-callout-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.cd-renewal-info-callout p {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cd-muted);
+  margin: 0;
+}
+
+.cd-renewal-manager-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--cd-border);
+  border-radius: 14px;
+  padding: 10px 16px;
+  margin-bottom: 24px;
+}
+
+.dashboard-dark .cd-renewal-manager-row {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.cd-manager-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4e7cff 0%, #9a74e9 100%);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.cd-manager-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.cd-manager-meta .role {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  color: var(--cd-muted);
+}
+
+.cd-manager-meta .name {
+  font-size: 13.5px;
+  color: var(--cd-ink);
+}
+
+.cd-manager-contact {
+  display: flex;
+  flex-direction: column;
+  text-align: right;
+}
+
+.cd-manager-contact span {
+  font-size: 10.5px;
+  color: var(--cd-muted);
+  font-weight: 600;
+}
+
+.cd-manager-contact strong {
+  font-size: 12.5px;
+  color: var(--cd-ink);
+}
+
+.cd-renewal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cd-renewal-btn-primary {
+  flex: 1;
+  min-width: 220px;
+  padding: 13px 22px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-renewal-btn-primary:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+}
+
+.cd-renewal-btn-secondary {
+  padding: 13px 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--cd-border);
+  color: var(--cd-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dashboard-dark .cd-renewal-btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.cd-renewal-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+.dashboard-dark .cd-renewal-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.cd-renewal-btn-ghost {
+  padding: 13px 18px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  color: var(--cd-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cd-renewal-btn-ghost:hover {
+  color: var(--cd-ink);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.cd-metric-card-interactive {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.cd-metric-card-interactive:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 32px -8px rgba(242, 170, 56, 0.3) !important;
+  border-color: rgba(242, 170, 56, 0.5) !important;
+}
+
+.cd-metric-due-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #f59e0b;
+  color: #ffffff;
+  letter-spacing: 0.4px;
+}
+
+@media (max-width: 560px) {
+  .cd-renewal-modal {
+    padding: 26px 20px !important;
+  }
+  .cd-renewal-grid {
+    grid-template-columns: 1fr;
+  }
+  .cd-renewal-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cd-renewal-btn-primary,
+  .cd-renewal-btn-secondary,
+  .cd-renewal-btn-ghost {
+    width: 100%;
+    text-align: center;
+  }
+}
