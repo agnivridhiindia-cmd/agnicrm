@@ -861,42 +861,38 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
         }}
       >
         <div className="analytics-card" style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(140, 95, 248, 0.12)", color: "#8c5ff8", display: "grid", placeItems: "center", fontWeight: 700 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(140, 95, 248, 0.12)", color: "#8c5ff8", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 16 }}>
             {stats.total}
           </div>
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Total Requests</span>
-            <strong style={{ display: "block", fontSize: 16 }}>{stats.total}</strong>
+            <span style={{ fontSize: 12, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Total Requests</span>
           </div>
         </div>
 
         <div className="analytics-card" style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(245, 158, 11, 0.14)", color: "#f59e0b", display: "grid", placeItems: "center", fontWeight: 700 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(245, 158, 11, 0.14)", color: "#f59e0b", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 16 }}>
             {stats.pending}
           </div>
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Pending Approval</span>
-            <strong style={{ display: "block", fontSize: 16, color: "#f59e0b" }}>{stats.pending}</strong>
+            <span style={{ fontSize: 12, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Pending Approval</span>
           </div>
         </div>
 
         <div className="analytics-card" style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(16, 185, 129, 0.14)", color: "#10b981", display: "grid", placeItems: "center", fontWeight: 700 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(16, 185, 129, 0.14)", color: "#10b981", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 16 }}>
             {stats.approved}
           </div>
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Approved</span>
-            <strong style={{ display: "block", fontSize: 16, color: "#10b981" }}>{stats.approved}</strong>
+            <span style={{ fontSize: 12, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Approved</span>
           </div>
         </div>
 
         <div className="analytics-card" style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(100, 116, 139, 0.14)", color: "#64748b", display: "grid", placeItems: "center", fontWeight: 700 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(100, 116, 139, 0.14)", color: "#64748b", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 16 }}>
             {stats.cancelled}
           </div>
           <div>
-            <span style={{ fontSize: 11.5, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Closed / Cancelled</span>
-            <strong style={{ display: "block", fontSize: 16, color: "#64748b" }}>{stats.cancelled}</strong>
+            <span style={{ fontSize: 12, color: "#7a748e", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Closed / Cancelled</span>
           </div>
         </div>
       </div>
