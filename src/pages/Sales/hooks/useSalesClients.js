@@ -13,7 +13,7 @@ import { apiFetch } from "../../../services/apiClient";
 import { isMockClient } from "../../../utils/revenueCalculator";
 import { getSalesPersonQuota } from "../../../utils/salesConfigHelper";
 
-export function useSalesClients(salesPersonName, onClientAdded, userEmail, userTargetQuota) {
+export function useSalesClients(salesPersonName, onClientAdded, userEmail, userTargetQuota, userId) {
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -213,6 +213,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
 
     const resolvedQuota = Number(
       getSalesPersonQuota(salesPersonName) ||
+      (userId ? getSalesPersonQuota(userId) : null) ||
       getSalesPersonQuota(userEmail) ||
       userTargetQuota ||
       80000
@@ -301,7 +302,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
       dailyAchieved: `₹${dailyAchievedNet.toLocaleString("en-IN")}`,
       dailyAchievedNum: dailyAchievedNet,
     };
-  }, [clients, salesPersonName, configUpdateTrigger, userTargetQuota, userEmail]);
+  }, [clients, salesPersonName, configUpdateTrigger, userTargetQuota, userEmail, userId]);
 
   const kpiCards = useMemo(() => [
     { label: "Active clients", value: `${totalActiveClients}`, trend: "+0%", description: "Currently active", accent: "#4e7cff", icon: "clients" },

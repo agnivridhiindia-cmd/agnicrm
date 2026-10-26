@@ -1,4 +1,5 @@
 import { normalizeSalesPersonName } from "./branchHelper";
+import { getSalesPersonQuota } from "./salesConfigHelper";
 
 export function parseRevenueValue(rev) {
   if (typeof rev === "number") return rev;
@@ -87,15 +88,23 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
   // Lookup map for branch sales team members
   const salesMap = new Map();
 
-  const getSalesObj = (rawName, defaultRole = "Sales Representative", defaultBranch = "Branch") => {
+  const getSalesObj = (rawName, defaultRole = "Sales Representative", defaultBranch = "Branch", memberQuota = null) => {
     const normName = normalizeSalesPersonName(rawName) || "Unassigned";
     if (!salesMap.has(normName)) {
+      const resolvedQuota = memberQuota || getSalesPersonQuota(rawName) || getSalesPersonQuota(normName);
+      let quotaDisplay = "₹80k";
+      if (resolvedQuota) {
+        const num = parseRevenueValue(resolvedQuota);
+        if (num > 0) {
+          quotaDisplay = num >= 1000 ? `₹${Math.round(num / 1000)}k` : `₹${num}`;
+        }
+      }
       salesMap.set(normName, {
         id: normName,
         name: normName,
         role: defaultRole,
         branch: defaultBranch,
-        quota: "₹100k",
+        quota: quotaDisplay,
         daily: 0,
         weekly: 0,
         monthly: 0,
@@ -114,7 +123,14 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
       if (!member) return;
       const mName = typeof member === "string" ? member : (member.name || member.fullName || "");
       if (mName) {
-        getSalesObj(mName, member.role || "Sales Representative", member.branch || "Branch");
+        const mQuota = typeof member === "object" ? (member.targetQuota || member.quota || getSalesPersonQuota(mName) || (member.id ? getSalesPersonQuota(member.id) : null)) : null;
+        const sp = getSalesObj(mName, member.role || "Sales Representative", member.branch || "Branch", mQuota);
+        if (mQuota) {
+          const num = parseRevenueValue(mQuota);
+          if (num > 0) {
+            sp.quota = num >= 1000 ? `₹${Math.round(num / 1000)}k` : `₹${num}`;
+          }
+        }
       }
     });
   }

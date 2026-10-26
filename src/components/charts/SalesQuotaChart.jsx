@@ -45,10 +45,11 @@ export function SalesQuotaChart({ months, quotaData, acquiredData }) {
       ? null
       : Number(acquiredData[index]) || 0,
   }));
-  const maxValue = Math.max(
+  const maxDataPoint = Math.max(
     ...chartData.map(({ quota, acquired }) => Math.max(quota, acquired ?? 0)),
-    80000,
+    0,
   );
+  const maxValue = maxDataPoint > 0 ? maxDataPoint : 50000;
   const plotWidth = Math.max(0, width - paddingLeft - paddingRight);
   const plotHeight = height - paddingTop - paddingBottom;
   const baseline = height - paddingBottom;

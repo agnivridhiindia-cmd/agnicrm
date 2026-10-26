@@ -111,7 +111,7 @@ export default function SalesDashboard({ onSignOut, userEmail }) {
       `✓ Client registration for "${createdClient?.company || createdClient?.name || 'New Client'}" submitted to Sales Manager for approval!`
     );
     setShowRegisterModal(false);
-  }, userEmail, effectiveUserQuota);
+  }, userEmail, effectiveUserQuota, currentUser?.id || authUser?.id);
 
   return (
     <main className={`owner-dashboard sales-dashboard ${dark ? "dashboard-dark" : ""}`}>

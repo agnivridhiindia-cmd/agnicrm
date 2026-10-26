@@ -250,7 +250,8 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
                 if (!u) return;
                 const emailKey = (u.email || "").toLowerCase().trim();
                 const displayRole = u.designation || getSalesPersonProfile(u.fullName || u.name || u.id, u.role || u.rawRole);
-                const quotaVal = u.targetQuota ? Number(u.targetQuota) : (getSalesPersonQuota(u.fullName || u.name || u.id) || 80000);
+                const quotaVal = getSalesPersonQuota(u.fullName || u.name || u.id) ||
+                  (u.targetQuota ? Number(u.targetQuota) : 80000);
                 dedupeMap.set(emailKey, {
                   ...u,
                   id: u.id,
@@ -546,7 +547,9 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
   };
 
   const handleOpenEditEmployee = (employee) => {
-    const rawQuota = employee.targetQuota || getSalesPersonQuota(employee.name || employee.fullName || employee.id) || 80000;
+    const rawQuota = getSalesPersonQuota(employee.name || employee.fullName || employee.id) ||
+      employee.targetQuota ||
+      80000;
     setEditModal({
       type: "employee",
       item: employee,
@@ -768,6 +771,12 @@ export default function OwnerDashboard({ onSignOut, userEmail }) {
         designation: updatedEmp.designation,
         quota: parsedQuota,
       });
+      if (updatedEmp.fullName && updatedEmp.fullName !== empName) {
+        saveSalesPersonConfig(updatedEmp.fullName, {
+          designation: updatedEmp.designation,
+          quota: parsedQuota,
+        });
+      }
       if (empId) {
         saveSalesPersonConfig(empId, {
           designation: updatedEmp.designation,

@@ -16,8 +16,14 @@ export default function ManagerEmployeeInfoModal({ member, onClose, managerName 
     : "SP";
 
   const displayRole = member.designation || getSalesPersonProfile(member.name || member.id, member.role);
-  const quotaNum = Number(member.targetQuota || getSalesPersonQuota(member.name || member.id) || 80000);
-  const displayQuota = member.quota || (quotaNum >= 1000 ? `₹${Math.round(quotaNum / 1000)}k` : `₹${quotaNum}`);
+  const quotaNum = Number(
+    getSalesPersonQuota(member.name) ||
+    (member.id ? getSalesPersonQuota(member.id) : null) ||
+    (member.email ? getSalesPersonQuota(member.email) : null) ||
+    member.targetQuota ||
+    80000
+  );
+  const displayQuota = quotaNum >= 1000 ? `₹${Math.round(quotaNum / 1000)}k` : `₹${quotaNum}`;
 
   return (
     <SimpleModal onClose={onClose}>
