@@ -368,6 +368,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
       months,
       quotaData: months.map(() => quotaMetrics.initialQuotaTarget || 80000),
       acquiredData,
+      targetQuota: quotaMetrics.initialQuotaTarget || 80000,
     };
   }, [clients, selectedYear, quotaMetrics]);
 

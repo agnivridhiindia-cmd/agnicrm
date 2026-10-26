@@ -5,6 +5,9 @@ import { DashboardChart } from "../../../components/charts";
 import { requestActivities } from "../mockSalesData";
 
 export default function SalesOverview({ kpiCards, monthlyQuotaChartData, selectedYear = "2026", setSelectedYear, onNavigate, onSelectKpiFilter, dark }) {
+  const targetQuotaNum = monthlyQuotaChartData?.targetQuota || monthlyQuotaChartData?.quotaData?.[0] || 80000;
+  const formattedQuota = `₹${Number(targetQuotaNum).toLocaleString("en-IN")}`;
+
   return (
     <section className="dashboard-layout sales-dashboard">
       <div className="dashboard-main">
@@ -35,7 +38,7 @@ export default function SalesOverview({ kpiCards, monthlyQuotaChartData, selecte
               <p className="eyebrow" style={{ margin: "0 0 6px" }}>Monthly quota</p>
               <h2 style={{ margin: 0 }}>Monthly quota ({selectedYear})</h2>
               <p className="dashboard-copy" style={{ margin: "6px 0 0", maxWidth: "100%" }}>
-                Monthly quota (₹80,000) vs this employee’s sales (excl. 18% GST).
+                Monthly quota ({formattedQuota}) vs this employee’s sales (excl. 18% GST).
               </p>
             </div>
 
