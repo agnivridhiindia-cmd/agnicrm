@@ -118,6 +118,7 @@ export async function getRequestsService(user: AuthenticatedUser) {
     // Managers, Branch Managers, Admins, and Owners should NOT receive payment requests/settlements.
     finalRequests = enrichedRequests.filter((r) => {
       const changes = r.requestedChanges as any;
+      if (String(r.requestType) === "EXTERNAL_PAYMENT" || changes?.category === "External Payment") return true;
       const isPaymentSettlement =
         changes?.isPaymentSettlement === true ||
         changes?.category === "Payment Settlement" ||
@@ -138,7 +139,8 @@ export async function getRequestsService(user: AuthenticatedUser) {
       const changesSalesPersonEmail = (changes?.salesPersonEmail || "").toLowerCase();
       const changesMatch = Boolean(changesSalesPersonEmail && changesSalesPersonEmail === user.email.toLowerCase());
 
-      return isRequester || isTarget || isAssignedSalesPerson || changesMatch;
+      const isExternalPayment = (String(r.requestType) === "EXTERNAL_PAYMENT" || changes?.category === "External Payment") && (isRequester || isAssignedSalesPerson);
+      return isRequester || isTarget || isAssignedSalesPerson || changesMatch || isExternalPayment;
     });
   }
 

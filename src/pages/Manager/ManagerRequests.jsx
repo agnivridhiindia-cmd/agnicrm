@@ -132,13 +132,17 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
 
         const pendingData = r.requestType === "NEW_SERVICE" && r.requestedChanges ? r.requestedChanges : null;
 
-        // Payment demands and settlement verification are exclusively between the client and their designated salesperson
-        const isPaymentSettlement =
+        const changesData = r.requestedChanges || {};
+        const isExternalPayment = String(r.requestType) === "EXTERNAL_PAYMENT" || changesData?.category === "External Payment";
+
+        // Payment demands and settlement verification between client and salesperson are filtered out, EXCEPT External Payment requests for manager authorization
+        const isPaymentSettlement = !isExternalPayment && (
           pendingData?.isPaymentSettlement ||
           pendingData?.category === "Payment Settlement" ||
           String(r.reason || "").toLowerCase().includes("payment settlement") ||
           String(r.reason || "").toLowerCase().includes("payment demand") ||
-          String(r.reason || "").toLowerCase().includes("payment request");
+          String(r.reason || "").toLowerCase().includes("payment request")
+        );
         if (isPaymentSettlement) return;
 
         const isEmployeeReq = r.targetEntityType === "EMPLOYEE" || String(r.requestType).includes("EMPLOYEE");
@@ -178,6 +182,9 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
           salesPersonEmail,
           owner: salesPerson,
           requestType: reqTypeDisplay,
+          amount: isExternalPayment ? Number(changesData.amount || 0) : pitchedAmount,
+          paymentMode: isExternalPayment ? (changesData.paymentChannel || "Offline") : "ONLINE",
+          transactionRef: isExternalPayment ? (changesData.referenceNumber || "") : "",
           reason: r.reason || `New client onboarding request for ${clientName}`,
           requestedChanges: r.requestedChanges || [],
           createdAt: r.createdAt ? String(r.createdAt).split("T")[0] : new Date().toISOString().split("T")[0],
@@ -222,7 +229,8 @@ export default function ManagerRequests({ branchTeamNames = [], managedRegion = 
       });
 
       if (res.ok) {
-        setNotification(`✓ Approved request for "${request.clientName}". Client activated in database.`);
+        setNotification(request.requestType === "External Payment" ? `✓ Approved external payment of ₹${Number(request.amount || 0).toLocaleString("en-IN")} for "${request.clientName}". Quota and revenue updated!` : `✓ Approved request for "${request.clientName}". Client activated in database.`);
+        window.dispatchEvent(new CustomEvent("agni_payments_updated"));
         window.dispatchEvent(new CustomEvent("agni_pending_updated"));
         window.dispatchEvent(new CustomEvent("agni_clients_updated"));
         window.dispatchEvent(new Event("storage"));

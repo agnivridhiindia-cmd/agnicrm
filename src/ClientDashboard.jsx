@@ -1057,23 +1057,23 @@ export default function Dashboard({ onSignOut, userEmail }) {
     const dateKey = formattedRenewalDate || "default";
     const sessionKey = `agni_renewal_reminder_dismissed_${emailKey}_${dateKey}`;
 
-    // Reminder applies if 1 day before (renewalDaysDiff === 1) or due today (renewalDaysDiff === 0)
-    // or overdue within past 7 days
+    // Reminder popup auto-displays ONLY if there is an active unsettled payment demand
+    const hasUnsettledPayment = unsettledDemands && unsettledDemands.length > 0;
     const isDueSoonOrToday = renewalDaysDiff <= 1 && renewalDaysDiff >= -7;
     const wasDismissed = sessionStorage.getItem(sessionKey);
 
-    if (isDueSoonOrToday && !wasDismissed && !renewalDismissed) {
+    if (isDueSoonOrToday && hasUnsettledPayment && !wasDismissed && !renewalDismissed) {
       const timer = setTimeout(() => {
         setRenewalModalOpen(true);
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [renewalDaysDiff, formattedRenewalDate, userEmail, renewalDismissed]);
+  }, [renewalDaysDiff, formattedRenewalDate, userEmail, renewalDismissed, unsettledDemands]);
 
   // Auto notification for Upcoming Renewal Payment
   React.useEffect(() => {
     if (renewalDaysDiff === null) return;
-    if (renewalDaysDiff <= 1 && renewalDaysDiff >= -7) {
+    if (renewalDaysDiff <= 1 && renewalDaysDiff >= -7 && (unsettledDemands && unsettledDemands.length > 0)) {
       const isDueTomorrow = renewalDaysDiff === 1;
       const isDueToday = renewalDaysDiff === 0;
       const isOverdue = renewalDaysDiff < 0;
@@ -2934,10 +2934,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
               </div>
               <div className="cd-renewal-grid-card">
                 <span className="label">Billing Status</span>
-                <strong className={`value ${unsettledDemands.length > 0 ? "highlight-red" : "highlight-blue"}`}>
-                  {unsettledDemands.length > 0 ? `₹${Number(unsettledDemands[0].amount || 0).toLocaleString("en-IN")} Pending` : "Renewal Clearance Due"}
+                <strong className={`value ${unsettledDemands.length > 0 ? "highlight-red" : "highlight-green"}`} style={{ color: unsettledDemands.length > 0 ? '#ef4444' : '#10b981' }}>
+                  {unsettledDemands.length > 0 ? `₹${Number(unsettledDemands[0].amount || 0).toLocaleString("en-IN")} Pending` : "✓ All Dues Cleared"}
                 </strong>
-                <span className="sub">{unsettledDemands.length > 0 ? "Payment Demand Issued" : "Annual Subscription"}</span>
+                <span className="sub">{unsettledDemands.length > 0 ? "Payment Demand Issued" : "Account in Good Standing"}</span>
               </div>
             </div>
 
@@ -2959,10 +2959,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
                 </div>
               </div>
             ) : (
-              <div className="cd-renewal-info-callout">
-                <div className="cd-callout-icon">ℹ️</div>
-                <p>
-                  Please ensure your renewal payment and retainers are settled promptly to avoid any interruption to your active application pipeline, verification workflows, or relationship manager services.
+              <div className="cd-renewal-info-callout" style={{ background: "rgba(16, 185, 129, 0.08)", borderColor: "rgba(16, 185, 129, 0.3)" }}>
+                <div className="cd-callout-icon" style={{ color: "#10b981" }}>✓</div>
+                <p style={{ color: "#065f46" }}>
+                  <strong>Account in Good Standing:</strong> All scheduled service payments and retainers have been verified and recorded. No outstanding payment action is required from you at this time.
                 </p>
               </div>
             )}

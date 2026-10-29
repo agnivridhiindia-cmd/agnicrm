@@ -11,13 +11,15 @@ export default function RequestModal({ request, onClose, onApprove, onReject, re
   const isDelete = reqTypeLower.includes("delete");
   const isNewClient = request.source === "client_creation" || reqTypeLower.includes("new client") || reqTypeLower.includes("registration");
   const isScheme = request.source === "scheme_request" || reqTypeLower.includes("scheme");
+  const isExternalPayment = reqTypeLower.includes("external payment") || (request.raw?.requestedChanges?.category === "External Payment");
 
   const isMultiTier = Array.isArray(request.approvalChain) && request.approvalChain.length > 1;
   const isFinalStep = !isMultiTier || ((request.currentChainIndex || 0) >= (request.approvalChain ? request.approvalChain.length - 1 : 0));
   const nextRole = !isFinalStep && Array.isArray(request.approvalChain) ? request.approvalChain[(request.currentChainIndex || 0) + 1] : null;
 
   let actionLabel = "Approve Changes";
-  if (isNewClient) actionLabel = "Approve Client Registration ✓";
+  if (isExternalPayment) actionLabel = "Approve External Payment ✓";
+  else if (isNewClient) actionLabel = "Approve Client Registration ✓";
   else if (isScheme) actionLabel = "Approve Scheme Enrollment ✓";
   else if (!isFinalStep && nextRole) {
     actionLabel = `Approve & Forward to ${nextRole === "BRANCH_MANAGER" ? "Branch Manager" : "Owner"} →`;
@@ -87,6 +89,22 @@ export default function RequestModal({ request, onClose, onApprove, onReject, re
                   </React.Fragment>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* External Payment Clearance Card */}
+        {isExternalPayment && (
+          <div className="manager-modal-card" style={{ border: "1px solid rgba(16, 185, 129, 0.4)", background: "rgba(16, 185, 129, 0.05)" }}>
+            <span className="manager-modal-card-label" style={{ color: "#10b981", fontWeight: 700 }}>💰 External Payment Details</span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8, fontSize: 13 }}>
+              <div><strong>Amount Collected:</strong> <span style={{ color: "#10b981", fontSize: 15, fontWeight: 800 }}>₹{Number(request.amount || request.raw?.requestedChanges?.amount || request.pitchedAmount || 0).toLocaleString("en-IN")}</span></div>
+              <div><strong>Payment Channel:</strong> {request.raw?.requestedChanges?.paymentChannel || request.paymentMode || "Offline"}</div>
+              <div><strong>Reference / UTR No.:</strong> <code>{request.raw?.requestedChanges?.referenceNumber || request.transactionRef || "N/A"}</code></div>
+              <div><strong>Payment Date:</strong> {request.raw?.requestedChanges?.paymentDate || formatDate(request.createdAt)}</div>
+              {request.raw?.requestedChanges?.notes && (
+                <div style={{ gridColumn: "1 / -1" }}><strong>Collector Notes:</strong> {request.raw?.requestedChanges?.notes}</div>
+              )}
             </div>
           </div>
         )}

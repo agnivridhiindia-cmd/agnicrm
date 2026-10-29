@@ -1,6 +1,44 @@
+
 # AgniCRM - Project Change Log
 
 All modifications made to the codebase, including UI/UX redesigns, layout improvements, and feature updates, will be systematically logged in this document.
+
+---
+
+## [2026-10-29] - External Payment Feature & Multi-Dashboard Synchronization
+
+### Overview
+Added an end-to-end "External Payment" feature enabling sales representatives to record offline/external client payments (Bank Transfer/NEFT/RTGS, UPI/QR, Cheque, Cash) for Sales Manager authorization. Once approved, client pending balances reduce, salesperson quotas credit immediately, Owner/Manager revenue calendars update, and client due date pop-ups reconcile.
+
+### Key Enhancements
+1. **Database & Workflow Schema**:
+   - Added `EXTERNAL_PAYMENT` to `enum RequestType` in `server/prisma/schema.prisma` and synchronized PostgreSQL schema.
+   - Configured deterministic approval routing in `workflow.service.ts` (`SALES_PERSON` -> `MANAGER`).
+   - Implemented atomic transactional execution in `executeWorkflowDecision`: updates client `paymentReceived`, client scheme `receivedAmount`, invoice, creates official `Payment` record (`OFFLINE`, `SUCCESS`), and records `DailySalesPayment` for revenue analytics.
+   - Whitelisted `EXTERNAL_PAYMENT` in `request.service.ts` so managers can view and approve offline payment petitions.
+2. **Salesperson Dashboard UI**:
+   - Built `RecordExternalPaymentModal.jsx` with client selection, remaining balance summary, quick-fill amount buttons, optional transaction reference/UTR, and auto-generated fallback codes.
+   - Added entry points in `SalesPayments.jsx` ("Record External Payment" header button), `SalesClientDossier.jsx` (1-click action on pending balance), and `CreateRequestModal.jsx`.
+   - Updated `SalesRequests.jsx` to parse and render External Payment requests with real-time status.
+3. **Manager Dashboard UI**:
+   - Updated `ManagerRequests.jsx` and `RequestModal.jsx` to display External Payment details (collected amount, channel, reference, date, notes) and provide one-click "Approve External Payment ✓".
+4. **Client Dashboard Reconciliation**:
+   - Reconciled `ClientDashboard.jsx` due date reminder popup to suppress aggressive payment warnings when no unsettled demands remain or dues are cleared.
+   - Updated modal banner to reflect "Account in Good Standing / All Dues Cleared".
+
+### Files Modified
+- `server/prisma/schema.prisma`
+- `server/src/services/workflow.service.ts`
+- `server/src/services/request.service.ts`
+- `src/pages/Sales/RecordExternalPaymentModal.jsx` (New)
+- `src/pages/Sales/SalesPayments.jsx`
+- `src/pages/Sales/SalesRequests.jsx`
+- `src/pages/Sales/CreateRequestModal.jsx`
+- `src/pages/Sales/components/SalesClientDossier.jsx`
+- `src/pages/Manager/ManagerRequests.jsx`
+- `src/pages/Manager/RequestModal.jsx`
+- `src/ClientDashboard.jsx`
+- `CHANGES.md`
 
 ---
 

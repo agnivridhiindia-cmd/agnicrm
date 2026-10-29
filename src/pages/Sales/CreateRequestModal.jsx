@@ -4,6 +4,7 @@ import Icon from "../../components/Icon";
 import { isClientCreatedByUser } from "./hooks/useSalesClients";
 import { apiFetch } from "../../services/apiClient";
 import { useAuth } from "../../context/AuthContext";
+import RecordExternalPaymentModal from "./RecordExternalPaymentModal";
 
 const requestTypes = [
   {
@@ -21,6 +22,14 @@ const requestTypes = [
     desc: "Request permanent removal or archival of inactive, duplicate, or churned client account",
     icon: "trash",
     tone: "#f43f5e",
+  },
+  {
+    id: "External Payment",
+    title: "Record External Payment",
+    tag: "Payment Clearance",
+    desc: "Report offline payment received from client (NEFT, UPI, Cheque, Cash) for manager approval",
+    icon: "check",
+    tone: "#10b981",
   },
 ];
 
@@ -192,6 +201,22 @@ export default function CreateRequestModal({ clients = [], userEmail, salesPerso
     selectedClientId &&
     reason.trim()
   );
+
+  if (selectedType === "External Payment") {
+    return (
+      <RecordExternalPaymentModal
+        isOpen={true}
+        clients={rawList}
+        salesPersonName={currentSalesName}
+        userEmail={currentUserEmail}
+        onClose={onClose}
+        onSuccess={(msg, data) => {
+          if (onSubmit) onSubmit(data);
+          onClose();
+        }}
+      />
+    );
+  }
 
   return (
     <Modal title="Create Request" onClose={onClose} closeLabel="Close">

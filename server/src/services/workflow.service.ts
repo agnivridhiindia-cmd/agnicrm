@@ -14,7 +14,8 @@ export type HierarchicalAction =
   | "TRANSFER_EMPLOYEE"
   | "DELETE_EMPLOYEE"
   | "NEW_SERVICE"
-  | "BUDGET_INCREASE";
+  | "BUDGET_INCREASE"
+  | "EXTERNAL_PAYMENT";
 
 /**
  * Resolves the deterministic required approval chain based on role & action.
@@ -50,6 +51,11 @@ export function resolveApprovalChain(action: string, requesterRole: Role): Role[
       if (requesterRole === Role.MANAGER) return [Role.BRANCH_MANAGER, Role.OWNER];
       if (requesterRole === Role.BRANCH_MANAGER) return [Role.OWNER];
       return []; // Owner executes directly
+
+    case "EXTERNAL_PAYMENT":
+      if (requesterRole === Role.SALES_PERSON) return [Role.MANAGER];
+      if (requesterRole === Role.MANAGER) return [Role.BRANCH_MANAGER];
+      return []; // Branch Manager & Owner execute directly
 
     case "NEW_SERVICE":
       if (requesterRole === Role.CLIENT) return [Role.SALES_PERSON];
@@ -724,6 +730,131 @@ export async function executeWorkflowDecision(
             });
           }
         }
+      } else if (String(existingRequest.requestType) === "EXTERNAL_PAYMENT") {
+        const payload = existingRequest.requestedChanges as any;
+        const targetClientId = existingRequest.clientId || (existingRequest as any).targetEntityId || payload?.clientId;
+        const payAmount = Number(payload?.amount) || 0;
+
+        if (targetClientId && payAmount > 0) {
+          const client = await tx.client.findUnique({
+            where: { id: targetClientId },
+            include: {
+              salesPerson: { select: { id: true, fullName: true, email: true, branchId: true } },
+              branch: { select: { id: true, name: true } },
+              invoices: {
+                where: { isDeleted: false },
+                orderBy: { createdAt: "desc" },
+              },
+            },
+          });
+
+          if (client) {
+            // 1. Update Client paymentReceived
+            await tx.client.update({
+              where: { id: targetClientId },
+              data: {
+                paymentReceived: { increment: payAmount },
+                updatedAt: now,
+              },
+            });
+
+            // 2. Update ClientScheme receivedAmount
+            await tx.clientScheme.updateMany({
+              where: { clientId: targetClientId, isDeleted: false },
+              data: {
+                receivedAmount: { increment: payAmount },
+                updatedAt: now,
+              },
+            });
+
+            // 3. Find or Create Invoice and create Payment record
+            let targetInvoice = client.invoices?.[0];
+            if (!targetInvoice) {
+              const { generateInvoiceNo } = await import("../utils/idGenerator");
+              const invNo = generateInvoiceNo(1, now);
+              targetInvoice = await tx.invoice.create({
+                data: {
+                  invoiceNo: invNo,
+                  invoiceType: "TAX",
+                  issueDate: now,
+                  paymentMode: "OFFLINE",
+                  rawAmount: Math.round((payAmount / 1.18) * 100) / 100,
+                  gstRate: 0.18,
+                  gstAmount: Math.round((payAmount - (payAmount / 1.18)) * 100) / 100,
+                  rawTotal: payAmount,
+                  paymentReceived: payAmount,
+                  paymentPending: 0,
+                  status: "PAID",
+                  clientId: targetClientId,
+                  branchId: client.branchId,
+                  accountManagerId: client.salesPersonId || existingRequest.requesterId,
+                },
+              });
+            } else {
+              const currentInvRec = Number(targetInvoice.paymentReceived || 0) + payAmount;
+              const currentInvPend = Math.max(0, Number(targetInvoice.rawTotal || 0) - currentInvRec);
+              await tx.invoice.update({
+                where: { id: targetInvoice.id },
+                data: {
+                  paymentReceived: currentInvRec,
+                  paymentPending: currentInvPend,
+                  status: currentInvPend === 0 ? "PAID" : "PARTIAL",
+                  invoiceType: currentInvPend === 0 ? "TAX" : targetInvoice.invoiceType,
+                  updatedAt: now,
+                },
+              });
+            }
+
+            const { generatePaymentId } = await import("../utils/idGenerator");
+            const newPaymentId = generatePaymentId();
+            const rawPaymentDate = payload?.paymentDate ? new Date(payload.paymentDate) : now;
+            const validPaymentDate = isNaN(rawPaymentDate.getTime()) ? now : rawPaymentDate;
+
+            const paymentRecord = await tx.payment.create({
+              data: {
+                paymentId: newPaymentId,
+                amount: payAmount,
+                paymentDate: validPaymentDate,
+                paymentMode: "OFFLINE",
+                referenceNumber: payload?.referenceNumber || null,
+                status: "SUCCESS",
+                remarks: `External payment approved (${payload?.paymentChannel || "Offline"} ref: ${payload?.referenceNumber || "N/A"}) - Manager: ${user.email}`,
+                invoiceId: targetInvoice.id,
+                clientId: targetClientId,
+                recordedById: existingRequest.requesterId || user.userId,
+              },
+            });
+
+            try {
+              const { recordDailySalesPayment } = await import("./revenue.service");
+              await recordDailySalesPayment(
+                {
+                  amount: payAmount,
+                  paymentDate: validPaymentDate,
+                  paymentMode: "OFFLINE",
+                  referenceNumber: payload?.referenceNumber || null,
+                  status: "COMPLETED",
+                  notes: `External payment (${payload?.paymentChannel || "Offline"}). Ref: ${payload?.referenceNumber || "N/A"}. Reason: ${existingRequest.reason || ""}`,
+                  salesPersonId: client.salesPersonId || existingRequest.requesterId || user.userId,
+                  salesPersonName: client.salesPerson?.fullName || payload?.salesPersonName || null,
+                  salesPersonEmail: client.salesPerson?.email || payload?.salesPersonEmail || null,
+                  branchId: client.branchId,
+                  branchName: client.branch?.name,
+                  clientId: client.id,
+                  clientName: client.name || client.contactPerson,
+                  companyName: client.companyName || client.name,
+                  schemeName: client.serviceName || "Service Retainer",
+                  serviceType: client.serviceType,
+                  invoiceId: targetInvoice.id,
+                  paymentId: paymentRecord.id,
+                },
+                tx
+              );
+            } catch (revErr) {
+              console.error("[workflow.service] Failed to record daily sales payment for external payment:", revErr);
+            }
+          }
+        }
       }
 
       // Mark request as fully approved and applied
@@ -767,6 +898,10 @@ export async function executeWorkflowDecision(
   if (result.statusCode === 200) {
     invalidateClientCache();
     invalidateUsersCache();
+    try {
+      const { invalidateInvoiceCache } = await import("./invoice.service");
+      invalidateInvoiceCache();
+    } catch (e) {}
 
     const clientName =
       existingRequest.client?.name ||
@@ -797,6 +932,17 @@ export async function executeWorkflowDecision(
           userId: targetSalesPersonId,
         },
       }).catch((e) => console.warn("Failed to create DB notification for requester:", e));
+    }
+
+    if (decision === "APPROVED" && String(existingRequest.requestType) === "EXTERNAL_PAYMENT") {
+      broadcastSseEvent({
+        type: "PAYMENT_APPROVED",
+        payload: {
+          requestId,
+          clientId: existingRequest.clientId || (existingRequest as any).targetEntityId,
+          amount: (existingRequest.requestedChanges as any)?.amount,
+        },
+      });
     }
 
     broadcastSseEvent({

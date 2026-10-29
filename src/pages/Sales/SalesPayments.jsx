@@ -8,6 +8,7 @@ import { useApiPayments } from "../../hooks/useApiPayments";
 import { useApiClients } from "../../hooks/useApiClients";
 import { isClientCreatedByUser } from "./hooks/useSalesClients";
 import { isMockClient } from "../../utils/revenueCalculator";
+import RecordExternalPaymentModal from "./RecordExternalPaymentModal";
 
 const PAYMENT_TABS = ["All Records", "Payment Requests", "Settlement Approvals", "Completed Payments"];
 const PAYMENT_MODES = ["Bank Transfer", "UPI", "Cheque", "Online Gateway"];
@@ -471,6 +472,7 @@ export default function SalesPayments({ clients: propClients, userEmail, salesPe
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showExternalPaymentModal, setShowExternalPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [notification, setNotification] = useState("");
 
@@ -908,14 +910,30 @@ Thank you for choosing AgniCRM.
           </p>
         </div>
 
-        <button
-          type="button"
-          className="sales-add-btn"
-          onClick={() => setShowCreateModal(true)}
-        >
-          <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
-          <span>Issue Payment Request</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="sales-add-btn"
+            onClick={() => setShowExternalPaymentModal(true)}
+            style={{
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              border: "none",
+              boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)",
+            }}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }}>💰</span>
+            <span>Record External Payment</span>
+          </button>
+
+          <button
+            type="button"
+            className="sales-add-btn"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+            <span>Issue Payment Request</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Stats Ribbon */}
@@ -1135,6 +1153,20 @@ Thank you for choosing AgniCRM.
           </table>
         </div>
       </div>
+
+      {showExternalPaymentModal && (
+        <RecordExternalPaymentModal
+          clients={userSalesClients.length > 0 ? userSalesClients : (propClients && propClients.length > 0 ? propClients : [])}
+          salesPersonName={currentSalesName}
+          userEmail={currentUserEmail}
+          onClose={() => setShowExternalPaymentModal(false)}
+          onSuccess={(msg) => {
+            setNotification(msg);
+            refreshPayments();
+            setTimeout(() => setNotification(""), 5000);
+          }}
+        />
+      )}
 
       {showCreateModal && (
         <CreatePaymentRequestModal

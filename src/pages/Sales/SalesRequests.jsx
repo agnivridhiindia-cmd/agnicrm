@@ -70,6 +70,38 @@ export default function SalesRequests({ clients: propClients = [], userEmail, sa
             const isPaymentSettlement = pendingData?.isPaymentSettlement || pendingData?.category === "Payment Settlement" || String(r.reason || "").includes("Payment Settlement") || String(r.requestType).toLowerCase().includes("payment");
             const clientName = r.client?.companyName || r.client?.name || pendingData?.companyName || pendingData?.name || (r.targetEntityType === "EMPLOYEE" ? `Employee #${r.targetEntityId}` : "Client Account");
             
+            const changesPayload = r.requestedChanges || {};
+            const isExternalPayment = String(r.requestType) === "EXTERNAL_PAYMENT" || changesPayload?.category === "External Payment";
+
+            if (isExternalPayment) {
+              return {
+                id: r.requestCode || r.id,
+                rawId: r.id,
+                paymentId: changesPayload?.referenceNumber || r.requestCode || r.id,
+                clientName,
+                companyName: clientName,
+                clientEmail: r.client?.email || changesPayload?.clientEmail || "",
+                requestType: "External Payment",
+                status: r.status === "PENDING" ? "Pending" : r.status === "APPROVED" ? "Approved" : r.status === "REJECTED" ? "Declined" : "Pending",
+                category: "External Payment Approval",
+                amount: changesPayload?.amount || 0,
+                pitchedAmount: changesPayload?.amount || 0,
+                totalPayment: changesPayload?.amount || 0,
+                paymentMode: changesPayload?.paymentChannel || changesPayload?.paymentMode || "Offline",
+                transactionRef: changesPayload?.referenceNumber || "",
+                decisionDate: r.decisionDate ? new Date(r.decisionDate).toISOString().split("T")[0] : "",
+                managerRemarks: r.managerRemarks || "",
+                reason: r.reason || "",
+                targetDepartment: "Sales & Accounts",
+                managerName: "Sales Manager",
+                createdAt: r.createdAt,
+                submittedDate: r.createdAt ? new Date(r.createdAt).toISOString().split("T")[0] : "",
+                currentStage: r.currentStage,
+                approvalChain: r.approvalChain,
+                raw: r,
+              };
+            }
+
             if (isPaymentSettlement) {
               return {
                 id: r.requestCode || r.id,

@@ -6,6 +6,7 @@ import { mockEligibleSchemes } from "../mockEligibleSchemes";
 import { getTrackerState, getProcessTypeLabel, getSchemeCompletedStages, getClientAllSchemeTrackers, isPaymentDemandOrSettlement, isClientPrimaryScheme } from "../../../utils/schemeTracker";
 import { isEligibleSchemeRequest } from "../SalesRequests";
 import { downloadClientDossierPDF, downloadClientStatementPDF } from "../../../utils/exportHelpers";
+import RecordExternalPaymentModal from "../RecordExternalPaymentModal";
 
 export default function SalesClientDossier({
   selectedClient,
@@ -22,6 +23,7 @@ export default function SalesClientDossier({
   if (!selectedClient) return null;
 
   const [approvingReq, setApprovingReq] = React.useState(null);
+  const [showExternalPaymentModal, setShowExternalPaymentModal] = React.useState(false);
   const [requiredAmountInput, setRequiredAmountInput] = React.useState("");
   const [pitchedAmountInput, setPitchedAmountInput] = React.useState("20000");
   const [paymentReceivedInput, setPaymentReceivedInput] = React.useState("23600");
@@ -477,6 +479,31 @@ export default function SalesClientDossier({
               }}
             />
           </div>
+          {parseFloat(selectedClient.paymentPending) > 0 && (
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setShowExternalPaymentModal(true)}
+                style={{
+                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 7,
+                  padding: "8px 16px",
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  boxShadow: "0 2px 6px rgba(16, 185, 129, 0.2)",
+                }}
+              >
+                <span>💰</span>
+                <span>Record External Payment</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1165,6 +1192,18 @@ export default function SalesClientDossier({
             </div>
           </div>
         </div>
+      )}
+      {showExternalPaymentModal && (
+        <RecordExternalPaymentModal
+          isOpen={true}
+          preselectedClient={selectedClient}
+          clients={[selectedClient]}
+          salesPersonName={salesPersonName}
+          onClose={() => setShowExternalPaymentModal(false)}
+          onSuccess={(msg) => {
+            setShowExternalPaymentModal(false);
+          }}
+        />
       )}
     </div>
   );

@@ -43,6 +43,7 @@ enum RequestType {
   DELETE_EMPLOYEE
   NEW_SERVICE
   BUDGET_INCREASE
+  EXTERNAL_PAYMENT
 }
 
 enum RequestStatus {
