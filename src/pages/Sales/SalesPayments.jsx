@@ -921,7 +921,6 @@ Thank you for choosing AgniCRM.
               boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)",
             }}
           >
-            <span style={{ fontSize: 16, lineHeight: 1 }}>💰</span>
             <span>Record External Payment</span>
           </button>
 

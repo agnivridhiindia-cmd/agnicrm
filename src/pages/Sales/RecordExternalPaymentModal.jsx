@@ -267,7 +267,7 @@ export default function RecordExternalPaymentModal({
             gap: 10,
           }}
         >
-          <span style={{ fontSize: 18 }}>💰</span>
+          <span style={{ fontSize: 18 }}>✓</span>
           <div style={{ fontSize: 12.5, color: "#065f46", lineHeight: 1.45 }}>
             <strong>Record Offline / External Collection</strong>
             <p style={{ margin: "2px 0 0", color: "#047857" }}>

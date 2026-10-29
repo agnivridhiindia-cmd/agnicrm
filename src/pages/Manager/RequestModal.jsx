@@ -96,7 +96,7 @@ export default function RequestModal({ request, onClose, onApprove, onReject, re
         {/* External Payment Clearance Card */}
         {isExternalPayment && (
           <div className="manager-modal-card" style={{ border: "1px solid rgba(16, 185, 129, 0.4)", background: "rgba(16, 185, 129, 0.05)" }}>
-            <span className="manager-modal-card-label" style={{ color: "#10b981", fontWeight: 700 }}>💰 External Payment Details</span>
+            <span className="manager-modal-card-label" style={{ color: "#10b981", fontWeight: 700 }}>External Payment Details</span>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8, fontSize: 13 }}>
               <div><strong>Amount Collected:</strong> <span style={{ color: "#10b981", fontSize: 15, fontWeight: 800 }}>₹{Number(request.amount || request.raw?.requestedChanges?.amount || request.pitchedAmount || 0).toLocaleString("en-IN")}</span></div>
               <div><strong>Payment Channel:</strong> {request.raw?.requestedChanges?.paymentChannel || request.paymentMode || "Offline"}</div>

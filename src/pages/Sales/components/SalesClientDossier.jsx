@@ -499,7 +499,6 @@ export default function SalesClientDossier({
                   boxShadow: "0 2px 6px rgba(16, 185, 129, 0.2)",
                 }}
               >
-                <span>💰</span>
                 <span>Record External Payment</span>
               </button>
             </div>
