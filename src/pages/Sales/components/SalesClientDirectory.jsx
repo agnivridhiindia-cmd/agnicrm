@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Icon from "../../../components/Icon";
 import SalesClientViewModal from "./SalesClientViewModal";
 import { getTrackerState } from "../../../utils/schemeTracker";
-import { exportClientsToCSV, downloadClientDossierPDF } from "../../../utils/exportHelpers";
+import { downloadClientDossierPDF } from "../../../utils/exportHelpers";
 
 export default function SalesClientDirectory({
   clients = [],
@@ -35,16 +35,6 @@ export default function SalesClientDirectory({
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <button
-            type="button"
-            className="sales-btn-secondary"
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontWeight: 700 }}
-            title="Download client directory as spreadsheet"
-            onClick={() => exportClientsToCSV(filteredClients, "My_Sales_Clients")}
-          >
-            <span>📥</span>
-            <span>Export CSV</span>
-          </button>
           <button
             type="button"
             className="sales-add-btn"
