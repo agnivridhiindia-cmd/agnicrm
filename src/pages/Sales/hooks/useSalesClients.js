@@ -62,12 +62,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
                 ? Number(c.paymentPending)
                 : Math.max(0, finalTot - finalRec);
 
-              const isOffline =
-                c.paymentMode === "Offline" ||
-                c.paymentMode === "OFFLINE" ||
-                (c.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
-                (c.invoices || []).some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE") ||
-                (c.payments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE");
+              const isOffline = c.paymentMode === "Offline" || c.paymentMode === "OFFLINE";
               const baseAmount = isOffline ? finalTot : Math.round(finalTot / 1.18);
               const gstAmount = isOffline ? 0 : Math.round(finalTot - baseAmount);
 
@@ -217,12 +212,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
 
       if (grossRec <= 0) return sum;
 
-      const isOffline =
-        c.paymentMode === "Offline" ||
-        c.paymentMode === "OFFLINE" ||
-        (c.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
-        (c.invoices || []).some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE") ||
-        (c.payments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE");
+      const isOffline = c.paymentMode === "Offline" || c.paymentMode === "OFFLINE";
 
       // Formula: For Offline/Exempt, full grossRec is credited (no GST deduction).
       // For Online: Net Revenue = Math.round(Gross Received / 1.18)
@@ -282,11 +272,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
         ? client.payments
         : invoices.flatMap((inv) => Array.isArray(inv.payments) ? inv.payments : []);
 
-      const isClientOffline =
-        client.paymentMode === "Offline" ||
-        client.paymentMode === "OFFLINE" ||
-        (client.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
-        invoices.some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE");
+      const isClientOffline = client.paymentMode === "Offline" || client.paymentMode === "OFFLINE";
 
       let processedFromPayments = 0;
       if (payments.length > 0) {
@@ -351,11 +337,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
         ? client.payments
         : invoices.flatMap((invoice) => Array.isArray(invoice.payments) ? invoice.payments : []);
 
-      const isClientOffline =
-        client.paymentMode === "Offline" ||
-        client.paymentMode === "OFFLINE" ||
-        (client.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
-        invoices.some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE");
+      const isClientOffline = client.paymentMode === "Offline" || client.paymentMode === "OFFLINE";
 
       if (payments.length > 0) {
         payments.forEach((payment) => {

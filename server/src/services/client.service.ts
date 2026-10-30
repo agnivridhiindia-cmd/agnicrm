@@ -256,13 +256,14 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
     const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
     const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
 
-    const latestDailyPayment = (c.dailySalesPayments || [])[0];
-    const latestInvoice = (c.invoices || [])[0];
-    const latestPayment = (c.payments || [])[0];
-    const rawPaymentMode =
-      latestDailyPayment?.paymentMode ||
-      latestInvoice?.paymentMode ||
-      latestPayment?.paymentMode;
+    const onboardingDailyPayment =
+      (c.dailySalesPayments || []).find((p: any) =>
+        (p.notes || "").toLowerCase().includes("initial client payment")
+      ) ||
+      (c.dailySalesPayments || []).slice(-1)[0] ||
+      (c.invoices || [])[0];
+
+    const rawPaymentMode = onboardingDailyPayment?.paymentMode;
     const isOffline = String(rawPaymentMode || "").toUpperCase() === "OFFLINE";
     const paymentMode = isOffline ? "Offline" : "Online";
     const baseAmount = isOffline ? totalPayNum : Math.round((totalPayNum / 1.18) * 100) / 100;
@@ -1333,13 +1334,14 @@ export async function getClientByIdService(clientId: string, user: Authenticated
   const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
   const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
 
-  const latestDailyPayment = (client.dailySalesPayments || [])[0];
-  const latestInvoice = (client.invoices || [])[0];
-  const latestPayment = (client.payments || [])[0];
-  const rawPaymentMode =
-    latestDailyPayment?.paymentMode ||
-    latestInvoice?.paymentMode ||
-    latestPayment?.paymentMode;
+  const onboardingDailyPayment =
+    (client.dailySalesPayments || []).find((p: any) =>
+      (p.notes || "").toLowerCase().includes("initial client payment")
+    ) ||
+    (client.dailySalesPayments || []).slice(-1)[0] ||
+    (client.invoices || [])[0];
+
+  const rawPaymentMode = onboardingDailyPayment?.paymentMode;
   const isOffline = String(rawPaymentMode || "").toUpperCase() === "OFFLINE";
   const paymentMode = isOffline ? "Offline" : "Online";
   const baseAmount = isOffline ? totalPayNum : Math.round((totalPayNum / 1.18) * 100) / 100;

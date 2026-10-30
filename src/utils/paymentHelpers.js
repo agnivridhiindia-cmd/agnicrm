@@ -224,9 +224,7 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
                 pRep = repName;
               }
             }
-            const isOffline =
-              String(p.paymentMode || c.paymentMode || "").toUpperCase() === "OFFLINE" ||
-              (c.dailySalesPayments || []).some((dsp) => String(dsp.paymentMode).toUpperCase() === "OFFLINE");
+            const isOffline = String(c.paymentMode || "").toUpperCase() === "OFFLINE";
             addPaymentEntry(amt, dt, pRep, companyName, p.id || p.paymentId ? `cl-pay-${p.id || p.paymentId}` : "", isOffline);
           }
         });
@@ -236,9 +234,7 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
         if (rec > 0) {
           const dt = c.updatedAt || c.lastPaymentDate || c.paymentDate || c.createdAt || c.startDate || c.assignedAt;
           
-          const isOffline =
-            String(c.paymentMode || "").toUpperCase() === "OFFLINE" ||
-            (c.dailySalesPayments || []).some((dsp) => String(dsp.paymentMode).toUpperCase() === "OFFLINE");
+          const isOffline = String(c.paymentMode || "").toUpperCase() === "OFFLINE";
           if (hasTransfer && collectedBefore > 0 && originalRepName) {
             // Historical quota locked to original salesperson A
             addPaymentEntry(collectedBefore, dt, originalRepName, companyName, c.id ? `cl-rec-orig-${c.id}` : "", isOffline);

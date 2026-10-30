@@ -162,7 +162,7 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
               totalPayment: String(finalTot),
               revenue: String(finalTot),
               amount: String(
-                (c.paymentMode === "Offline" || c.paymentMode === "OFFLINE" || (c.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE"))
+                (c.paymentMode === "Offline" || c.paymentMode === "OFFLINE")
                   ? finalTot
                   : Math.round(finalTot / 1.18)
               ),

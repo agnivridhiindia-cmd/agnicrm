@@ -741,6 +741,7 @@ export async function executeWorkflowDecision(
             include: {
               salesPerson: { select: { id: true, fullName: true, email: true, branchId: true } },
               branch: { select: { id: true, name: true } },
+              dailySalesPayments: { orderBy: { paymentDate: "asc" } },
               invoices: {
                 where: { isDeleted: false },
                 orderBy: { createdAt: "desc" },
@@ -749,6 +750,10 @@ export async function executeWorkflowDecision(
           });
 
           if (client) {
+            const onboardingPayment = (client.dailySalesPayments || []).find((p: any) =>
+              (p.notes || "").toLowerCase().includes("initial client payment")
+            );
+            const isClientOffline = onboardingPayment?.paymentMode === "OFFLINE";
             // 1. Update Client paymentReceived
             await tx.client.update({
               where: { id: targetClientId },
@@ -769,6 +774,11 @@ export async function executeWorkflowDecision(
 
             // 3. Find or Create Invoice and create Payment record
             let targetInvoice = client.invoices?.[0];
+            const invRawAmount = isClientOffline ? payAmount : Math.round((payAmount / 1.18) * 100) / 100;
+            const invGstRate = isClientOffline ? 0 : 0.18;
+            const invGstAmount = isClientOffline ? 0 : Math.round((payAmount - invRawAmount) * 100) / 100;
+            const effectivePaymentMode = isClientOffline ? "OFFLINE" : "ONLINE";
+
             if (!targetInvoice) {
               const { generateInvoiceNo } = await import("../utils/idGenerator");
               const invNo = generateInvoiceNo(1, now);
@@ -777,10 +787,10 @@ export async function executeWorkflowDecision(
                   invoiceNo: invNo,
                   invoiceType: "TAX",
                   issueDate: now,
-                  paymentMode: "OFFLINE",
-                  rawAmount: payAmount,
-                  gstRate: 0,
-                  gstAmount: 0,
+                  paymentMode: effectivePaymentMode,
+                  rawAmount: invRawAmount,
+                  gstRate: invGstRate,
+                  gstAmount: invGstAmount,
                   rawTotal: payAmount,
                   paymentReceived: payAmount,
                   paymentPending: 0,
@@ -815,7 +825,7 @@ export async function executeWorkflowDecision(
                 paymentId: newPaymentId,
                 amount: payAmount,
                 paymentDate: validPaymentDate,
-                paymentMode: "OFFLINE",
+                paymentMode: effectivePaymentMode,
                 referenceNumber: payload?.referenceNumber || null,
                 status: "SUCCESS",
                 remarks: `External payment approved (${payload?.paymentChannel || "Offline"} ref: ${payload?.referenceNumber || "N/A"}) - Manager: ${user.email}`,
@@ -831,7 +841,7 @@ export async function executeWorkflowDecision(
                 {
                   amount: payAmount,
                   paymentDate: validPaymentDate,
-                  paymentMode: "OFFLINE",
+                  paymentMode: effectivePaymentMode,
                   referenceNumber: payload?.referenceNumber || null,
                   status: "COMPLETED",
                   notes: `External payment (${payload?.paymentChannel || "Offline"}). Ref: ${payload?.referenceNumber || "N/A"}. Reason: ${existingRequest.reason || ""}`,
