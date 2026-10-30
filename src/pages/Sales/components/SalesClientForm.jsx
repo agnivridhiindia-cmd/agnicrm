@@ -24,9 +24,6 @@ export default function SalesClientForm({
         <div>
           <p className="sales-header-eyebrow">Client Onboarding</p>
           <h1 className="sales-header-title">Register New Client</h1>
-          <p className="sales-header-subtitle">
-            Enter client identity, service type, scheme tier, and commercial terms. Saved profiles appear in <strong>Details</strong>.
-          </p>
         </div>
 
         <button
