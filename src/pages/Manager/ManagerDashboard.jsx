@@ -161,7 +161,11 @@ export default function ManagerDashboard({ onSignOut, userEmail }) {
                 : new Date().toISOString().replace("T", " ").substring(0, 16),
               totalPayment: String(finalTot),
               revenue: String(finalTot),
-              amount: String(Math.round(finalTot / 1.18)),
+              amount: String(
+                (c.paymentMode === "Offline" || c.paymentMode === "OFFLINE" || (c.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE"))
+                  ? finalTot
+                  : Math.round(finalTot / 1.18)
+              ),
               paymentReceived: String(finalRec),
               paymentPending: String(finalPend),
               fundingRequirement: c.fundingRequirement,

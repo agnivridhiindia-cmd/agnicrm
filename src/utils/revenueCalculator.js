@@ -183,15 +183,15 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
   const pendingClientsList = [];
   const transactions = [];
 
-  const processCollection = (amountGross, dateInput, spName, branchName, clientOrInvName) => {
+  const processCollection = (amountGross, dateInput, spName, branchName, clientOrInvName, isOffline = false) => {
     if (isMockClient(clientOrInvName)) return;
     const gross = parseFloat(String(amountGross || 0).replace(/[^0-9.]/g, "")) || 0;
     if (gross <= 0) return;
 
     const timestamp = parseDateTimestamp(dateInput);
 
-    // Formula: Net Revenue = Math.round(Gross Payment / 1.18)
-    let net = Math.round(gross / 1.18);
+    // Formula: Net Revenue = isOffline ? gross : Math.round(Gross Payment / 1.18)
+    let net = isOffline ? gross : Math.round(gross / 1.18);
 
     const sName = safeString(spName, "Sales Representative");
     const bName = safeString(branchName, "Pan-India");
@@ -367,8 +367,11 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
 
         const pGross = parseFloat(String(p.amount || 0).replace(/[^0-9.]/g, "")) || 0;
         const pDate = p.paymentDate || p.createdAt || dt;
+        const isOffline =
+          String(p.paymentMode || c.paymentMode || "").toUpperCase() === "OFFLINE" ||
+          (c.dailySalesPayments || []).some((dsp) => String(dsp.paymentMode).toUpperCase() === "OFFLINE");
         if (pGross > 0) {
-          processCollection(pGross, pDate, sp, br, compName);
+          processCollection(pGross, pDate, sp, br, compName, isOffline);
           processedFromPayments += pGross;
         }
       });
@@ -378,11 +381,17 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     if (remainingDirect > 0) {
       // Prioritize explicit payment/registration dates so past payments aren't attributed to today when a record is updated
       const paymentDate = c.lastPaymentDate || c.paymentDate || c.registrationDate || c.createdAt || dt;
-      processCollection(remainingDirect, paymentDate, sp, br, compName);
+      const isOffline =
+        String(c.paymentMode || "").toUpperCase() === "OFFLINE" ||
+        (c.dailySalesPayments || []).some((dsp) => String(dsp.paymentMode).toUpperCase() === "OFFLINE");
+      processCollection(remainingDirect, paymentDate, sp, br, compName, isOffline);
     }
 
     if (pendingGross > 0 && c.paymentStatus !== "Paid") {
-      const netPending = Math.round(pendingGross / 1.18);
+      const isOffline =
+        String(c.paymentMode || "").toUpperCase() === "OFFLINE" ||
+        (c.dailySalesPayments || []).some((dsp) => String(dsp.paymentMode).toUpperCase() === "OFFLINE");
+      const netPending = isOffline ? pendingGross : Math.round(pendingGross / 1.18);
       overallPendingNetTotal += netPending;
       overallPendingGrossTotal += pendingGross;
       processPending(pendingGross, netPending, dt);
@@ -418,6 +427,7 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     const br = safeString(inv.branch || inv.region, "West Zone (Mumbai)");
     const dt = inv.issueDate || inv.paidAt || inv.createdAt;
 
+    const isInvOffline = String(inv.paymentMode || "").toUpperCase() === "OFFLINE";
     const hasSubPayments = Array.isArray(inv.payments) && inv.payments.length > 0;
     if (hasSubPayments) {
       inv.payments.forEach((p) => {
@@ -426,14 +436,15 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
 
         const pGross = parseFloat(String(p.amount || 0).replace(/[^0-9.]/g, "")) || 0;
         const pDate = p.paymentDate || p.createdAt || dt;
+        const isOffline = String(p.paymentMode || "").toUpperCase() === "OFFLINE" || isInvOffline;
         if (pGross > 0) {
-          processCollection(pGross, pDate, sp, br, invClientName);
+          processCollection(pGross, pDate, sp, br, invClientName, isOffline);
         }
       });
     } else {
       const recAmt = parseFloat(String(inv.paymentReceived || 0).replace(/[^0-9.]/g, "")) || (status === "paid" ? gross : 0);
       if (recAmt > 0) {
-        processCollection(recAmt, inv.paidAt || inv.issueDate || inv.createdAt || dt, sp, br, invClientName);
+        processCollection(recAmt, inv.paidAt || inv.issueDate || inv.createdAt || dt, sp, br, invClientName, isInvOffline);
       }
     }
 
@@ -441,7 +452,7 @@ export function calculateRevenueMetrics(clients = [], invoices = []) {
     const pendingGross = parseFloat(String(inv.paymentPending || 0).replace(/[^0-9.]/g, "")) || Math.max(0, gross - recTotal);
 
     if (pendingGross > 0 && status !== "paid") {
-      const netPending = Math.round(pendingGross / 1.18);
+      const netPending = isInvOffline ? pendingGross : Math.round(pendingGross / 1.18);
       overallPendingNetTotal += netPending;
       overallPendingGrossTotal += pendingGross;
       processPending(pendingGross, netPending, dt);

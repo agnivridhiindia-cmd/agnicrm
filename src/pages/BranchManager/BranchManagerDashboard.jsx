@@ -236,7 +236,11 @@ export default function BranchManagerDashboard({ onSignOut, userEmail }) {
                 progress: c.progressPercent || tracker.progressPercent,
                 revenue: String(finalTot),
                 totalPayment: String(finalTot),
-                amount: String(Math.round(finalTot / 1.18)),
+                amount: String(
+                  (c.paymentMode === "Offline" || c.paymentMode === "OFFLINE" || (c.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE"))
+                    ? finalTot
+                    : Math.round(finalTot / 1.18)
+                ),
                 paymentReceived: String(finalRec),
                 paymentPending: String(finalPend),
                 approvalStatus: c.approvalStatus,

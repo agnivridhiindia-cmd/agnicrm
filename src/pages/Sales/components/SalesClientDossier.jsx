@@ -429,10 +429,10 @@ export default function SalesClientDossier({
           <div className="finance-metric-box">
             <span className="finance-metric-label">Payment Mode</span>
             <span className="finance-metric-num" style={{ fontSize: 17, color: '#6d3bf5' }}>
-              {selectedClient.paymentMode || "Online"}
+              {(selectedClient.paymentMode && String(selectedClient.paymentMode).toLowerCase() === "offline") ? "Offline" : "Online"}
             </span>
             <span className="finance-metric-sub">
-              {selectedClient.paymentMode === "Online" ? "18% GST Applicable" : "Exempt / Direct"}
+              {(selectedClient.paymentMode && String(selectedClient.paymentMode).toLowerCase() === "offline") ? "Exempt / Direct" : "18% GST Applicable"}
             </span>
           </div>
 

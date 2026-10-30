@@ -49,9 +49,13 @@ export async function recordDailySalesPayment(
     return null;
   }
 
-  // Calculate Net and GST (Assuming 18% GST standard on gross collections)
-  const netAmount = Math.round((grossAmount / 1.18) * 100) / 100;
-  const gstAmount = Math.round((grossAmount - netAmount) * 100) / 100;
+  const isOffline =
+    data.paymentMode === PaymentMode.OFFLINE ||
+    String(data.paymentMode || "").toUpperCase() === "OFFLINE";
+
+  // Calculate Net and GST (18% GST standard on online collections; offline/exempt payments have 0% GST and 100% net)
+  const netAmount = isOffline ? grossAmount : Math.round((grossAmount / 1.18) * 100) / 100;
+  const gstAmount = isOffline ? 0 : Math.round((grossAmount - netAmount) * 100) / 100;
 
   const paymentDate = data.paymentDate ? new Date(data.paymentDate) : new Date();
   const dateString = formatDateToDateString(paymentDate);
@@ -125,8 +129,7 @@ export async function recordDailySalesPayment(
     if (b) branchName = b.name;
   }
 
-  const validPaymentMode =
-    data.paymentMode === PaymentMode.OFFLINE ? PaymentMode.OFFLINE : PaymentMode.ONLINE;
+  const validPaymentMode = isOffline ? PaymentMode.OFFLINE : PaymentMode.ONLINE;
 
   const created = await txClient.dailySalesPayment.create({
     data: {

@@ -154,6 +154,7 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
       transferLogs: { orderBy: { transferredAt: "desc" } },
       invoices: { where: { isDeleted: false }, include: { payments: { where: { isDeleted: false } } } },
       payments: { where: { isDeleted: false } },
+      dailySalesPayments: { where: { status: "COMPLETED" }, orderBy: { paymentDate: "desc" } },
       documents: { where: { isDeleted: false } },
       schemes: { where: { isDeleted: false } },
     },
@@ -255,6 +256,18 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
     const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
     const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
 
+    const latestDailyPayment = (c.dailySalesPayments || [])[0];
+    const latestInvoice = (c.invoices || [])[0];
+    const latestPayment = (c.payments || [])[0];
+    const rawPaymentMode =
+      latestDailyPayment?.paymentMode ||
+      latestInvoice?.paymentMode ||
+      latestPayment?.paymentMode;
+    const isOffline = String(rawPaymentMode || "").toUpperCase() === "OFFLINE";
+    const paymentMode = isOffline ? "Offline" : "Online";
+    const baseAmount = isOffline ? totalPayNum : Math.round((totalPayNum / 1.18) * 100) / 100;
+    const gstAmount = isOffline ? 0 : Math.round((totalPayNum - baseAmount) * 100) / 100;
+
     const enrichedLogs = (c.transferLogs || []).map((log) => ({
       ...log,
       fromSalesPerson: log.fromSalesPersonId ? userMap.get(log.fromSalesPersonId) || null : null,
@@ -305,6 +318,9 @@ export async function getClientsService(user: AuthenticatedUser, query?: { delet
       isPrimary: isPrimaryRecord,
       processType: isSec ? "secondary" : "primary",
       totalPayment: totalPayNum,
+      amount: String(baseAmount),
+      gstAmount: String(gstAmount),
+      paymentMode,
       paymentReceived: payReceivedNum,
       paymentPending: payPendingNum,
       paymentStatus: isPaid ? "Paid" : (payReceivedNum > 0 ? "Partial" : "Pending"),
@@ -1253,6 +1269,7 @@ export async function getClientByIdService(clientId: string, user: Authenticated
       transferLogs: { orderBy: { transferredAt: "desc" } },
       invoices: { where: { isDeleted: false }, include: { payments: { where: { isDeleted: false } } } },
       payments: { where: { isDeleted: false } },
+      dailySalesPayments: { where: { status: "COMPLETED" }, orderBy: { paymentDate: "desc" } },
       documents: { where: { isDeleted: false }, orderBy: { uploadedAt: "asc" } },
       schemes: { where: { isDeleted: false } },
     },
@@ -1316,10 +1333,25 @@ export async function getClientByIdService(clientId: string, user: Authenticated
   const payPendingNum = Math.max(0, totalPayNum - payReceivedNum);
   const isPaid = payPendingNum <= 0 && payReceivedNum > 0;
 
+  const latestDailyPayment = (client.dailySalesPayments || [])[0];
+  const latestInvoice = (client.invoices || [])[0];
+  const latestPayment = (client.payments || [])[0];
+  const rawPaymentMode =
+    latestDailyPayment?.paymentMode ||
+    latestInvoice?.paymentMode ||
+    latestPayment?.paymentMode;
+  const isOffline = String(rawPaymentMode || "").toUpperCase() === "OFFLINE";
+  const paymentMode = isOffline ? "Offline" : "Online";
+  const baseAmount = isOffline ? totalPayNum : Math.round((totalPayNum / 1.18) * 100) / 100;
+  const gstAmount = isOffline ? 0 : Math.round((totalPayNum - baseAmount) * 100) / 100;
+
   const sm = client.salesPerson?.reportingManager || null;
 
   const resultClient = {
     ...client,
+    paymentMode,
+    amount: String(baseAmount),
+    gstAmount: String(gstAmount),
     address: effectiveAddress,
     documents: mergedDocuments,
     companyName: client.companyName || client.name,

@@ -11,11 +11,12 @@ export function parseRevenueValue(rev) {
 
 /**
  * Net payment formula: Math.round(Gross Payment / 1.18)
- * Excludes 18% GST (payment / 1.18)
+ * Excludes 18% GST (payment / 1.18) unless payment is Offline/Exempt
  */
-export function parseNetRevenue(val) {
+export function parseNetRevenue(val, isOffline = false) {
   const gross = parseRevenueValue(val);
   if (gross <= 0) return 0;
+  if (isOffline) return Math.round(gross);
   return Math.round(gross / 1.18);
 }
 
@@ -141,11 +142,11 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
   // Track processed payment keys to avoid double counting
   const processedPaymentKeys = new Set();
 
-  const addPaymentEntry = (grossAmount, dateInput, rawRepName, clientName = "", paymentId = "") => {
+  const addPaymentEntry = (grossAmount, dateInput, rawRepName, clientName = "", paymentId = "", isOffline = false) => {
     const gross = parseRevenueValue(grossAmount);
     if (gross <= 0) return;
 
-    const netAmt = parseNetRevenue(gross);
+    const netAmt = parseNetRevenue(gross, isOffline);
     const pDate = parseDate(dateInput);
     const repName = normalizeSalesPersonName(rawRepName) || "Unassigned";
 
@@ -223,7 +224,10 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
                 pRep = repName;
               }
             }
-            addPaymentEntry(amt, dt, pRep, companyName, p.id || p.paymentId ? `cl-pay-${p.id || p.paymentId}` : "");
+            const isOffline =
+              String(p.paymentMode || c.paymentMode || "").toUpperCase() === "OFFLINE" ||
+              (c.dailySalesPayments || []).some((dsp) => String(dsp.paymentMode).toUpperCase() === "OFFLINE");
+            addPaymentEntry(amt, dt, pRep, companyName, p.id || p.paymentId ? `cl-pay-${p.id || p.paymentId}` : "", isOffline);
           }
         });
       } else {
@@ -232,17 +236,20 @@ export function calculatePaymentMetricsFromClients(clients = [], branchTeam = []
         if (rec > 0) {
           const dt = c.updatedAt || c.lastPaymentDate || c.paymentDate || c.createdAt || c.startDate || c.assignedAt;
           
+          const isOffline =
+            String(c.paymentMode || "").toUpperCase() === "OFFLINE" ||
+            (c.dailySalesPayments || []).some((dsp) => String(dsp.paymentMode).toUpperCase() === "OFFLINE");
           if (hasTransfer && collectedBefore > 0 && originalRepName) {
             // Historical quota locked to original salesperson A
-            addPaymentEntry(collectedBefore, dt, originalRepName, companyName, c.id ? `cl-rec-orig-${c.id}` : "");
+            addPaymentEntry(collectedBefore, dt, originalRepName, companyName, c.id ? `cl-rec-orig-${c.id}` : "", isOffline);
             
             // Only surplus collected after transfer credits new salesperson B
             const postTransferAmt = Math.max(0, rec - collectedBefore);
             if (postTransferAmt > 0) {
-              addPaymentEntry(postTransferAmt, dt, repName, companyName, c.id ? `cl-rec-new-${c.id}` : "");
+              addPaymentEntry(postTransferAmt, dt, repName, companyName, c.id ? `cl-rec-new-${c.id}` : "", isOffline);
             }
           } else {
-            addPaymentEntry(rec, dt, repName, companyName, c.id ? `cl-rec-${c.id}` : "");
+            addPaymentEntry(rec, dt, repName, companyName, c.id ? `cl-rec-${c.id}` : "", isOffline);
           }
         }
       }

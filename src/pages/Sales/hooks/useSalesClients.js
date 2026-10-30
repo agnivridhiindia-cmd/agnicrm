@@ -62,6 +62,15 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
                 ? Number(c.paymentPending)
                 : Math.max(0, finalTot - finalRec);
 
+              const isOffline =
+                c.paymentMode === "Offline" ||
+                c.paymentMode === "OFFLINE" ||
+                (c.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
+                (c.invoices || []).some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE") ||
+                (c.payments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE");
+              const baseAmount = isOffline ? finalTot : Math.round(finalTot / 1.18);
+              const gstAmount = isOffline ? 0 : Math.round(finalTot - baseAmount);
+
               return sanitizeClientRecord({
                 ...c,
                 id: c.id,
@@ -75,6 +84,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
                 region: c.branch?.region || "West Zone",
                 scheme: c.serviceName,
                 serviceType: c.serviceType,
+                paymentMode: isOffline ? "Offline" : (c.paymentMode || "Online"),
                 assignedSalesPerson: c.salesPerson?.fullName || c.owner || salesPersonName || "Mia Rose",
                 salesRep: c.salesPerson?.fullName || c.owner || salesPersonName || "Mia Rose",
                 owner: c.salesPerson?.fullName || c.owner || salesPersonName || "Mia Rose",
@@ -83,7 +93,8 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
                 progress: c.progressPercent || tracker.progressPercent,
                 revenue: String(finalTot),
                 totalPayment: String(finalTot),
-                amount: String(Math.round(finalTot / 1.18)),
+                amount: String(baseAmount),
+                gstAmount: String(gstAmount),
                 paymentReceived: String(finalRec),
                 paymentPending: String(finalPend),
                 approvalStatus: c.approvalStatus,
@@ -93,6 +104,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
                 isPrimary: c.isPrimary !== undefined ? c.isPrimary : !isSec,
                 createdAt: c.createdAt,
                 invoices: c.invoices || [],
+                dailySalesPayments: c.dailySalesPayments || [],
                 eligibleSchemes: c.eligibleSchemes || [],
                 dueDate: c.dueDate || null,
               });
@@ -205,9 +217,16 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
 
       if (grossRec <= 0) return sum;
 
-      // Formula: Net Revenue = Math.round(Gross Received / 1.18)
-      // Same as revenueCalculator.js — strips GST from gross payment
-      const netRec = Math.round(grossRec / 1.18);
+      const isOffline =
+        c.paymentMode === "Offline" ||
+        c.paymentMode === "OFFLINE" ||
+        (c.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
+        (c.invoices || []).some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE") ||
+        (c.payments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE");
+
+      // Formula: For Offline/Exempt, full grossRec is credited (no GST deduction).
+      // For Online: Net Revenue = Math.round(Gross Received / 1.18)
+      const netRec = isOffline ? grossRec : Math.round(grossRec / 1.18);
       return sum + netRec;
     }, 0);
 
@@ -263,6 +282,12 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
         ? client.payments
         : invoices.flatMap((inv) => Array.isArray(inv.payments) ? inv.payments : []);
 
+      const isClientOffline =
+        client.paymentMode === "Offline" ||
+        client.paymentMode === "OFFLINE" ||
+        (client.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
+        invoices.some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE");
+
       let processedFromPayments = 0;
       if (payments.length > 0) {
         payments.forEach((payment) => {
@@ -273,8 +298,11 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
           const timestamp = parseDateTimestamp(paymentDate);
           const grossAmount = Number(payment.amount || payment.paidAmount || 0);
 
+          const isPaymentOffline =
+            String(payment.paymentMode || "").toUpperCase() === "OFFLINE" || isClientOffline;
+
           if (timestamp !== null && timestamp >= startOfToday && timestamp <= endOfToday && grossAmount > 0) {
-            dailyAchievedNet += Math.round(grossAmount / 1.18);
+            dailyAchievedNet += isPaymentOffline ? grossAmount : Math.round(grossAmount / 1.18);
             processedFromPayments += grossAmount;
           }
         });
@@ -287,7 +315,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
         const paymentDate = client.lastPaymentDate || client.paymentDate || client.createdAt;
         const timestamp = parseDateTimestamp(paymentDate);
         if (timestamp !== null && timestamp >= startOfToday && timestamp <= endOfToday) {
-          dailyAchievedNet += Math.round(remainingDirect / 1.18);
+          dailyAchievedNet += isClientOffline ? remainingDirect : Math.round(remainingDirect / 1.18);
         }
       }
     });
@@ -323,6 +351,12 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
         ? client.payments
         : invoices.flatMap((invoice) => Array.isArray(invoice.payments) ? invoice.payments : []);
 
+      const isClientOffline =
+        client.paymentMode === "Offline" ||
+        client.paymentMode === "OFFLINE" ||
+        (client.dailySalesPayments || []).some((p) => String(p.paymentMode).toUpperCase() === "OFFLINE") ||
+        invoices.some((i) => String(i.paymentMode).toUpperCase() === "OFFLINE");
+
       if (payments.length > 0) {
         payments.forEach((payment) => {
           const status = String(payment.status || "SUCCESS").toUpperCase();
@@ -336,7 +370,8 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
             grossAmount <= 0
           ) return;
 
-          acquiredData[paymentDate.getMonth()] += Math.round(grossAmount / 1.18);
+          const isPaymentOffline = String(payment.paymentMode || "").toUpperCase() === "OFFLINE" || isClientOffline;
+          acquiredData[paymentDate.getMonth()] += isPaymentOffline ? grossAmount : Math.round(grossAmount / 1.18);
         });
         return;
       }
@@ -355,7 +390,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
         grossAmount <= 0
       ) return;
 
-      acquiredData[paymentDate.getMonth()] += Math.round(grossAmount / 1.18);
+      acquiredData[paymentDate.getMonth()] += isClientOffline ? grossAmount : Math.round(grossAmount / 1.18);
     });
 
     const curYear = String(new Date().getFullYear());
