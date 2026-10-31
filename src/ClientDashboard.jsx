@@ -173,7 +173,20 @@ function ClientLiveClock() {
   hours = hours ? hours : 12;
   const formattedHours = String(hours).padStart(2, '0');
 
-  return <span>{`${dayName}, ${dayNum} ${monthName} ${year} • ${formattedHours}:${minutes}:${seconds} ${ampm}`}</span>;
+  return (
+    <div className="cd-clock-inner">
+      <div className="cd-clock-icon-badge" aria-hidden="true">
+        <DashboardIcon name="clock" size={13} />
+        <span className="cd-clock-live-ping" />
+      </div>
+      <span className="cd-clock-date">{`${dayName}, ${dayNum} ${monthName} ${year}`}</span>
+      <span className="cd-clock-divider" aria-hidden="true" />
+      <span className="cd-clock-time">
+        <span className="cd-clock-digits">{`${formattedHours}:${minutes}:${seconds}`}</span>
+        <span className="cd-clock-ampm">{ampm}</span>
+      </span>
+    </div>
+  );
 }
 
 export function isMoreServiceScheme(scheme) {
@@ -1729,30 +1742,20 @@ export default function Dashboard({ onSignOut, userEmail }) {
         {!clientProfileOpen && (
           <header className="cd-header">
             <div className="cd-header-left">
-              <div className="cd-company-pill">
-                <div className="cd-company-avatar-wrap">
-                  <div className="cd-company-avatar">
-                    {(clientInfo.companyName || "AI").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
-                  </div>
-                  <span className="cd-online-dot" title="Account Active" />
+              <div className="dashboard-header-text">
+                <div className="dashboard-eyebrow-wrap">
+                  <span className="dashboard-header-live-pulse" />
+                  <p className="dashboard-eyebrow">Client Workspace</p>
                 </div>
-                <div className="cd-company-details">
-                  <h1>{clientInfo.companyName}</h1>
-                  <div className="cd-company-submeta">
-                    <span className="cd-meta-badge id-badge">Reg: {clientInfo.registrationNumber}</span>
-                    <span className="cd-meta-badge tier-badge">Contact: {clientInfo.representativeName}</span>
-                    <span className="cd-meta-badge mgr-badge">Phone: {clientInfo.phone}</span>
-                  </div>
-                </div>
+                <h1 className="dashboard-header-title cd-company-title" title={clientInfo.companyName}>
+                  {clientInfo.companyName}
+                </h1>
               </div>
             </div>
 
-            <div className="cd-header-center" />
-
             <div className="cd-header-actions">
               {/* Real-time Day & Time Clock */}
-              <div className="cd-date-pill">
-                <DashboardIcon name="clock" size={14} />
+              <div className="cd-date-pill" title="Live System Time">
                 <ClientLiveClock />
               </div>
 
