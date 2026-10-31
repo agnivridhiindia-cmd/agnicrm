@@ -1745,11 +1745,10 @@ export default function Dashboard({ onSignOut, userEmail }) {
               <div className="dashboard-header-text">
                 <div className="dashboard-eyebrow-wrap">
                   <span className="dashboard-header-live-pulse" />
-                  <p className="dashboard-eyebrow">Client Workspace</p>
+                  <h1 className="dashboard-header-title cd-company-title">
+                    Client Workspace
+                  </h1>
                 </div>
-                <h1 className="dashboard-header-title cd-company-title" title={clientInfo.companyName}>
-                  {clientInfo.companyName}
-                </h1>
               </div>
             </div>
 
@@ -2111,10 +2110,6 @@ export default function Dashboard({ onSignOut, userEmail }) {
                     <span className="cd-kicker">EXECUTIVE WORKSPACE</span>
                     <h2>Welcome back, <em>{clientInfo.companyName}</em></h2>
                     <p>Track your active coverage, service status, and support pipelines in real time.</p>
-                  </div>
-                  <div className="cd-quick-status-pill">
-                    <i className="cd-pulse-green" />
-                    <span>Account Active</span>
                   </div>
                 </div>
 
