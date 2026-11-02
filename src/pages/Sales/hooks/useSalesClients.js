@@ -202,43 +202,6 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
   }, [clients]);
 
   const quotaMetrics = useMemo(() => {
-    let totalRealized = clients.reduce((sum, c) => {
-      // Gross received = max of client.paymentReceived vs total invoice payments received
-      const invoicePayments = (c.invoices || []).reduce((s, inv) => s + Number(inv.paymentReceived || 0), 0);
-      const grossRec = Math.max(
-        Number(c.paymentReceived || 0),
-        invoicePayments,
-      );
-
-      if (grossRec <= 0) return sum;
-
-      const isOffline = c.paymentMode === "Offline" || c.paymentMode === "OFFLINE";
-
-      // Formula: For Offline/Exempt, full grossRec is credited (no GST deduction).
-      // For Online: Net Revenue = Math.round(Gross Received / 1.18)
-      const netRec = isOffline ? grossRec : Math.round(grossRec / 1.18);
-      return sum + netRec;
-    }, 0);
-
-    const resolvedQuota = Number(
-      getSalesPersonQuota(salesPersonName) ||
-      (userId ? getSalesPersonQuota(userId) : null) ||
-      getSalesPersonQuota(userEmail) ||
-      userTargetQuota ||
-      80000
-    );
-    const initialQuotaTarget = resolvedQuota > 0 ? resolvedQuota : 80000;
-    const leftNum = Math.max(initialQuotaTarget - totalRealized, 0);
-    const progressPct = initialQuotaTarget > 0 ? Math.min(100, Math.round((totalRealized / initialQuotaTarget) * 100)) : 0;
-    const incentiveNum = totalRealized > initialQuotaTarget ? (totalRealized - initialQuotaTarget) : 0;
-
-    // Daily Achieved Quota for this salesperson (reverts to 0 every other day)
-    // Formula: Realized Net = Math.round(Gross Received / 1.18) (excl. 18% GST)
-    // Works strictly like the Owner Dashboard revenue engine, scoped exclusively to this salesperson
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
-
     function parseDateTimestamp(dateInput) {
       if (!dateInput) return null;
       if (dateInput instanceof Date) return dateInput.getTime();
@@ -256,6 +219,17 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
       return null;
     }
 
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+    // Monthly Quota boundaries (resets automatically at the start of each new month)
+    const startOfMonth = new Date(curYear, curMonth, 1, 0, 0, 0, 0).getTime();
+    const endOfMonth = new Date(curYear, curMonth + 1, 0, 23, 59, 59, 999).getTime();
+
+    // Daily Achieved Quota boundaries (resets every day)
+    const startOfToday = new Date(curYear, curMonth, now.getDate(), 0, 0, 0, 0).getTime();
+    const endOfToday = new Date(curYear, curMonth, now.getDate(), 23, 59, 59, 999).getTime();
+
     const sLower = (salesPersonName || "").toLowerCase().trim();
     const myClients = clients.filter((c) => {
       if (!sLower) return true;
@@ -263,7 +237,10 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
       return !rep || rep.includes(sLower) || sLower.includes(rep);
     });
 
+    let monthlyRealizedNet = 0;
     let dailyAchievedNet = 0;
+    let allTimeRealizedNet = 0;
+
     myClients.forEach((client) => {
       if (isMockClient(client)) return;
 
@@ -287,8 +264,18 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
           const isPaymentOffline =
             String(payment.paymentMode || "").toUpperCase() === "OFFLINE" || isClientOffline;
 
-          if (timestamp !== null && timestamp >= startOfToday && timestamp <= endOfToday && grossAmount > 0) {
-            dailyAchievedNet += isPaymentOffline ? grossAmount : Math.round(grossAmount / 1.18);
+          if (grossAmount > 0) {
+            const netAmount = isPaymentOffline ? grossAmount : Math.round(grossAmount / 1.18);
+            allTimeRealizedNet += netAmount;
+
+            if (timestamp !== null) {
+              if (timestamp >= startOfMonth && timestamp <= endOfMonth) {
+                monthlyRealizedNet += netAmount;
+              }
+              if (timestamp >= startOfToday && timestamp <= endOfToday) {
+                dailyAchievedNet += netAmount;
+              }
+            }
             processedFromPayments += grossAmount;
           }
         });
@@ -298,18 +285,39 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
       const totalRec = Number(client.paymentReceived || 0);
       const remainingDirect = Math.max(0, totalRec - processedFromPayments);
       if (remainingDirect > 0) {
+        const netAmount = isClientOffline ? remainingDirect : Math.round(remainingDirect / 1.18);
+        allTimeRealizedNet += netAmount;
+
         const paymentDate = client.lastPaymentDate || client.paymentDate || client.createdAt;
         const timestamp = parseDateTimestamp(paymentDate);
-        if (timestamp !== null && timestamp >= startOfToday && timestamp <= endOfToday) {
-          dailyAchievedNet += isClientOffline ? remainingDirect : Math.round(remainingDirect / 1.18);
+        if (timestamp !== null) {
+          if (timestamp >= startOfMonth && timestamp <= endOfMonth) {
+            monthlyRealizedNet += netAmount;
+          }
+          if (timestamp >= startOfToday && timestamp <= endOfToday) {
+            dailyAchievedNet += netAmount;
+          }
         }
       }
     });
 
+    const resolvedQuota = Number(
+      getSalesPersonQuota(salesPersonName) ||
+      (userId ? getSalesPersonQuota(userId) : null) ||
+      getSalesPersonQuota(userEmail) ||
+      userTargetQuota ||
+      80000
+    );
+    const initialQuotaTarget = resolvedQuota > 0 ? resolvedQuota : 80000;
+    const leftNum = Math.max(initialQuotaTarget - monthlyRealizedNet, 0);
+    const progressPct = initialQuotaTarget > 0 ? Math.min(100, Math.round((monthlyRealizedNet / initialQuotaTarget) * 100)) : 0;
+    const incentiveNum = monthlyRealizedNet > initialQuotaTarget ? (monthlyRealizedNet - initialQuotaTarget) : 0;
+
     return {
       initialQuotaTarget,
-      totalRealized,
-      achieved: `₹${totalRealized.toLocaleString("en-IN")}`,
+      totalRealized: monthlyRealizedNet,
+      allTimeRealized: allTimeRealizedNet,
+      achieved: `₹${monthlyRealizedNet.toLocaleString("en-IN")}`,
       left: `₹${leftNum.toLocaleString("en-IN")}`,
       incentive: `₹${incentiveNum.toLocaleString("en-IN")}`,
       progress: `${progressPct}%`,
