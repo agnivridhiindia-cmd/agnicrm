@@ -339,7 +339,16 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const acquiredData = Array(12).fill(0);
 
-    clients.forEach((client) => {
+    const sLower = (salesPersonName || "").toLowerCase().trim();
+    const myClients = clients.filter((c) => {
+      if (!sLower) return true;
+      const rep = (c.assignedSalesPerson || c.salesRep || c.owner || "").toLowerCase().trim();
+      return !rep || rep.includes(sLower) || sLower.includes(rep);
+    });
+
+    myClients.forEach((client) => {
+      if (isMockClient(client)) return;
+
       const invoices = Array.isArray(client.invoices) ? client.invoices : [];
       const payments = Array.isArray(client.payments) && client.payments.length > 0
         ? client.payments
@@ -347,10 +356,11 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
 
       const isClientOffline = client.paymentMode === "Offline" || client.paymentMode === "OFFLINE";
 
+      let processedFromPayments = 0;
       if (payments.length > 0) {
         payments.forEach((payment) => {
           const status = String(payment.status || "SUCCESS").toUpperCase();
-          if (status === "FAILED" || status === "PENDING" || status === "CANCELLED") return;
+          if (status === "FAILED" || status === "PENDING" || status === "CANCELLED" || status === "DECLINED") return;
 
           const paymentDate = new Date(payment.paymentDate || payment.date || payment.createdAt || "");
           const grossAmount = Number(payment.amount || payment.paidAmount || 0);
@@ -362,25 +372,28 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
 
           const isPaymentOffline = String(payment.paymentMode || "").toUpperCase() === "OFFLINE" || isClientOffline;
           acquiredData[paymentDate.getMonth()] += isPaymentOffline ? grossAmount : Math.round(grossAmount / 1.18);
+          processedFromPayments += grossAmount;
         });
-        return;
       }
 
+      // Check direct payment received if not already accounted for by detailed payments
       const invoicePayments = invoices.reduce(
         (sum, invoice) => sum + Number(invoice.paymentReceived || 0),
         0,
       );
-      const grossAmount = Math.max(Number(client.paymentReceived || 0), invoicePayments);
-      const paymentDate = new Date(
-        client.lastPaymentDate || client.paymentDate || client.updatedAt || client.createdAt || "",
-      );
-      if (
-        !Number.isFinite(paymentDate.getTime()) ||
-        String(paymentDate.getFullYear()) !== selectedYear ||
-        grossAmount <= 0
-      ) return;
-
-      acquiredData[paymentDate.getMonth()] += isClientOffline ? grossAmount : Math.round(grossAmount / 1.18);
+      const totalRec = Math.max(Number(client.paymentReceived || 0), invoicePayments);
+      const remainingDirect = Math.max(0, totalRec - processedFromPayments);
+      if (remainingDirect > 0) {
+        const paymentDate = new Date(
+          client.lastPaymentDate || client.paymentDate || client.createdAt || invoices[0]?.createdAt || client.updatedAt || "",
+        );
+        if (
+          Number.isFinite(paymentDate.getTime()) &&
+          String(paymentDate.getFullYear()) === selectedYear
+        ) {
+          acquiredData[paymentDate.getMonth()] += isClientOffline ? remainingDirect : Math.round(remainingDirect / 1.18);
+        }
+      }
     });
 
     const curYear = String(new Date().getFullYear());
@@ -395,7 +408,7 @@ export function useSalesClients(salesPersonName, onClientAdded, userEmail, userT
       acquiredData,
       targetQuota: quotaMetrics.initialQuotaTarget || 80000,
     };
-  }, [clients, selectedYear, quotaMetrics]);
+  }, [clients, selectedYear, quotaMetrics, salesPersonName]);
 
   const handleNewClientChange = (event) => {
     const { name, value } = event.target;
