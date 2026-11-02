@@ -5860,31 +5860,18 @@ body.cd-profile-modal-open .cd-header,
 .cd-header .dashboard-eyebrow-wrap {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin-bottom: 4px;
-}
-
-.cd-header .dashboard-eyebrow {
+  gap: 8px;
   margin: 0;
-  color: var(--cd-primary, #6366f1);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 1.1px;
-  text-transform: uppercase;
 }
 
 .cd-header .dashboard-header-title.cd-company-title {
   margin: 0;
   color: var(--cd-ink);
-  font-size: clamp(18px, 1.5vw, 24px);
-  line-height: 1.25;
-  letter-spacing: -0.4px;
+  font-size: clamp(18px, 1.4vw, 21px);
+  line-height: 1.2;
+  letter-spacing: -0.3px;
   font-weight: 800;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-  max-width: 100%;
 }
 
 @media (max-width: 1280px) {
